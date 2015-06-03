@@ -1,0 +1,44 @@
+{
+  "name": "poi-server",
+  "version": "1.0.0",
+  "description": "Server side of poi.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --harmony index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yudachi/poi-server.git"
+  },
+  "keywords": [
+    "poi",
+    "KanColle"
+  ],
+  "author": "Magica",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yudachi/poi-server/issues"
+  },
+  "homepage": "https://github.com/yudachi/poi-server#readme",
+  "dependencies": {
+    "bluebird": "^2.9.27",
+    "co-body": "^2.0.0",
+    "co-views": "^1.0.0",
+    "coffee-script": "^1.9.3",
+    "glob": "^5.0.10",
+    "jade": "^1.10.0",
+    "koa": "^0.21.0",
+    "koa-compress": "^1.0.8",
+    "koa-logger": "^1.2.2",
+    "koa-router": "^5.1.1",
+    "koa-static": "^1.4.9",
+    "mongoose": "^4.0.4"
+  },
+  "devDependencies": {
+    "bower": "^1.4.1",
+    "gulp": "^3.9.0",
+    "gulp-livereload": "^3.8.0",
+    "gulp-nodemon": "^2.0.3"
+  }
+}
