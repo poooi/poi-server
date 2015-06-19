@@ -13,7 +13,6 @@ router.post '/api/prophet/:id/update', (next) ->
     saved = yield EnemyInformation.findOne
       enemyId: @params.id
     .execAsync()
-    console.log saved
     if saved?
       for k, v of body.data
         saved[k] = v
