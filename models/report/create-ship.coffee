@@ -7,7 +7,8 @@ CreateShipRecord = new Schema
   secretary: Number
   shipId: Number
   highspeed: Number
-  large: Boolean
+  teitokuLv: Number
+  largeFlag: Boolean
 
 CreateShipRecord.virtual('date').get ->
   this._id.getTimestamp()
