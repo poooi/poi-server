@@ -9,6 +9,7 @@ CreateShipRecord = new Schema
   highspeed: Number
   teitokuLv: Number
   largeFlag: Boolean
+  origin: String
 
 CreateShipRecord.virtual('date').get ->
   this._id.getTimestamp()

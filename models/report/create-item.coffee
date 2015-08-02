@@ -7,6 +7,7 @@ CreateItemRecord = new Schema
   itemId: Number
   teitokuLv: Number
   successful: Boolean
+  origin: String
 
 CreateItemRecord.virtual('date').get ->
   this._id.getTimestamp()

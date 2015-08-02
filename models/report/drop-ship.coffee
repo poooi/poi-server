@@ -13,6 +13,7 @@ DropShipRecord = new Schema
   mapLv: Number
   enemyShips: [Number]
   enemyFormation: Number
+  origin: String
 
 DropShipRecord.virtual('date').get ->
   this._id.getTimestamp()

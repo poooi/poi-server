@@ -11,6 +11,7 @@ router.post '/api/report/v2/create_ship', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
+    info.origin = @headers['user-agent'] if @headers['user-agent']?
     record = new CreateShipRecord info
     yield record.saveAsync()
     @response.status = 200
@@ -27,6 +28,7 @@ router.post '/api/report/v2/create_item', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
+    info.origin = @headers['user-agent'] if @headers['user-agent']?
     record = new CreateItemRecord info
     yield record.saveAsync()
     @response.status = 200
@@ -43,6 +45,7 @@ router.post '/api/report/v2/drop_ship', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
+    info.origin = @headers['user-agent'] if @headers['user-agent']?
     record = new DropShipRecord info
     yield record.saveAsync()
     @response.status = 200
