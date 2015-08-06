@@ -18,7 +18,7 @@ router.post '/api/report/v2/create_ship', (next) ->
     @response.body =
       code: 0
   catch err
-    console.error e
+    console.error err
     @response.status = 500
     @response.body =
       code: -1
@@ -35,7 +35,7 @@ router.post '/api/report/v2/create_item', (next) ->
     @response.body =
       code: 0
   catch err
-    console.error e
+    console.error err
     @response.status = 500
     @response.body =
       code: -1
@@ -52,7 +52,7 @@ router.post '/api/report/v2/drop_ship', (next) ->
     @response.body =
       code: 0
   catch err
-    console.error e
+    console.error err
     @response.status = 500
     @response.body =
       code: -1
