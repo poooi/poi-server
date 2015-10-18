@@ -11,6 +11,8 @@ PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
 
 knownQuests = []
+Quest.find().distinct('questId').exec (err, data) ->
+  knownQuests = data unless err?
 
 router.post '/api/report/v2/create_ship', (next) ->
   yield next
@@ -136,12 +138,6 @@ router.post '/api/report/v2/quest/:id', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    quest = yield Quest.findOne({questId: info.questId}).execAsync()
-    if quest?
-      @response.status = 200
-      @response.body =
-        code: 0
-      return
     if !info.origin? && @headers['user-agent']?
       info.origin = @headers['user-agent']
     record = new Quest info
