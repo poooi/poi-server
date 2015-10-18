@@ -12,7 +12,9 @@ Quest = mongoose.model 'Quest'
 
 knownQuests = []
 Quest.find().distinct('questId').exec (err, data) ->
-  knownQuests = data unless err?
+  if !err?
+    data.sort()
+    knownQuests = data
 
 router.post '/api/report/v2/create_ship', (next) ->
   yield next
