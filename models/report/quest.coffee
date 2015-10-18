@@ -7,6 +7,7 @@ Quest = new Schema
   detail: String
   category: Number
   type: Number
+  origin: String
 
 Quest.virtual('date').get ->
   this._id.getTimestamp()
