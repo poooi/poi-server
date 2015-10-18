@@ -13,9 +13,10 @@ router.post '/api/report/v2/create_ship', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    info.origin = @headers['user-agent'] if @headers['user-agent']?
+    info.origin ?= @headers['user-agent'] if @headers['user-agent']?
     record = new CreateShipRecord info
     yield record.saveAsync()
+    @response.set('Access-Control-Allow-Origin', '*')
     @response.status = 200
     @response.body =
       code: 0
@@ -30,9 +31,10 @@ router.post '/api/report/v2/create_item', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    info.origin = @headers['user-agent'] if @headers['user-agent']?
+    info.origin ?= @headers['user-agent'] if @headers['user-agent']?
     record = new CreateItemRecord info
     yield record.saveAsync()
+    @response.set('Access-Control-Allow-Origin', '*')
     @response.status = 200
     @response.body =
       code: 0
@@ -47,9 +49,10 @@ router.post '/api/report/v2/drop_ship', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    info.origin = @headers['user-agent'] if @headers['user-agent']?
+    info.origin ?= @headers['user-agent'] if @headers['user-agent']?
     record = new DropShipRecord info
     yield record.saveAsync()
+    @response.set('Access-Control-Allow-Origin', '*')
     @response.status = 200
     @response.body =
       code: 0
@@ -64,7 +67,7 @@ router.post '/api/report/v2/select_rank', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    info.origin = @headers['user-agent'] if @headers['user-agent']?
+    info.origin ?= @headers['user-agent'] if @headers['user-agent']?
     record = yield SelectRankRecord.findOne({teitokuId: info.teitokuId, mapareaId: info.mapareaId}).execAsync()
     if record?
       record.teitokuLv = info.teitokuLv
@@ -73,6 +76,7 @@ router.post '/api/report/v2/select_rank', (next) ->
     else
       record = new SelectRankRecord info
     yield record.saveAsync()
+    @response.set('Access-Control-Allow-Origin', '*')
     @response.status = 200
     @response.body =
       code: 0
@@ -87,9 +91,10 @@ router.post '/api/report/v2/pass_event', (next) ->
   try
     body = yield parse.form @
     info = JSON.parse body.data
-    info.origin = @headers['user-agent'] if @headers['user-agent']?
+    info.origin ?= @headers['user-agent'] if @headers['user-agent']?
     record = new PassEventRecord info
     yield record.saveAsync()
+    @response.set('Access-Control-Allow-Origin', '*')
     @response.status = 200
     @response.body =
       code: 0
