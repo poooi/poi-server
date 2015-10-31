@@ -2,6 +2,7 @@ mongoose = require 'mongoose'
 Schema = mongoose.Schema
 
 PassEventRecord = new Schema
+  teitoku: String
   teitokuId: Number
   teitokuLv: Number
   mapId: Number
