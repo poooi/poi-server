@@ -10,12 +10,6 @@ SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
 
-knownQuests = []
-Quest.find().distinct('questId').exec (err, data) ->
-  if !err?
-    data.sort()
-    knownQuests = data
-
 router.post '/api/report/v2/create_ship', (next) ->
   yield next
   try
@@ -119,6 +113,8 @@ router.post '/api/report/v2/pass_event', (next) ->
 router.get '/api/report/v2/known_quests', (next) ->
   yield next
   try
+    knownQuests = yield Quest.find().distinct('questId').execAsync()
+    knownQuests.sort()
     @response.status = 200
     @response.body =
       code: 0
@@ -131,12 +127,6 @@ router.get '/api/report/v2/known_quests', (next) ->
 
 router.post '/api/report/v2/quest/:id', (next) ->
   yield next
-  # Recorded quest
-  if _.indexOf(knownQuests, @params.id, true) != -1
-    @response.status = 200
-    @response.body =
-      code: 0
-    return
   try
     body = yield parse.form @
     info = JSON.parse body.data
@@ -144,8 +134,6 @@ router.post '/api/report/v2/quest/:id', (next) ->
       info.origin = @headers['user-agent']
     record = new Quest info
     yield record.saveAsync()
-    knownQuests = yield Quest.find().distinct('questId').execAsync()
-    knownQuests.sort()
     @response.status = 200
     @response.body =
       code: 0
