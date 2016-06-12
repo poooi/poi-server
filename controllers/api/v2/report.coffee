@@ -5,6 +5,7 @@ mongoose = require('mongoose')
 
 CreateShipRecord = mongoose.model 'CreateShipRecord'
 CreateItemRecord = mongoose.model 'CreateItemRecord'
+RemodelItemRecord = mongoose.model 'RemodelItemRecord'
 DropShipRecord = mongoose.model 'DropShipRecord'
 SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
@@ -36,6 +37,24 @@ router.post '/api/report/v2/create_item', (next) ->
     if !info.origin? && @headers['user-agent']?
       info.origin = @headers['user-agent']
     record = new CreateItemRecord info
+    yield record.saveAsync()
+    @response.status = 200
+    @response.body =
+      code: 0
+  catch err
+    console.error err
+    @response.status = 500
+    @response.body =
+      code: -1
+
+router.post '/api/report/v2/remodel_item', (next) ->
+  yield next
+  try
+    body = yield parse.form @
+    info = JSON.parse body.data
+    if !info.origin? && @headers['user-agent']?
+      info.origin = @headers['user-agent']
+    record = new RemodelItemRecord info
     yield record.saveAsync()
     @response.status = 200
     @response.body =
