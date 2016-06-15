@@ -12,6 +12,7 @@ RemodelItemRecord = new Schema
   consortLevel: Number
   consortCond: Number
   teitokuLv: Number
+  certain: Boolean
 
 RemodelItemRecord.virtual('date').get ->
   this._id.getTimestamp()
