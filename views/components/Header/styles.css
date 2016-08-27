@@ -1,0 +1,12 @@
+.header {
+  margin-top: 10px;
+}
+
+.languages > a {
+  margin: 10px;
+  cursor: pointer;
+}
+
+.languages > a.active {
+  text-decoration: underline;
+}

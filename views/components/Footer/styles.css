@@ -1,0 +1,8 @@
+.footer {
+  margin-top: 15vh;
+  text-align: center;
+}
+
+.footer > a {
+  margin: 0 10px;
+}

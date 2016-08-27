@@ -1,0 +1,66 @@
+:global(.Typist) {
+  white-space: nowrap;
+}
+
+:global(.Cursor--blinking) {
+  opacity: 1;
+  animation: blink 1s linear infinite;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.title {
+  margin-top: 10vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo {
+  height: 25vh;
+}
+
+.name {
+  font-size: 100px;
+}
+
+.description {
+  font-size: 18px;
+}
+
+.wrapper {
+  margin: 0 auto;
+}
+
+.mirror {
+  opacity: 0;
+}
+
+.slider {
+  width: 260px;
+  margin: 0 auto;
+}
+
+@media screen and (min-width: 768px) {
+  .name {
+    font-size: 200px;
+  }
+
+  .description {
+    font-size: 20px;
+  }
+
+  .slider {
+    width: 560px;
+  }
+}

@@ -1,0 +1,43 @@
+.container {
+  text-align: center;
+}
+
+.header {
+  font-size: 22px;
+  margin-bottom: 2vh;
+}
+
+.button {
+  background-color: rgba(0, 0, 0, 0);
+  border: #e0e0e0 solid 1px;
+  border-radius: 1px;
+  color: #eee;
+  cursor: pointer;
+  display: inline;
+  font-size: 22px;
+  padding: 8px 12px;
+  margin: 4px 8px;
+  transition: all 300ms;
+}
+
+.button:hover {
+  background-color: #eee;
+  color: #050505;
+}
+
+.description {
+  font-size: 14px;
+}
+
+.beta {
+  display: none;
+}
+
+@media screen and (min-width: 768px) {
+  .header {
+    font-size: 26px;
+  }
+  .beta {
+    display: inline;
+  }
+}
