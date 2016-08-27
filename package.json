@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --harmony index.js",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
+    "build": "NODE_ENV=production webpack -p --config webpack.config.prod.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
