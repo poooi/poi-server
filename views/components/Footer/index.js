@@ -18,7 +18,7 @@ class Footer extends React.Component {
         <a href="http://weibo.com/letspoi" title={ __('weibo') }>
           <FaWeibo />
         </a>
-        <a href="http://weibo.com/letspoi" title={ __('github') }>
+        <a href="https://github.com/poooi/poi" title={ __('github') }>
           <FaGitHub />
         </a>
       </div>
