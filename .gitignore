@@ -31,5 +31,5 @@ public/components
 public/update
 public/publish
 public/index.html
-public/app.js
+public/*.js
 public/*.png

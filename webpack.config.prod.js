@@ -9,7 +9,7 @@ module.exports = {
   output: {
     path: `${__dirname}/public`,
     publicPath: '/',
-    filename: 'app.js'
+    filename: 'app.[hash].js'
   },
   plugins: [
     new webpack.DefinePlugin({
@@ -17,8 +17,7 @@ module.exports = {
     }),
     new webpack.NoErrorsPlugin(),
     new HtmlWebpackPlugin({
-      template: 'templates/index.ejs',
-      hash: true
+      template: 'templates/index.ejs'
     })
   ],
   module: {
