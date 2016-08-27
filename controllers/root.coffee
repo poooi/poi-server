@@ -11,12 +11,6 @@ SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
 
-router.get '/', (next) ->
-  yield next
-  yield @render 'index',
-    title: 'Index'
-    env: process.env.NODE_ENV
-
 router.get '/status', (next) ->
   yield next
   ret = yield df()
