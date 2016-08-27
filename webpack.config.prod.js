@@ -25,7 +25,7 @@ module.exports = {
     loaders: [
       {
         test: /\.js$/,
-        exclude: /node_modules/,
+        exclude: /node_modules\/(?!react-icons)/,
         loader: 'babel',
         query: {
           presets: ['latest', 'react']
