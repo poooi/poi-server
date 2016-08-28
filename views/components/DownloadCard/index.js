@@ -5,16 +5,31 @@ import version from '../../meta/version'
 
 import styles from './styles'
 
-const ext = {
-  'linux-x64': '7z',
-  'macos-x64': 'dmg',
-  'win-ia32': '7z',
-  'win-x64': '7z'
-}
+const BASE_URI = 'https://npm.taobao.org/mirrors/poi'
 
-const getDownloadLink = (version, target) => (
-  `https://npm.taobao.org/mirrors/poi/${version}/poi-${version.substring(1)}-${target}.${ext[target]}`
-)
+function getDownloadLink(version, target) {
+  const pure = version.substring(1)
+  switch (target) {
+    case 'linux-x64':
+      return `${BASE_URI}/${version}/poi-${pure}-linux-x64.7z`
+    case 'linux-deb-x64':
+      return `${BASE_URI}/${version}/poi-${pure}-linux-x64.deb`
+    case 'linux-rpm-x64':
+      return `${BASE_URI}/${version}/poi-${pure}-linux-x64.rpm`
+    case 'macos-x64':
+      return `${BASE_URI}/${version}/poi-${pure}-macos-x64.dmg`
+    case 'win-ia32':
+      return `${BASE_URI}/${version}/poi-${pure}-win-ia32.7z`
+    case 'win-ia32-setup':
+      return `${BASE_URI}/${version}/poi-${pure}-win-ia32-setup.exe`
+    case 'win-x64':
+      return `${BASE_URI}/${version}/poi-${pure}-win-x64.7z`
+    case 'win-x64-setup':
+      return `${BASE_URI}/${version}/poi-${pure}-win-x64-setup.exe`
+    default:
+      return 'https://github.com/poooi/poi/releases'
+  }
+}
 
 class DownloadCard extends React.Component {
   render() {

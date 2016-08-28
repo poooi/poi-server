@@ -1,6 +1,8 @@
 .container {
   height: 100vh;
   width: 100vw;
+  display: flex;
+  flex-direction: column;
 }
 
 .ground {
@@ -14,7 +16,9 @@
 }
 
 .wrapper {
-  padding-top: 1px;
+  flex: 1;
   color: #eee;
   line-height: 1.5;
+  display: flex;
+  flex-direction: column;
 }

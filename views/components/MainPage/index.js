@@ -17,18 +17,18 @@ const cursor = {
 function getSettings() {
   const { os, cpu } = new UAParser().getResult()
   let initialSlide = 0
-  if (os.name === 'Linux' ||
-      os.name === 'Debian' ||
-      os.name === 'Ubuntu' ||
-      os.name === 'CentOS' ||
-      os.name === 'Fedora') {
+  if (os.name === 'Linux') {
     initialSlide = 0
-  } else if (os.name === 'Mac OS') {
+  } else if (os.name === 'Debian' || os.name === 'Ubuntu') {
     initialSlide = 1
-  } else if (os.name === 'Windows') {
+  } else if (os.name === 'CentOS' || os.name === 'Fedora') {
     initialSlide = 2
+  } else if (os.name === 'Mac OS') {
+    initialSlide = 3
+  } else if (os.name === 'Windows') {
+    initialSlide = 4
     if (cpu.architecture === 'ia64' || cpu.architecture === 'amd64') {
-      initialSlide = 3
+      initialSlide = 6
     }
   }
   return {
@@ -56,7 +56,7 @@ class MainPage extends React.Component {
   render() {
     const { __ } = this.context
     return (
-      <div>
+      <div className={styles.container}>
         <div className={styles.title}>
           <img src={poi} className={styles.logo} />
           <span className={styles.name}>{ __('name') }</span>
@@ -74,9 +74,13 @@ class MainPage extends React.Component {
         <div className={styles.slider}>
           <Slider {...getSettings()}>
             <div><DownloadCard target="linux-x64" /></div>
+            <div><DownloadCard target="linux-deb-x64" /></div>
+            <div><DownloadCard target="linux-rpm-x64" /></div>
             <div><DownloadCard target="macos-x64" /></div>
             <div><DownloadCard target="win-ia32" /></div>
+            <div><DownloadCard target="win-ia32-setup" /></div>
             <div><DownloadCard target="win-x64" /></div>
+            <div><DownloadCard target="win-x64-setup" /></div>
           </Slider>
         </div>
       </div>

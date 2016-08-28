@@ -1,9 +1,10 @@
 .header {
-  margin-top: 10px;
+  padding: 10px;
+  min-height: 50px;
 }
 
 .languages > a {
-  margin: 10px;
+  padding: 5px;
   cursor: pointer;
 }
 

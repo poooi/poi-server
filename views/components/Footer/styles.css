@@ -1,6 +1,8 @@
 .footer {
-  margin-top: 15vh;
   text-align: center;
+  min-height: 50px;
+  line-height: 50px;
+  margin-top: 50px;
 }
 
 .footer > a {
