@@ -1,0 +1,16 @@
+.container {
+  display: inline-block;
+  margin: 20px;
+}
+
+.mirror {
+  opacity: 0;
+}
+
+.hide {
+  display: none;
+}
+
+.show {
+  opacity: 1;
+}

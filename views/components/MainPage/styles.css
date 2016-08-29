@@ -42,14 +42,7 @@
 
 .description {
   font-size: 18px;
-}
-
-.wrapper {
-  margin: 0 auto;
-}
-
-.mirror {
-  opacity: 0;
+  text-align: center;
 }
 
 .slider {

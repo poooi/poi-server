@@ -1,18 +1,12 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
-import Typist from 'react-typist'
 import Slider from 'react-slick'
 import UAParser from 'ua-parser-js'
 
 import DownloadCard from '../DownloadCard'
+import TypeCat from '../TypeCat'
 
 import styles from './styles'
 import poi from './poi.png'
-
-const cursor = {
-  hideWhenDone: true,
-  element: '_'
-}
 
 function getSettings() {
   const { os, cpu } = new UAParser().getResult()
@@ -41,18 +35,6 @@ function getSettings() {
 }
 
 class MainPage extends React.Component {
-  constructor() {
-    super()
-    this.state = { width: 0 }
-  }
-
-  componentDidMount() {
-    const mirror = ReactDOM.findDOMNode(this.refs.mirror)
-    this.setState({
-      width: mirror.getBoundingClientRect().width
-    })
-  }
-
   render() {
     const { __ } = this.context
     return (
@@ -62,14 +44,7 @@ class MainPage extends React.Component {
           <span className={styles.name}>{ __('name') }</span>
         </div>
         <div className={styles.description}>
-          <div className={styles.wrapper} style={{ width: this.state.width }}>
-            <Typist cursor={cursor}>
-              { __('description') }
-            </Typist>
-          </div>
-          <span ref="mirror" className={styles.mirror}>
-            { __('description') }
-          </span>
+          <TypeCat text={__('description')} />
         </div>
         <div className={styles.slider}>
           <Slider {...getSettings()}>
