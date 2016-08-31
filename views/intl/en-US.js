@@ -14,5 +14,6 @@ export default {
   'win-x64': 'Windows (x64) Portable',
   'win-x64-setup': 'Windows (x64)',
   'stable-hint': 'Stable, for most users',
-  'beta-hint': 'Beta, for new features'
+  'beta-hint': 'Beta, for new features',
+  'other-versions': 'Other versions...'
 }

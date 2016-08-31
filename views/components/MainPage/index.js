@@ -58,6 +58,11 @@ class MainPage extends React.Component {
             <div><DownloadCard target="win-x64-setup" /></div>
           </Slider>
         </div>
+        <div className={styles.others}>
+          <a href="https://npm.taobao.org/mirrors/poi" target="_blank">
+            { __('other-versions') }
+          </a>
+        </div>
       </div>
     )
   }

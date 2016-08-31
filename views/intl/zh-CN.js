@@ -14,5 +14,6 @@ export default {
   'win-x64': '64 位 Windows 版',
   'win-x64-setup': '64 位 Windows 安装包',
   'stable-hint': '正式版，适合大部分人使用',
-  'beta-hint': '测试版，包含最新的功能'
+  'beta-hint': '测试版，包含最新的功能',
+  'other-versions': '下载其他版本'
 }
