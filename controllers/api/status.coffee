@@ -11,7 +11,7 @@ SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
 
-router.get '/status', (next) ->
+router.get '/api/status', (next) ->
   yield next
   ret = yield df()
   @response.status = 200
@@ -25,7 +25,7 @@ router.get '/status', (next) ->
       DropShipRecord: yield DropShipRecord.countAsync()
       SelectRankRecord: yield SelectRankRecord.countAsync()
       PassEventRecord: yield PassEventRecord.countAsync()
-      Quest: yield Quest.count()
+      Quest: yield Quest.countAsync()
 
 module.exports = (app) ->
   app.use router.routes()
