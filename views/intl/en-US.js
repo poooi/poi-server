@@ -3,6 +3,7 @@ export default {
   name: 'POI',
   description: 'Scalable KanColle browser and tool.',
   github: 'GitHub',
+  telegram: 'Telegram',
   weibo: 'Weibo',
   'download-for': 'Download for',
   'linux-x64': 'Linux (x64)',

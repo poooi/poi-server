@@ -3,6 +3,7 @@ export default {
   name: 'POI',
   description: '一个可扩展的舰队 Collection 浏览器',
   github: 'GitHub',
+  telegram: 'Telegram',
   weibo: '新浪微博',
   'download-for': '下载',
   'linux-x64': '64 位 Linux 版',
