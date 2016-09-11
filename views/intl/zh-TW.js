@@ -1,7 +1,7 @@
 export default {
   language: '正體中文',
   name: 'POI',
-  description: '一個可用插件的艦隊 Collection 瀏覽器',
+  description: '一個可擴展的艦隊 Collection 瀏覽器',
   github: 'GitHub',
   telegram: 'Telegram',
   weibo: '新浪微博',
