@@ -20,7 +20,7 @@ router.get '/api/status', (next) ->
   @response.status = 200
   @response.body =
     env: process.env.NODE_ENV
-    disk: ret.filter((e) -> e.mountpoint == '/')ii
+    disk: ret.filter((e) -> e.mountpoint == '/')
     mongo:
       CreateShipRecord: yield CreateShipRecord.countAsync()
       CreateItemRecord: yield CreateItemRecord.countAsync()
@@ -30,7 +30,7 @@ router.get '/api/status', (next) ->
       PassEventRecord: yield PassEventRecord.countAsync()
       Quest: yield Quest.countAsync()
 
-router.get '/api/github-master-hook', (next) ->
+router.post '/api/github-master-hook', (next) ->
   yield next
   update = childProcess.spawn(config.root + '/github-master-hook', [])
   update.stdout.on 'data', (data) ->
@@ -39,6 +39,9 @@ router.get '/api/github-master-hook', (next) ->
     console.log('GitHub hook err: ' + data)
   update.on 'close', (code) ->
     console.log('GitHub hook exit: ' + code)
+  @response.status = 200
+  @response.body =
+    code: 0
 
 module.exports = (app) ->
   app.use router.routes()

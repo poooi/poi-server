@@ -157,7 +157,6 @@ router.post '/api/report/v2/quest/:id', (next) ->
     @response.body =
       code: 0
   catch err
-    console.error err
     @response.status = 500
     @response.body =
       code: -1
