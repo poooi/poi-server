@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /srv/http/poi-server
+git pull && npm run build
