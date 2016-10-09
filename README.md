@@ -13,3 +13,7 @@ npm i -g bower
 bower i
 gulp
 ```
+
+## Usage
+
+See the [wiki](https://github.com/poooi/poi-server/wiki).
