@@ -3,6 +3,7 @@ Schema = mongoose.Schema
 
 DropShipRecord = new Schema
   shipId: Number
+  itemId: Number
   mapId: Number
   quest: String
   cellId: Number
