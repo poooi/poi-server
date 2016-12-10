@@ -11,6 +11,7 @@ DropShipRecord = mongoose.model 'DropShipRecord'
 SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
+BattleAPI = mongoose.model 'BattleAPI'
 
 config = require('../../config')
 
@@ -29,6 +30,7 @@ router.get '/api/status', (next) ->
       SelectRankRecord: yield SelectRankRecord.countAsync()
       PassEventRecord: yield PassEventRecord.countAsync()
       Quest: yield Quest.countAsync()
+      BattleAPI: yield BattleAPI.countAsync()
 
 router.post '/api/github-master-hook', (next) ->
   yield next
