@@ -11,6 +11,7 @@ SelectRankRecord = mongoose.model 'SelectRankRecord'
 PassEventRecord = mongoose.model 'PassEventRecord'
 Quest = mongoose.model 'Quest'
 BattleAPI = mongoose.model 'BattleAPI'
+NightContactRecord = mongoose.model 'NightContactRecord'
 
 router.post '/api/report/v2/create_ship', (next) ->
   yield next
@@ -170,6 +171,23 @@ router.post '/api/report/v2/battle_api', (next) ->
     if !info.origin? && @headers['user-agent']?
       info.origin = @headers['user-agent']
     record = new BattleAPI info
+    yield record.saveAsync()
+    @response.status = 200
+    @response.body =
+      code: 0
+  catch err
+    @response.status = 500
+    @response.body =
+      code: -1
+
+router.post '/api/report/v2/night_contcat', (next) ->
+  yield next
+  try
+    body = yield parse.form @
+    info = JSON.parse body.data
+    if !info.origin? && @headers['user-agent']?
+      info.origin = @headers['user-agent']
+    record = new NightContactRecord info
     yield record.saveAsync()
     @response.status = 200
     @response.body =
