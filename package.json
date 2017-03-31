@@ -31,8 +31,6 @@
     "babel-preset-latest": "^6.24.0",
     "babel-preset-react": "^6.23.0",
     "bluebird": "^3.5.0",
-    "co-body": "^5.1.1",
-    "coffee-script": "^1.12.4",
     "df": "^1.1.1",
     "glob": "^7.1.1",
     "koa": "^2.2.0",
