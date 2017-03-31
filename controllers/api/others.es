@@ -1,11 +1,11 @@
-import Promise from 'bluebird'
+import bluebird from 'bluebird'
 import Router from 'koa-router'
 import df from 'df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
 import config from '../../config'
 
-const dfAsync = Promise.promisify(df)
+const dfAsync = bluebird.promisify(df)
 const router = Router()
 
 const CreateShipRecord  = mongoose.model('CreateShipRecord')

@@ -1,4 +1,3 @@
-import parse from 'co-body'
 import Router from 'koa-router'
 import mongoose from 'mongoose'
 
