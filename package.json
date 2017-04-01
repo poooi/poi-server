@@ -57,15 +57,15 @@
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
     "react-icons": "^2.2.3",
-    "react-router": "^4.0.0",
+    "react-router": "^2.8.1",
     "react-slick": "^0.14.7",
     "react-typist": "^1.1.0",
     "slick-carousel": "^1.6.0",
     "style-loader": "^0.16.1",
     "ua-parser-js": "^0.7.12",
     "url-loader": "^0.5.8",
-    "webpack": "^2.3.2",
-    "webpack-dev-server": "^2.4.2",
+    "webpack": "^1.14.0",
+    "webpack-dev-server": "^1.16.3",
     "webpack-hot-middleware": "^2.17.1"
   }
 }
