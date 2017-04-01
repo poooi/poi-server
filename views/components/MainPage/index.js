@@ -1,6 +1,7 @@
 import React from 'react'
 import Slider from 'react-slick'
 import UAParser from 'ua-parser-js'
+import classnames from 'classnames'
 
 import DownloadCard from '../DownloadCard'
 import TypeCat from '../TypeCat'
@@ -40,7 +41,9 @@ class MainPage extends React.Component {
     return (
       <div className={styles.container}>
         <div className={styles.title}>
-          <img src={poi} className={styles.logo} />
+          <img src={poi} className={classnames(styles.logo, {
+            [styles.aprilfoolsday]: (new Date().getMonth() === 3 && new Date().getDate() === 1),
+          })} />
           <span className={styles.name}>{ __('name') }</span>
         </div>
         <div className={styles.description}>
