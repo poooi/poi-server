@@ -11,7 +11,9 @@ const SelectRankRecord  = mongoose.model('SelectRankRecord')
 const PassEventRecord   = mongoose.model('PassEventRecord')
 const Quest     = mongoose.model('Quest')
 const BattleAPI = mongoose.model('BattleAPI')
-const NightContactRecord = mongoose.model('NightContactRecord')
+const NightContactRecord  = mongoose.model('NightContactRecord')
+const RecipeRecord        = mongoose.model('RecipeRecord')
+const RecipeUpgradeRecord = mongoose.model('RecipeUpgradeRecord')
 
 router.post('/api/report/v2/create_ship', async (ctx, next) => {
   try {
@@ -181,6 +183,38 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
     if (info.origin == null)
       info.origin = ctx.headers['user-agent']
     const record = new NightContactRecord(info)
+    await record.saveAsync()
+    ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
+  try {
+    const info = ctx.request.body
+    if (info.origin == null)
+      info.origin = ctx.headers['user-agent']
+    const record = new RecipeRecord(info)
+    await record.saveAsync()
+    ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/remodel_recipe_upgrade', async (ctx, next) => {
+  try {
+    const info = ctx.request.body
+    if (info.origin == null)
+      info.origin = ctx.headers['user-agent']
+    const record = new RecipeUpgradeRecord(info)
     await record.saveAsync()
     ctx.status = 200
     await next()

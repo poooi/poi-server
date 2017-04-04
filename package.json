@@ -47,6 +47,8 @@
     "babel-preset-react-hmre": "^1.1.1",
     "classnames": "^2.2.5",
     "css-loader": "^0.28.0",
+    "eslint": "^3.19.0",
+    "eslint-plugin-import": "^2.2.0",
     "file-loader": "^0.10.1",
     "gulp": "^3.9.1",
     "gulp-livereload": "^3.8.1",
