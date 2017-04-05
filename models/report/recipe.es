@@ -16,6 +16,7 @@ const RecipeRecord = new mongoose.Schema({
   remodelkit: Number,
   certainBuildkit: Number,
   certainRemodelkit: Number,
+  origin: String,
 })
 
 RecipeRecord.virtual('date').get(() => {

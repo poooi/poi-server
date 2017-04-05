@@ -6,6 +6,7 @@ const RecipeUpgradeRecord = new mongoose.Schema({
   upgradeToItemLevel: Number,
   day: Number,
   secretary: Number,
+  origin: String,
 })
 
 RecipeUpgradeRecord.virtual('date').get(() => {
