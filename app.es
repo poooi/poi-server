@@ -30,8 +30,10 @@ const _cache = new Cache({
 })
 app.use(cache({
   threshold: '1GB',  // Compression is handled by nginx.
-  get: (key, maxAge) => _cache.get(key),
-  set: (key, value)  => _cache.set(key, value),
+  get: (key, maxAge) =>
+    _cache.get(key),
+  set: (key, value, maxAge) =>
+    _cache.set(key, value, maxAge > 0 ? maxAge : null),
 }))
 
 // Body Parser
