@@ -1,6 +1,6 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
-import{ countBy } from 'lodash'
+import { countBy } from 'lodash'
 
 const router = Router()
 
@@ -124,7 +124,7 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
     knownQuests.sort()
     ctx.status = 200
     await next()
-    ctx.body   = {
+    ctx.body = {
       quests: knownQuests,
     }
   }
@@ -184,7 +184,7 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
     const knownRecipes = Object.keys(counts).filter(key => counts[key] > 5)
     ctx.status = 200
     await next()
-    ctx.body   = {
+    ctx.body = {
       recipes: knownRecipes,
     }
   }
