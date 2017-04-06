@@ -1,5 +1,6 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
+import{ countBy } from 'lodash'
 
 const router = Router()
 
@@ -13,7 +14,6 @@ const Quest     = mongoose.model('Quest')
 const BattleAPI = mongoose.model('BattleAPI')
 const NightContactRecord  = mongoose.model('NightContactRecord')
 const RecipeRecord        = mongoose.model('RecipeRecord')
-const RecipeUpgradeRecord = mongoose.model('RecipeUpgradeRecord')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -176,13 +176,17 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
+router.get('/api/report/v2/known_recipes', async (ctx, next) => {
   try {
-    const info = parseInfo(ctx)
-    const record = new RecipeRecord(info)
-    await record.saveAsync()
+    if (await ctx.cashed()) return  // Cache control
+    const allRecipes = await RecipeRecord.find().execAsync()
+    const counts = countBy(allRecipes, 'key')
+    const knownRecipes = Object.keys(counts).filter(key => counts[key] > 5)
     ctx.status = 200
     await next()
+    ctx.body   = {
+      recipes: knownRecipes,
+    }
   }
   catch (err) {
     ctx.status = 500
@@ -190,10 +194,10 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/remodel_recipe_upgrade', async (ctx, next) => {
+router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
-    const record = new RecipeUpgradeRecord(info)
+    const record = new RecipeRecord(info)
     await record.saveAsync()
     ctx.status = 200
     await next()

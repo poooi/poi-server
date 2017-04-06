@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const RecipeRecord = new mongoose.Schema({
   recipeId: Number,
   itemId: Number,
-  itemLevel: Number,
+  stage: Number,
   day: Number,
   secretary: Number,
   fuel: Number,
@@ -16,6 +16,9 @@ const RecipeRecord = new mongoose.Schema({
   remodelkit: Number,
   certainBuildkit: Number,
   certainRemodelkit: Number,
+  upgradeToItemId: Number,
+  upgradeToItemLevel: Number,
+  key: String,
   origin: String,
 })
 
