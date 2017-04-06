@@ -31,7 +31,6 @@ router.post('/api/report/v2/create_ship', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -46,7 +45,6 @@ router.post('/api/report/v2/create_item', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -61,7 +59,6 @@ router.post('/api/report/v2/remodel_item', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -76,7 +73,6 @@ router.post('/api/report/v2/drop_ship', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -101,7 +97,6 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -116,7 +111,6 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -134,7 +128,6 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
     }
   }
   catch (err) {
-    console.error(err)
     ctx.status = 500
     await next()
   }
@@ -205,7 +198,6 @@ router.post('/api/report/v2/remodel_recipe_upgrade', async (ctx, next) => {
     await next()
   }
   catch (err) {
-    console.error(err, ctx.request.body)
     ctx.status = 500
     await next()
   }
