@@ -15,11 +15,16 @@ const NightContactRecord  = mongoose.model('NightContactRecord')
 const RecipeRecord        = mongoose.model('RecipeRecord')
 const RecipeUpgradeRecord = mongoose.model('RecipeUpgradeRecord')
 
+function parseInfo(ctx) {
+  const info = JSON.parse(ctx.request.body.data)
+  if (info.origin == null)
+    info.origin = ctx.headers['user-agent']
+  return info
+}
+
 router.post('/api/report/v2/create_ship', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new CreateShipRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -34,9 +39,7 @@ router.post('/api/report/v2/create_ship', async (ctx, next) => {
 
 router.post('/api/report/v2/create_item', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new CreateItemRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -51,9 +54,7 @@ router.post('/api/report/v2/create_item', async (ctx, next) => {
 
 router.post('/api/report/v2/remodel_item', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new RemodelItemRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -68,9 +69,7 @@ router.post('/api/report/v2/remodel_item', async (ctx, next) => {
 
 router.post('/api/report/v2/drop_ship', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new DropShipRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -85,9 +84,7 @@ router.post('/api/report/v2/drop_ship', async (ctx, next) => {
 
 router.post('/api/report/v2/select_rank', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     let record = await SelectRankRecord.findOne({
       teitokuId: info.teitokuId,
       mapareaId: info.mapareaId,
@@ -112,9 +109,7 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
 
 router.post('/api/report/v2/pass_event', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new PassEventRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -147,9 +142,7 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
 
 router.post('/api/report/v2/quest/:id', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new Quest(info)
     await record.saveAsync()
     ctx.status = 200
@@ -163,9 +156,7 @@ router.post('/api/report/v2/quest/:id', async (ctx, next) => {
 
 router.post('/api/report/v2/battle_api', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new BattleAPI(info)
     await record.saveAsync()
     ctx.status = 200
@@ -179,9 +170,7 @@ router.post('/api/report/v2/battle_api', async (ctx, next) => {
 
 router.post('/api/report/v2/night_contcat', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new NightContactRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -195,9 +184,7 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
 
 router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new RecipeRecord(info)
     await record.saveAsync()
     ctx.status = 200
@@ -211,9 +198,7 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
 
 router.post('/api/report/v2/remodel_recipe_upgrade', async (ctx, next) => {
   try {
-    const info = JSON.parse(ctx.request.body.data)
-    if (info.origin == null)
-      info.origin = ctx.headers['user-agent']
+    const info = parseInfo(ctx)
     const record = new RecipeUpgradeRecord(info)
     await record.saveAsync()
     ctx.status = 200
