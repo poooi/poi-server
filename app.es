@@ -1,10 +1,12 @@
 import bluebird from 'bluebird'
 import Koa from 'koa'
-import path from 'path'
-import glob from 'glob'
 import bodyparser from 'koa-bodyparser'
+import cache from 'koa-cash'
 import logger from 'koa-logger'
 import serve from 'koa-static'
+import Cache from 'node-cache'
+import path from 'path'
+import glob from 'glob'
 import mongoose from 'mongoose'
 import config from './config'
 bluebird.promisifyAll(mongoose)
@@ -20,6 +22,17 @@ mongoose.connection.on('error', () => {
 
 // Logger
 app.use(logger())
+
+// Cache
+const _cache = new Cache({
+  stdTTL: 10 * 60,
+  checkperiod: 0,
+})
+app.use(cache({
+  threshold: '1GB',  // Compression is handled by nginx.
+  get: (key, maxAge) => _cache.get(key),
+  set: (key, value)  => _cache.set(key, value),
+}))
 
 // Body Parser
 app.use(bodyparser({

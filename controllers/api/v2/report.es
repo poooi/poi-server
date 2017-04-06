@@ -119,6 +119,7 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
 // Use knownQuests to cache current known quests state.
 router.get('/api/report/v2/known_quests', async (ctx, next) => {
   try {
+    if (await ctx.cashed()) return  // Cache control
     const knownQuests = await Quest.find().distinct('questId').execAsync()
     knownQuests.sort()
     ctx.status = 200
