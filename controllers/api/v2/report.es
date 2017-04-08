@@ -123,10 +123,10 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
     const knownQuests = await Quest.find().distinct('questId').execAsync()
     knownQuests.sort()
     ctx.status = 200
-    await next()
-    ctx.body = {
+    ctx.body   = {
       quests: knownQuests,
     }
+    await next()
   }
   catch (err) {
     ctx.status = 500
@@ -183,10 +183,10 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
     const counts = countBy(allRecipes, 'key')
     const knownRecipes = Object.keys(counts).filter(key => counts[key] > 5)
     ctx.status = 200
-    await next()
-    ctx.body = {
+    ctx.body   = {
       recipes: knownRecipes,
     }
+    await next()
   }
   catch (err) {
     ctx.status = 500
