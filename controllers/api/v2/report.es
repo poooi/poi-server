@@ -181,7 +181,7 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
     if (await ctx.cashed()) return  // Cache control
     const allRecipes = await RecipeRecord.find().execAsync()
     const counts = countBy(allRecipes, 'key')
-    const knownRecipes = Object.keys(counts).filter(key => counts[key] > 5)
+    const knownRecipes = Object.keys(counts).filter(key => counts[key] > 3)
     ctx.status = 200
     ctx.body   = {
       recipes: knownRecipes,
@@ -197,8 +197,10 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
 router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
-    const record = new RecipeRecord(info)
-    await record.saveAsync()
+    if (info.stage != -1) {
+      const record = new RecipeRecord(info)
+      await record.saveAsync()
+    }
     ctx.status = 200
     await next()
   }
