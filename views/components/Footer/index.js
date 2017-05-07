@@ -1,9 +1,9 @@
 import React from 'react'
-import FaWeibo from 'react-icons/fa/weibo'
-import FaPaperPlane from 'react-icons/fa/paper-plane'
-import FaGitHub from 'react-icons/fa/github'
 
 import styles from './styles'
+import githubIcon from './github.svg'
+import weiboIcon from './weibo.svg'
+import telegramIcon from './telegram.svg'
 
 class Footer extends React.Component {
   getChildContext() {
@@ -17,14 +17,14 @@ class Footer extends React.Component {
     return (
       <div className={styles.footer}>
         <a href="http://weibo.com/letspoi" title={ __('weibo') }>
-          <FaWeibo />
+          <img src={weiboIcon} />
         </a>
         <a href="https://telegram.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ"
            title={ __('telegram') }>
-          <FaPaperPlane />
+          <img src={telegramIcon} />
         </a>
         <a href="https://github.com/poooi/poi" title={ __('github') }>
-          <FaGitHub />
+          <img src={githubIcon} />
         </a>
       </div>
     )

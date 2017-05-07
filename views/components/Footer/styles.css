@@ -8,3 +8,8 @@
 .footer > a {
   margin: 0 10px;
 }
+
+.footer img {
+  height: 30px;
+  width: 30px;
+}
