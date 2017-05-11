@@ -26,7 +26,7 @@ build/Release
 # https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
 node_modules
 
-public/update
+public/update/*
 public/publish
 public/index.html
 public/*.js
@@ -34,4 +34,7 @@ public/*.png
 public/fcd
 public/dump
 public/google6fcabee0a20770ea.html
-
+!public/update/zh-CN.md
+!public/update/zh-TW.md
+!public/update/en-US.md
+!public/update/latest.json
