@@ -1,0 +1,50 @@
+{
+  "linux-x64-prod": {
+    "readme": "Prod release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-linux-x86_64.AppImage",
+    "install": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-linux-x86_64.AppImage",
+    "version": "v7.7.0"
+  },
+  "win32-x64-prod": {
+    "readme": "Prod release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-win-x64-setup.exe",
+    "install": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-win-x64-setup.exe",
+    "version": "v7.7.0"
+  },
+  "win32-ia32-prod": {
+    "readme": "Prod release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-win-ia32-setup.exe",
+    "install": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-win-ia32-setup.exe",
+    "version": "v7.7.0"
+  },
+  "darwin-x64-prod": {
+    "readme": "Prod Release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-macos-x64.dmg",
+    "install": "https://github.com/poooi/poi/releases/download/v7.7.0/poi-7.7.0-macos-x64.dmg",
+    "version": "v7.7.0"
+  },
+  "linux-x64-beta": {
+    "readme": "beta release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-linux-x86_64.AppImage",
+    "install": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-linux-x86_64.AppImage",
+    "version": "v7.8.0-beta.1"
+  },
+  "win32-x64-beta": {
+    "readme": "beta release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-win-x64-setup.exe",
+    "install": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-win-x64-setup.exe",
+    "version": "v7.8.0-beta.1"
+  },
+  "win32-ia32-beta": {
+    "readme": "beta release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-win-ia32-setup.exe",
+    "install": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-win-ia32-setup.exe",
+    "version": "v7.8.0-beta.1"
+  },
+  "darwin-x64-beta": {
+    "readme": "beta Release",
+    "update": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-macos-x64.dmg",
+    "install": "https://github.com/poooi/poi/releases/download/v7.8.0-beta.1/poi-7.8.0-beta.1-macos-x64.dmg",
+    "version": "v7.8.0-beta.1"
+  }
+}

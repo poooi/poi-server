@@ -34,7 +34,12 @@ public/*.png
 public/fcd
 public/dump
 public/google6fcabee0a20770ea.html
+!public/update/feed-github.json
+!public/update/feed-mirror.json
 !public/update/zh-CN.md
 !public/update/zh-TW.md
 !public/update/en-US.md
 !public/update/latest.json
+!public/update/zh-CN-beta.md
+!public/update/zh-TW-beta.md
+!public/update/en-US-beta.md
