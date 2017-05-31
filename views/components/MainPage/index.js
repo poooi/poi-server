@@ -21,9 +21,9 @@ function getSettings() {
   } else if (os.name === 'Mac OS') {
     initialSlide = 3
   } else if (os.name === 'Windows') {
-    initialSlide = 4
+    initialSlide = 5
     if (cpu.architecture === 'ia64' || cpu.architecture === 'amd64') {
-      initialSlide = 6
+      initialSlide = 7
     }
   }
   return {
