@@ -4,6 +4,7 @@
   - 建議使用安裝包
   - Linux 和 mac OS 暫不支援
 - [Windows] [mac OS] 優先使用系統的 flash player
+- 血量條使用統一配色
 - 加入第四種介面佈局（垂直，遊戲介面位於下方）
 - 重寫了命令列介面，原有的 `--debug` 引數更改為 `--dev` / `-d`，`--debug-extra` 更改為 `--dev-extra` / `--extra`
 - 加入 google analytics 統計，可以在設定中進行關閉

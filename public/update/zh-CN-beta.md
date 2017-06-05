@@ -4,6 +4,7 @@
   - 建议使用安装包
   - Linux 和 mac OS 暂不支持
 - [Windows] [mac OS] 优先使用系统的 flash player
+- 血量条使用统一配色
 - 加入第四种界面布局（垂直，游戏界面位于下方）
 - 重写了命令行界面，原有的 `--debug` 参数更改为 `--dev` / `-d`，`--debug-extra` 更改为 `--dev-extra` / `--extra`
 - 加入 google analytics 统计，可以在设置中进行关闭
