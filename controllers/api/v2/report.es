@@ -4,16 +4,17 @@ import { countBy } from 'lodash'
 
 const router = Router()
 
-const CreateShipRecord  = mongoose.model('CreateShipRecord')
-const CreateItemRecord  = mongoose.model('CreateItemRecord')
-const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord    = mongoose.model('DropShipRecord')
-const SelectRankRecord  = mongoose.model('SelectRankRecord')
-const PassEventRecord   = mongoose.model('PassEventRecord')
-const Quest     = mongoose.model('Quest')
-const BattleAPI = mongoose.model('BattleAPI')
-const NightContactRecord  = mongoose.model('NightContactRecord')
-const RecipeRecord        = mongoose.model('RecipeRecord')
+const CreateShipRecord   = mongoose.model('CreateShipRecord')
+const CreateItemRecord   = mongoose.model('CreateItemRecord')
+const RemodelItemRecord  = mongoose.model('RemodelItemRecord')
+const DropShipRecord     = mongoose.model('DropShipRecord')
+const SelectRankRecord   = mongoose.model('SelectRankRecord')
+const PassEventRecord    = mongoose.model('PassEventRecord')
+const Quest              = mongoose.model('Quest')
+const BattleAPI          = mongoose.model('BattleAPI')
+const NightContactRecord = mongoose.model('NightContactRecord')
+const AACIRecord         = mongoose.model('AACIRecord')
+const RecipeRecord       = mongoose.model('RecipeRecord')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -166,6 +167,20 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new NightContactRecord(info)
+    await record.saveAsync()
+    ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/aaci', async (ctx, next) => {
+  try {
+    const info = parseInfo(ctx)
+    const record = new AACIRecord(info)
     await record.saveAsync()
     ctx.status = 200
     await next()
