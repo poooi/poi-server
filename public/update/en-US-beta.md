@@ -1,16 +1,12 @@
-## poi v7.8.0 changelog
-### Feature
-- [Windows] Add auto-update module for poi
-  - It's recommended to use installer of poi
-  - Linux and mac OS is not supported for now.
-- [Windows] [mac OS] Prefer to use system's flash player now.
-- Use a unified color for HP bar.
-- Add a layout which web-view is on the bottom
-- Change `--debug` parameter to `--dev` / `-d` and `--debug-extra` is changed to `--dev-extra` / `--extra`
-- Add google analytics
-- Auto update plugins is default setting now
-- Add new task `輸送船団護衛を強化せよ` to quest counting.
+## poi v7.9.0 changelog
+### Function
+- [Windows] Use custom titlebar instead of system titlbar
+- [Windows] Installer supports install to specifed path
+- Improvement on startup speed of new window plugins
+- Add an option on new window plugin settings to set whether keep process running in background
+  - Disable background process for plugins that have recording function will breaks its recording function
+- Other performance improvements
 
 ### Fix
-- Fix crash caused by loading dependencies out of poi
-- Fix resolution setting
+- Fix wrong display on some new window plugins with custom zoomlevel setting
+
