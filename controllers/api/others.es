@@ -8,14 +8,15 @@ import config from '../../config'
 const dfAsync = bluebird.promisify(df)
 const router = Router()
 
-const CreateShipRecord  = mongoose.model('CreateShipRecord')
-const CreateItemRecord  = mongoose.model('CreateItemRecord')
-const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord    = mongoose.model('DropShipRecord')
-const SelectRankRecord  = mongoose.model('SelectRankRecord')
-const PassEventRecord   = mongoose.model('PassEventRecord')
-const Quest     = mongoose.model('Quest')
-const BattleAPI = mongoose.model('BattleAPI')
+const CreateShipRecord   = mongoose.model('CreateShipRecord')
+const CreateItemRecord   = mongoose.model('CreateItemRecord')
+const RemodelItemRecord  = mongoose.model('RemodelItemRecord')
+const DropShipRecord     = mongoose.model('DropShipRecord')
+const SelectRankRecord   = mongoose.model('SelectRankRecord')
+const PassEventRecord    = mongoose.model('PassEventRecord')
+const Quest              = mongoose.model('Quest')
+const BattleAPI          = mongoose.model('BattleAPI')
+const AACIRecord         = mongoose.model('AACIRecord')
 const NightContactRecord = mongoose.model('NightContactRecord')
 
 router.get('/api/status', async (ctx, next) => {
@@ -30,8 +31,9 @@ router.get('/api/status', async (ctx, next) => {
       DropShipRecord    : await DropShipRecord.countAsync(),
       SelectRankRecord  : await SelectRankRecord.countAsync(),
       PassEventRecord   : await PassEventRecord.countAsync(),
-      Quest     : await Quest.countAsync(),
-      BattleAPI : await BattleAPI.countAsync(),
+      Quest             : await Quest.countAsync(),
+      BattleAPI         : await BattleAPI.countAsync(),
+      AACIRecord        : await AACIRecord.countAsync(),
       NightContactRecord: await NightContactRecord.countAsync(),
     },
   }
