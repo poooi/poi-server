@@ -1,5 +1,6 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
+import fetch from 'node-fetch'
 import _ from 'lodash'
 
 const router = Router()
@@ -91,7 +92,7 @@ class Recipe {
   }
 }
 
-router.get('/api/report/v2/full_recipes', async (ctx, next) => {
+router.get('/api/recipe/full', async (ctx, next) => {
   try {
     if (await ctx.cashed()) {
       return
@@ -128,13 +129,36 @@ router.get('/api/report/v2/full_recipes', async (ctx, next) => {
       count: recipes.length,
       recipes: res,
     }
-    await next()
-
   } catch (err) {
     ctx.status = 500
     ctx.body = {
       error: err.message,
     }
+  } finally {
+    await next()
+  }
+})
+
+router.get('/api/recipe/start2', async (ctx, next) => {
+  try {
+    if (await ctx.cashed()) {
+      return
+    }
+
+    const res = await fetch('http://api.kcwiki.moe/start2')
+    const data = await res.json()
+
+    ctx.status = 200
+    ctx.body = {
+      time: +new Date(),
+      data,
+    }
+  } catch (err) {
+    ctx.status = 500
+    ctx.body = {
+      error: err.message,
+    }
+  } finally {
     await next()
   }
 })
