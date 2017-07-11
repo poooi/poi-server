@@ -124,6 +124,7 @@ router.get('/api/report/v2/full_recipes', async (ctx, next) => {
 
     ctx.status = 200
     ctx.body = {
+      time: +new Date(),
       count: recipes.length,
       recipes: res,
     }
