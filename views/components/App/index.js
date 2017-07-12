@@ -9,17 +9,21 @@ import Footer from '../Footer'
 import en_US from '../../intl/en-US'
 import zh_CN from '../../intl/zh-CN'
 import zh_TW from '../../intl/zh-TW'
+import ja_JP from '../../intl/ja-JP'
 
 import styles from './styles'
 
 const intl = language => key => {
   switch (language) {
-    case 'zh-CN':
-      return zh_CN[key]
-    case 'zh-TW':
-      return zh_TW[key]
-    default:
-      return en_US[key]
+  case 'zh-CN':
+    return zh_CN[key]
+  case 'zh-TW':
+    return zh_TW[key]
+  case 'ja':
+  case 'ja-JP':
+    return ja_JP[key]
+  default:
+    return en_US[key]
   }
 }
 
