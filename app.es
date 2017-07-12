@@ -3,7 +3,6 @@ import Koa from 'koa'
 import bodyparser from 'koa-bodyparser'
 import cache from 'koa-cash'
 import logger from 'koa-logger'
-import cors from 'kcors'
 import serve from 'koa-static'
 import Cache from 'node-cache'
 import path from 'path'
@@ -23,11 +22,6 @@ mongoose.connection.on('error', () => {
 
 // Logger
 app.use(logger())
-
-// cors
-app.use(cors({
-  origin: 'https://kagamichan.github.io',
-}))
 
 // Cache
 const _cache = new Cache({
