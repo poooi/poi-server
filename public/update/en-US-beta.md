@@ -5,7 +5,8 @@
 - [macOS] TouchBar support
 - [macOS] Vibrant mode support
 - Custom background support
-- Improvement on startup speed of new window plugins
+- Add performance monitor
+- Improvement on startup speed
 - Add an option on new window plugin settings to set whether keep process running in background
   - Disable background process for plugins that have recording function will breaks its recording function
 - Add setting of maximum cache size
