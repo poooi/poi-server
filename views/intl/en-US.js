@@ -4,6 +4,7 @@ export default {
   description: 'Scalable KanColle browser and tool.',
   github: 'GitHub',
   telegram: 'Telegram',
+  opencollective: 'Help us via OpenCollective',
   weibo: 'Weibo',
   'download-for': 'Download for',
   'linux-x64': 'Linux (x64)',
@@ -17,4 +18,5 @@ export default {
   'stable-hint': 'Stable, for most users',
   'beta-hint': 'Beta, for new features',
   'other-versions': 'Other versions...',
+  'telegram-group-link': 'https://t.me/joinchat/ENYTxwoB7sKsPQmgKEFzJw',
 }

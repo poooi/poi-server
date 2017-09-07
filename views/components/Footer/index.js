@@ -4,6 +4,7 @@ import styles from './styles'
 import githubIcon from './github.svg'
 import weiboIcon from './weibo.svg'
 import telegramIcon from './telegram.svg'
+import heartIcon from './heart.svg'
 
 class Footer extends React.Component {
   getChildContext() {
@@ -19,12 +20,14 @@ class Footer extends React.Component {
         <a href="http://weibo.com/letspoi" title={ __('weibo') }>
           <img src={weiboIcon} />
         </a>
-        <a href="https://telegram.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ"
-           title={ __('telegram') }>
+        <a href={ __('telegram-group-link') } title={ __('telegram') }>
           <img src={telegramIcon} />
         </a>
         <a href="https://github.com/poooi/poi" title={ __('github') }>
           <img src={githubIcon} />
+        </a>
+        <a href="https://opencollective.com/poi" title={ __('opencollective') }>
+          <img src={heartIcon} />
         </a>
       </div>
     )

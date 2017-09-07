@@ -4,6 +4,7 @@ export default {
   description: '拡張可能な艦隊これくしょんブラウザ',
   github: 'GitHub',
   telegram: 'Telegram',
+  opencollective: 'Help us via OpenCollective',
   weibo: 'Weibo',
   'download-for': 'ダウンロード: ',
   'linux-x64': '64 ビット Linux バージョン',
@@ -17,4 +18,5 @@ export default {
   'stable-hint': '安定版・一般利用の方におすすめ',
   'beta-hint': '開発版・新機能が欲しいの方におすすめ',
   'other-versions': '他のバージョン',
+  'telegram-group-link': 'https://t.me/joinchat/ENYTxwoB7sKsPQmgKEFzJw',
 }

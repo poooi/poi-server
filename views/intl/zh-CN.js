@@ -4,6 +4,7 @@ export default {
   description: '一个可扩展的舰队 Collection 浏览器',
   github: 'GitHub',
   telegram: 'Telegram',
+  opencollective: '通过 OpenCollective 帮助我们',
   weibo: '新浪微博',
   'download-for': '下载',
   'linux-x64': '64 位 Linux 版',
@@ -17,4 +18,5 @@ export default {
   'stable-hint': '正式版，适合大部分人使用',
   'beta-hint': '测试版，包含最新的功能',
   'other-versions': '下载其他版本',
+  'telegram-group-link': 'https://t.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ',
 }
