@@ -3,6 +3,8 @@ import mongoose from 'mongoose'
 const AACIRecord = new mongoose.Schema({
   available: [Number],
   triggered: Number,
+  items: [Number],
+  improvement: [Number],
   origin: String,
 })
 
