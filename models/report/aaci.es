@@ -9,6 +9,8 @@ const AACIRecord = new mongoose.Schema({
   rawLuck: Number,
   rawTaiku: Number,
   lv: Number,
+  hpPercent: Number,
+  pos: Number,
   origin: String,
 })
 
