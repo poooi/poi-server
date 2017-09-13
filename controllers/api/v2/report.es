@@ -15,6 +15,7 @@ const BattleAPI          = mongoose.model('BattleAPI')
 const NightContactRecord = mongoose.model('NightContactRecord')
 const AACIRecord         = mongoose.model('AACIRecord')
 const RecipeRecord       = mongoose.model('RecipeRecord')
+const NightBattleSSCI    = mongoose.model('NightBattleSSCI')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -216,6 +217,20 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
       const record = new RecipeRecord(info)
       await record.saveAsync()
     }
+    ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
+  try {
+    const info = parseInfo(ctx)
+    const record = new NightBattleSSCI(info)
+    await record.saveAsync()
     ctx.status = 200
     await next()
   }
