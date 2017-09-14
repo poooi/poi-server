@@ -18,5 +18,5 @@ export default {
   'stable-hint': '正式版，適合大部分人使用',
   'beta-hint': '測試版，包含最新的功能',
   'other-versions': '下載其他版本',
-  'telegram-group-link': 'https://t.me/joinchat/ENYTxwoB7sKsPQmgKEFzJw',
+  'telegram-group-link': 'https://t.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ',
 }
