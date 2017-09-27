@@ -10,6 +10,7 @@
   + Bq2 戦果拡張任務！「Z作戦」前段作戦
 - Add AACI support of UIT-25 / I-504
 - Add Ship-tag alert: alert on fleet contains ships that are not tagged. Can be closed in settings
+- Windows 10 style notification for Windows 7
 
 ### Fix
 - Fix no equip-development result on first startup
