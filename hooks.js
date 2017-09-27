@@ -5,7 +5,8 @@ const ChildProcess = require('child_process')
 const app = new Koa()
 const router = new Router()
 
-router.get('/api/github-master-hook', async (ctx, next) => {
+router.post('/api/github-master-hook', async (ctx, next) => {
+  console.log(`==================== ${new Date} ====================`)
   const cp = ChildProcess.spawn('./github-master-hook', {stdio: 'inherit'})
   cp.on('close', (code) => console.log('* exit code:' + code))
   ctx.status = 200
