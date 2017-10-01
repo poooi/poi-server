@@ -1,6 +1,7 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
 import { countBy } from 'lodash'
+import semver from 'semver'
 
 const router = Router()
 
@@ -181,8 +182,17 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
 router.post('/api/report/v2/aaci', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
-    const record = new AACIRecord(info)
-    await record.saveAsync()
+    // aaci type 7 in poi <= 7.9.0 is not correctly detected
+    // reporter < 3.6.0 cannot send untriggered aaci report
+    // so we add a semver check
+    if (
+      semver.gt(info.poiVersion, '7.9.1') &&
+      info.origin.startsWith('Reporter ') &&
+      semver.gte(info.origin.replace('Reporter ', ''), '3.6.0')
+    ) {
+      const record = new AACIRecord(info)
+      await record.saveAsync()
+    }
     ctx.status = 200
     await next()
   }
