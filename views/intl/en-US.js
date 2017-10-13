@@ -18,5 +18,7 @@ export default {
   'stable-hint': 'Stable, for most users',
   'beta-hint': 'Beta, for new features',
   'other-versions': 'Other versions...',
-  'telegram-group-link': 'https://t.me/joinchat/ENYTxwoB7sKsPQmgKEFzJw',
+  'telegram-group-link': 'https://t.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ',
+  'discord-channel-link': 'https://discordapp.com/channels/118339803660943369/367575898313981952',
+  'Discord sub-channel': 'Discord sub-channel',
 }

@@ -19,4 +19,6 @@ export default {
   'beta-hint': '测试版，包含最新的功能',
   'other-versions': '下载其他版本',
   'telegram-group-link': 'https://t.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ',
+  'discord-channel-link': 'https://discordapp.com/channels/118339803660943369/367575898313981952',
+  'Discord sub-channel': 'Discord 频道',
 }
