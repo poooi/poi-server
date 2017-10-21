@@ -16,7 +16,7 @@ export default {
   'win-x64': '64 ビット Windows バージョン',
   'win-x64-setup': '64 ビット Windows インストーラ',
   'stable-hint': '安定版・一般利用の方におすすめ',
-  'beta-hint': '開発版・新機能が欲しいの方におすすめ',
+  'beta-hint': '開発版・新機能が欲しい方におすすめ',
   'other-versions': '他のバージョン',
   'telegram-group-link': 'https://t.me/joinchat/AoMUpkCr6B8uH7EUewq6eQ',
   'discord-channel-link': 'https://discordapp.com/channels/118339803660943369/367575898313981952',
