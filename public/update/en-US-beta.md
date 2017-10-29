@@ -1,7 +1,7 @@
 ## poi v7.10.0 changelog
 ### Function
 - New svg icons - Thanks to @edwardaaaa
-- Update electron to 1.8.0
+- Update electron to 1.8.1
 - More fleet information on expedition panel
 - Night aircraft support
 - New counter for tasks:

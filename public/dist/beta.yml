@@ -1,7 +1,7 @@
-version: 7.10.0-beta.1
-releaseDate: '2017-09-27T02:29:44.033Z'
-path: poi-setup-7.10.0-beta.1.exe
+version: 7.10.0
+releaseDate: '2017-10-28T16:31:18.098Z'
+path: poi-setup-7.10.0.exe
 sha512: >-
-  XatozzdIq9eBRUzL/cpPb7l2v+Fq+2zdsolHOlv7DpRiOk+D6EeKfoBSIZQ0JgPUb17bfFNFV0U1xoVyeWYMVQ==
-githubArtifactName: poi-setup-7.10.0-beta.1.exe
-sha2: 0cb73f2b557b76cfaa97d69d7f8a05aff8f04969c13ee6f7b73047d466cf18da
+  +NveMvnFh1aHzuI3B7C98fVBfJv9Z0rkK/ItWC/U1FNnn+o8KtKmUH/HsmS4QHg775NH9D4hIiXKr+a/jJee+A==
+githubArtifactName: poi-setup-7.10.0.exe
+sha2: 1da330a6265bb7454abc3dadeb1372a4a7360912b10b1690b28132e68933b5d9
