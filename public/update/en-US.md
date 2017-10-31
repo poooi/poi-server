@@ -1,3 +1,7 @@
+## poi v7.10.1 changelog
+### Fix
+- Downgrade to electron 1.7.9 to prevent crash and other issues occurs on 1.8.1
+
 ## poi v7.10.0 changelog
 ### Function
 - New svg icons - Thanks to @edwardaaaa
