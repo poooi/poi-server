@@ -11,7 +11,8 @@ const DropShipRecord = new mongoose.Schema({
   isBoss: Boolean,
   teitokuLv: Number,
   mapLv: Number,
-  enemyShips: [Number],
+  enemyShips1: [Number],
+  enemyShips2: [Number],
   enemyFormation: Number,
   origin: String,
 })
