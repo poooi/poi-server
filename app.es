@@ -55,6 +55,6 @@ glob.sync(path.join(config.root, 'controllers/**'), { nodir: true })
 // Static
 app.use(serve(path.join(config.root, 'public')))
 
-app.listen(config.port, () => {
+app.listen(config.port, '127.0.0.1', () => {
   console.log(`Koa is listening on port ${config.port}`)
 })
