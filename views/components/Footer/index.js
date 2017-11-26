@@ -28,7 +28,7 @@ class Footer extends React.Component {
           </a>
         }
         {
-          ['en-US', 'ja-JP', 'ja'].includes(locale) &&
+          ['en-US', 'en-GB', 'ja-JP', 'ja'].includes(locale) &&
           <a href={ __('discord-channel-link') } title={ __('Discord sub-channel') }>
             <img src={discordIcon} />
           </a>
