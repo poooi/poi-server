@@ -1,25 +1,16 @@
-## poi v7.10.1 changelog
-### Fix
-- Downgrade to electron 1.7.9 to prevent crash and other issues occurs on 1.8.1
+## poi v8.0.0 changelog
+### Update for 2017 Fall Event
+- Update event map & ship tag data
+- Add icon of Land-based ASW Aircraft
+- Add support of new battle API, which fixes quest count & battle records.
+- Extend formula-33 to support strike force fleet
+- Add support of strike force retreat
+- Update rule of heavy damage alert & ship tag alert
 
-## poi v7.10.0 changelog
 ### Function
-- New svg icons - Thanks to @edwardaaaa
-- Update electron to 1.8.1
-- More fleet information on expedition panel
-- Night aircraft support
-- New counter for tasks:
-  + D24 海上通商航路の警戒を厳とせよ
-  + F55 新型艤装の継続研究
-  + Bq2 戦果拡張任務！「Z作戦」前段作戦
-- Add AACI support of UIT-25 / I-504
-- Add Ship-tag alert: alert on fleet contains ships that are not tagged. Can be closed in settings
-- Windows 10 style notification for Windows 7
-
-### Fix
-- Fix no equip-development result on first startup
-- Fix translation not updated on plugin updated
-- Fix hotkey `Ctrl + Shift + I` conflicts with other programs
-- Fix display of AACI
-- Fix error on plugin installation
-- Fix `Allow connections from LAN` not take effect
+- Update to React 16
+- Improvement on plugin error handling
+- Improvement on install plugin by name
+- [Windows] Add Acrylic material mode (may make GPU under heavy load)
+- Add 'Fix plugin' button to fix error on plugin installation
+- [Linux] Add auto-update support
