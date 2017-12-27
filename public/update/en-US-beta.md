@@ -1,16 +1,14 @@
-## poi v8.0.0 changelog
-### Update for 2017 Fall Event
-- Update event map & ship tag data
-- Add icon of Land-based ASW Aircraft
-- Add support of new battle API, which fixes quest count & battle records.
-- Extend formula-33 to support strike force fleet
-- Add support of strike force retreat
-- Update rule of heavy damage alert & ship tag alert
-
+## poi v8.1.0 changelog
 ### Function
-- Update to React 16
-- Improvement on plugin error handling
-- Improvement on install plugin by name
-- [Windows] Add Acrylic material mode (may make GPU under heavy load)
-- Add 'Fix plugin' button to fix error on plugin installation
-- [Linux] Add auto-update support
+- Add support of AACI of Suzutuki
+- No heavy damage warning of flagships of combined fleet's 2nd fleet
+- Set location to Japan to evade redirect of DMM
+- Ship tags will display fleet name now
+- Add support of destroy a brunch of ships
+- Add counter for new tasks: `近海に侵入する敵潜を制圧せよ！`, `装備開発力の整備` and `工廠環境の整備`
+- Set screenshot path in poi's install directory is forbidden now
+- Add hint of equip improvement's result
+
+### Fixes
+- Evaded ships now will not affect display of LOS and speed of fleet
+- Fix equipment list not updated when opening a giftbox
