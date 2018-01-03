@@ -1,5 +1,7 @@
 ## poi v8.1.0 changelog
 ### Function
+- Add Shipgirl Avatar display
+- Add DiabloHu's KanColle Database
 - Add support of AACI of Suzutuki
 - No heavy damage warning of flagships of combined fleet's 2nd fleet
 - Set location to Japan to evade redirect of DMM
