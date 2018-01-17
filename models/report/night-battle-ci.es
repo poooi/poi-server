@@ -1,8 +1,9 @@
 import mongoose from 'mongoose'
 
-const NightBattleSSCI = new mongoose.Schema({
+const NightBattleCI = new mongoose.Schema({
   shipId: Number,
   CI: String,
+  type: String,
   lv: Number,
   rawLuck: Number,
   pos: Number,
@@ -22,8 +23,8 @@ const NightBattleSSCI = new mongoose.Schema({
   origin: String,
 })
 
-NightBattleSSCI.virtual('date').get(() => {
+NightBattleCI.virtual('date').get(() => {
   this._id.getTimestamp()
 })
 
-mongoose.model('NightBattleSSCI', NightBattleSSCI)
+mongoose.model('NightBattleCI', NightBattleCI)

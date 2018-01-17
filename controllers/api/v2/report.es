@@ -16,7 +16,7 @@ const BattleAPI          = mongoose.model('BattleAPI')
 const NightContactRecord = mongoose.model('NightContactRecord')
 const AACIRecord         = mongoose.model('AACIRecord')
 const RecipeRecord       = mongoose.model('RecipeRecord')
-const NightBattleSSCI    = mongoose.model('NightBattleSSCI')
+const NightBattleCI      = mongoose.model('NightBattleCI')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -236,10 +236,10 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
+router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
-    const record = new NightBattleSSCI(info)
+    const record = new NightBattleCI(info)
     await record.saveAsync()
     ctx.status = 200
     await next()
@@ -248,6 +248,13 @@ router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
     ctx.status = 500
     await next()
   }
+})
+
+// Compat for legacy plugin's night battle ss ci reporter
+// which is now night battle ci reporter and has changed url to above
+router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
+  ctx.status = 200
+  await next()
 })
 
 export default (app) => {
