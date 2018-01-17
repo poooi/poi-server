@@ -250,6 +250,13 @@ router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
   }
 })
 
+// Compat for legacy plugin's night battle ss ci reporter
+// which is now night battle ci reporter and has changed url to above
+router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
+  ctx.status = 200
+  await next()
+})
+
 export default (app) => {
   app.use(router.routes())
 }
