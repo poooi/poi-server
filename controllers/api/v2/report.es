@@ -17,6 +17,7 @@ const NightContactRecord = mongoose.model('NightContactRecord')
 const AACIRecord         = mongoose.model('AACIRecord')
 const RecipeRecord       = mongoose.model('RecipeRecord')
 const NightBattleCI      = mongoose.model('NightBattleCI')
+const ShipStat           = mongoose.model('ShipStat')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -255,6 +256,18 @@ router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
 router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
   ctx.status = 200
   await next()
+})
+
+router.post('/api/report/v2/ship_stat', async (ctx, next) => {
+  try {
+    const info = parseInfo(ctx)
+    await ShipStat.updateAsync({ id: info.id, lv: info.lv }, info, { upsert: true })
+    ctx.status = 200
+    await next()
+  } catch (e) {
+    ctx.status = 500
+    await next()
+  }
 })
 
 export default (app) => {
