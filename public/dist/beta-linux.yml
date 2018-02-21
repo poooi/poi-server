@@ -1,9 +1,9 @@
-version: 8.1.0
+version: 8.2.0-beta.3
 files:
-  - url: poi-8.1.0-x86_64.AppImage
-    sha512: iTGk1zK77CKree0Qtb+COFjEK0jDbaPR0s96TWaOiIyAbjToI5+2KBtzbZUZGNnCJ2btpQb9BgsaZ1sz60nc9w==
-    size: 76362726
-    blockMapSize: 81194
-path: poi-8.1.0-x86_64.AppImage
-sha512: iTGk1zK77CKree0Qtb+COFjEK0jDbaPR0s96TWaOiIyAbjToI5+2KBtzbZUZGNnCJ2btpQb9BgsaZ1sz60nc9w==
-releaseDate: '2018-01-18T04:07:12.591Z'
+  - url: poi-8.2.0-beta.3-x86_64.AppImage
+    sha512: vSaO50wav3u0wQcWuQkWOiKpRfW+aW5jq1+5PT7lFYtc2UDoYpJaZpgQ99DWpc6dAN95D3QxRdvtzva7Nn0HUA==
+    size: 77420032
+    blockMapSize: 81732
+path: poi-8.2.0-beta.3-x86_64.AppImage
+sha512: vSaO50wav3u0wQcWuQkWOiKpRfW+aW5jq1+5PT7lFYtc2UDoYpJaZpgQ99DWpc6dAN95D3QxRdvtzva7Nn0HUA==
+releaseDate: '2018-02-21T07:42:29.384Z'
