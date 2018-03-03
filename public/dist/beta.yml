@@ -1,9 +1,9 @@
-version: 8.2.0-beta.3
+version: 8.2.0
 files:
-  - url: poi-setup-8.2.0-beta.3.exe
-    sha512: KUmo57MqhwImF0oqAZmh6pUg3NP6WVFsjYBMHsvHJWUzjRTyqBqGHSkNIor/rDUmRrnLIy7Df1TFnxoXnVRU2w==
-    size: 138122849
-path: poi-setup-8.2.0-beta.3.exe
-sha512: KUmo57MqhwImF0oqAZmh6pUg3NP6WVFsjYBMHsvHJWUzjRTyqBqGHSkNIor/rDUmRrnLIy7Df1TFnxoXnVRU2w==
-sha2: f0bccde7b03b21a13579ca814ccf51f7783a699317ff2a81b22d68f73baef82c
-releaseDate: '2018-02-21T07:37:26.555Z'
+  - url: poi-setup-8.2.0.exe
+    sha512: bKibZfNcD8Z1hHCxBAPaua1OTWmUI4xzqUi0Pafm2BCvw+OObPMnGkM0faZk5V53ruc2FHOMaqk09b/pkiNWeQ==
+    size: 138125594
+path: poi-setup-8.2.0.exe
+sha512: bKibZfNcD8Z1hHCxBAPaua1OTWmUI4xzqUi0Pafm2BCvw+OObPMnGkM0faZk5V53ruc2FHOMaqk09b/pkiNWeQ==
+sha2: 53267fb5713695bb93ecb9744ab0d7212fe74a8fd55ad72a7e1eba708d1f522e
+releaseDate: '2018-03-02T20:38:33.203Z'
