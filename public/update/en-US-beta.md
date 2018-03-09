@@ -1,3 +1,14 @@
+## POI v8.3.0 changelog
+### Function
+- Game area size can be set as certain ratio relative to window size
+  - Click `>` on the toolbar and click edit mode button to change ratio
+  - Doubleclick border of game area can set game area size fits to window size
+- Update Electron to 2.0 (Chromium 61)
+
+### Fix
+- Fix display when zoomed
+- Fix titlebar style on macOS High Sierra (which is caused by upstream)
+
 ## poi v8.2.0 changelog
 ### 2018 Winter Event
 - Add support of friend fleet
