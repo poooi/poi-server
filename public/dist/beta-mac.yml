@@ -1,10 +1,10 @@
-version: 8.3.0-beta.0
+version: 8.3.0-beta.1
 files:
-  - url: poi-8.3.0-beta.0-mac.zip
-    sha512: iDnfPjmcETE0/Li2uXIDqz2gtwHRXA/QCZnt9aKDEx0LPu+OfFM5uaPeDqS3i+iDprFZf56ki10veWRt4/cPaw==
-  - url: poi-8.3.0-beta.0.dmg
-    sha512: F8stvvml648oyV/0Oimu1h2WVrkWD9Rjjk8lLeKkCDzJhUUDlUJ9zqAswzkDAA7y/l5TOcaqbkdgxrvBwPrkHA==
-    size: 96798596
-path: poi-8.3.0-beta.0-mac.zip
-sha512: iDnfPjmcETE0/Li2uXIDqz2gtwHRXA/QCZnt9aKDEx0LPu+OfFM5uaPeDqS3i+iDprFZf56ki10veWRt4/cPaw==
-releaseDate: '2018-03-09T16:38:10.132Z'
+  - url: poi-8.3.0-beta.1-mac.zip
+    sha512: ec3rJUmj+Y5QlQZ9MTLY9TYG/AYhThOncfZU8naXyKDw8GWWiB5+I3+bpWUbMpLGemEz9LbaSaqc0u/DVVAJuA==
+  - url: poi-8.3.0-beta.1.dmg
+    sha512: gqVb18BOecdy8m4FBDjIapWWZFBcy9qzyNb1/3Ap0GDr6tTSfLgomU1esJSMt16Ew8vy9/XaAgNubHtqQZyLDQ==
+    size: 96794218
+path: poi-8.3.0-beta.1-mac.zip
+sha512: ec3rJUmj+Y5QlQZ9MTLY9TYG/AYhThOncfZU8naXyKDw8GWWiB5+I3+bpWUbMpLGemEz9LbaSaqc0u/DVVAJuA==
+releaseDate: '2018-03-10T19:56:46.508Z'
