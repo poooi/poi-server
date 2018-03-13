@@ -4,9 +4,11 @@
   - Click `>` on the toolbar and click edit mode button to change ratio
   - Doubleclick border of game area can set game area size fits to window size
 - Update Electron to 2.0 (Chromium 61)
+- Combine window plugins into one process
 
 ### Fix
 - Fix display when zoomed
+- Fix game area freeze in centain conditions
 - Fix titlebar style on macOS High Sierra (which is caused by upstream)
 
 ## poi v8.2.0 changelog
