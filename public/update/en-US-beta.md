@@ -1,6 +1,7 @@
 ## POI v9.0.0 changelog
 ### Update for KanColle Phase II
 - Update for API changes
+- Update map data
 - Remove builtin flash
 - Set default game area resolution to 1200*720
 ### Feature
