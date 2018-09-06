@@ -10,6 +10,8 @@
   - No back-end processes of new-window plugins
 - Add support of edit width of game area by drag & drop
 - New layout: game area as isolate window
+- New layout: panel area as overlay
+- Add support of AAPB
 - Update to Electron 3.0
 - Update to FontAwesome 5
 ### Fixes

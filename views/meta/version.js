@@ -1,5 +1,5 @@
 export default {
   stable: 'v8.2.0',
-  beta: 'v9.0.0-beta.2',
+  beta: 'v9.0.0-beta.3',
   betaAvailable: true,
 }

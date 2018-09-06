@@ -1,9 +1,9 @@
-version: 9.0.0-beta.2
+version: 9.0.0-beta.3
 files:
-  - url: poi-setup-9.0.0-beta.2.exe
-    sha512: ObRdV7ZX6W3K21ootrHueDWV2GdYfatTzaneE0gqAWQXKM44/Y/AkKmJ7HoMsqyL6DXpVN5O4oWglzV7ksHGzQ==
-    size: 93363292
-path: poi-setup-9.0.0-beta.2.exe
-sha512: ObRdV7ZX6W3K21ootrHueDWV2GdYfatTzaneE0gqAWQXKM44/Y/AkKmJ7HoMsqyL6DXpVN5O4oWglzV7ksHGzQ==
-sha2: 9163c5a56697da18d890edbffe0ff19321e743ae2a0b531a6b579b28077ba109
-releaseDate: '2018-08-19T16:35:58.842Z'
+  - url: poi-setup-9.0.0-beta.3.exe
+    sha512: eA/YD0deOuULQA93/X/51piXfEA2NM4Nkw/Wclsc44G6LVvCVsJDmGF5iXJ1C0kLnKK/lO2oaZlKuv+tClaLUg==
+    size: 96737100
+path: poi-setup-9.0.0-beta.3.exe
+sha512: eA/YD0deOuULQA93/X/51piXfEA2NM4Nkw/Wclsc44G6LVvCVsJDmGF5iXJ1C0kLnKK/lO2oaZlKuv+tClaLUg==
+sha2: a17582f839e13e05f2f159caf97c77307ff2e391a83136c2d49477f6c201cf8e
+releaseDate: '2018-09-05T19:42:05.895Z'
