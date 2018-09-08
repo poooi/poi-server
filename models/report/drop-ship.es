@@ -15,6 +15,8 @@ const DropShipRecord = new mongoose.Schema({
   enemyShips2: [Number],
   enemyFormation: Number,
   baseExp: Number,
+  teitokuId: String,
+  shipCounts: [Number],
   origin: String,
 })
 
