@@ -1,3 +1,7 @@
+## POI v9.0.1 changelog
+### Fixes
+- Fix crash caused by AACI Indicator
+
 ## POI v9.0.0 changelog
 ### Update for KanColle Phase II
 - Update for API changes
