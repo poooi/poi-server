@@ -1,10 +1,10 @@
-version: 9.0.1
+version: 9.0.2
 files:
-  - url: poi-9.0.1-mac.zip
-    sha512: WJyAxx7zlqqUmlY9x852Rdyu50v0jU7XGnoeLW75+TRAF3lKpmWDvSU6z2CaGU0q64u3VQNTm/BBiesgfjImRQ==
-  - url: poi-9.0.1.dmg
-    sha512: z+H4i+Uc06DD8oNK92PGNObP4vaZVn7+nV8yuMiV3Kae88/RVeIGkDaw983q1OuXWJHBzleFfcXLiRxWMWSK1w==
-    size: 70992135
-path: poi-9.0.1-mac.zip
-sha512: WJyAxx7zlqqUmlY9x852Rdyu50v0jU7XGnoeLW75+TRAF3lKpmWDvSU6z2CaGU0q64u3VQNTm/BBiesgfjImRQ==
-releaseDate: '2018-09-14T17:17:57.055Z'
+  - url: poi-9.0.2-mac.zip
+    sha512: 8QAXs9albJ4hhsF9nC2uDK/tuxHbIgS2WTvhsaNkUKLQA2gv64zORK2h6vc/OQdwPqfynrb9rlzIKD17f+Tp/g==
+  - url: poi-9.0.2.dmg
+    sha512: gwEfV3F7n2Pvd+tFrrUxb7mqPKAEQG1Et3FM1bH6YFCipl7jC7GzKtTNdKcLGhZLWB9+bLezcqR2ZfN3O33TYA==
+    size: 70994088
+path: poi-9.0.2-mac.zip
+sha512: 8QAXs9albJ4hhsF9nC2uDK/tuxHbIgS2WTvhsaNkUKLQA2gv64zORK2h6vc/OQdwPqfynrb9rlzIKD17f+Tp/g==
+releaseDate: '2018-09-16T05:19:58.267Z'

@@ -1,3 +1,9 @@
+## POI v9.0.2 changelog
+### Feature
+- Panel will be locked automatically if no operates to panel layouts in 1 minute.
+### Fixes
+- Fix layout error in certain conditions
+
 ## POI v9.0.1 changelog
 ### Fixes
 - Fix crash caused by AACI Indicator
