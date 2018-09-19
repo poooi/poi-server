@@ -1,3 +1,10 @@
+## POI v9.0.3 changelog
+### Feature
+- Support of Nelson Touch
+### Fixes
+- Fix bug that flash didn't loaded
+- Miscellaneous UI fix
+
 ## POI v9.0.2 changelog
 ### Feature
 - Panel will be locked automatically if no operates to panel layouts in 1 minute.
