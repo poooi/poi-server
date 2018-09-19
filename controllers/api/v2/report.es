@@ -18,6 +18,7 @@ const AACIRecord         = mongoose.model('AACIRecord')
 const RecipeRecord       = mongoose.model('RecipeRecord')
 const NightBattleCI      = mongoose.model('NightBattleCI')
 const ShipStat           = mongoose.model('ShipStat')
+const EnemyInfo          = mongoose.model('EnemyInfo')
 
 function parseInfo(ctx) {
   const info = JSON.parse(ctx.request.body.data)
@@ -262,6 +263,62 @@ router.post('/api/report/v2/ship_stat', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     await ShipStat.updateAsync({ id: info.id, lv: info.lv }, info, { upsert: true })
+    ctx.status = 200
+    await next()
+  } catch (e) {
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/enemy_info', async (ctx, next) => {
+  try {
+    const info = parseInfo(ctx)
+    const {
+      ships1,
+      levels1,
+      hp1,
+      stats1,
+      equips1,
+      ships2,
+      levels2,
+      hp2,
+      stats2,
+      equips2,
+      planes,
+      bombersMin,
+      bombersMax,
+    } = info
+    await EnemyInfo.updateAsync({
+      ships1,
+      levels1,
+      hp1,
+      stats1,
+      equips1,
+      ships2,
+      levels2,
+      hp2,
+      stats2,
+      equips2,
+      planes,
+    }, {
+      ships1,
+      levels1,
+      hp1,
+      stats1,
+      equips1,
+      ships2,
+      levels2,
+      hp2,
+      stats2,
+      equips2,
+      planes,
+      $min: { bombersMax },
+      $max: { bombersMin },
+      $inc: { count: 1 },
+    }, {
+      upsert: true,
+    })
     ctx.status = 200
     await next()
   } catch (e) {
