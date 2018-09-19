@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 
 const SelectRankRecord = new mongoose.Schema({
-  teitokuId: Number,
+  teitokuId: String,
   teitokuLv: Number,
   mapareaId: Number,
   rank: Number,
