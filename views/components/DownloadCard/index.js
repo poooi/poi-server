@@ -25,7 +25,7 @@ function getDownloadLink(version, target) {
   case 'win-x64':
     return `${BASE_URI}/${version}/poi-${pure}-win.7z`
   case 'win-x64-setup':
-    return `${BASE_URI}/${version}//poi-setup-${pure}.exe`
+    return `${BASE_URI}/${version}/poi-setup-${pure}.exe`
   default:
     return 'https://github.com/poooi/poi/releases'
   }
