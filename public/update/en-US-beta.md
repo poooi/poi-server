@@ -1,3 +1,9 @@
+## POI v9.0.4 changelog
+### Feature
+- Add support of Nagato's special attack
+### Fixes
+- Fix crash caused by API changes
+
 ## POI v9.0.3 changelog
 ### Feature
 - Support of Nelson Touch
