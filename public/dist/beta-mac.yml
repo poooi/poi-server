@@ -1,10 +1,12 @@
-version: 9.0.4
+version: 10.0.0-beta.0
 files:
-  - url: poi-9.0.4-mac.zip
-    sha512: O6BITMFi1dygMX0p6mwhVO7FNNfofS7hRkcoIZdICrWJFGAlVYH0P7yWkUb3D334uRUXCXGRAMJyWtVhR5ypSg==
-  - url: poi-9.0.4.dmg
-    sha512: fMkUNG8o5uKf1MYaeHtI3W3TYckPPQ5tq+nEXatjvK4jypnO9l3voC4dTJ7PSlVkHovtBrZQteLTZwJQnL8I5w==
-    size: 70994198
-path: poi-9.0.4-mac.zip
-sha512: O6BITMFi1dygMX0p6mwhVO7FNNfofS7hRkcoIZdICrWJFGAlVYH0P7yWkUb3D334uRUXCXGRAMJyWtVhR5ypSg==
-releaseDate: '2018-11-16T16:11:03.452Z'
+  - url: poi-10.0.0-beta.0-mac.zip
+    sha512: DpK8emAG54lCguGl6hH5BgqT9h9TjQ/Tbx3qP02/NRsIX1op7T9HPTwtmZdKFAkRPPhhJg95N+YvJylQe5h4Pg==
+    size: 82065083
+    blockMapSize: 86858
+  - url: poi-10.0.0-beta.0.dmg
+    sha512: bGISJKjorXLmzqdeGvL3AEwzjYi7J22a588b2MhvVKczYfmEZ7DmkGVekeeIgMhEX6HNOn3PQPOhhOgbXaS6iw==
+    size: 85954257
+path: poi-10.0.0-beta.0-mac.zip
+sha512: DpK8emAG54lCguGl6hH5BgqT9h9TjQ/Tbx3qP02/NRsIX1op7T9HPTwtmZdKFAkRPPhhJg95N+YvJylQe5h4Pg==
+releaseDate: '2018-12-12T17:13:12.307Z'
