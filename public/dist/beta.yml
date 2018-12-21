@@ -1,8 +1,8 @@
-version: 10.0.0-beta.0
+version: 10.0.0-beta.1
 files:
-  - url: poi-setup-10.0.0-beta.0.exe
-    sha512: 83NTlHAW0cuzGciSkWk21PGeHstFh4JEXv9vkZQ2rEwwSRWrpir7jLMbCNj0YWu/rJ11JAq0Noip0o5glxWcFg==
-    size: 120527221
-path: poi-setup-10.0.0-beta.0.exe
-sha512: 83NTlHAW0cuzGciSkWk21PGeHstFh4JEXv9vkZQ2rEwwSRWrpir7jLMbCNj0YWu/rJ11JAq0Noip0o5glxWcFg==
-releaseDate: '2018-12-12T17:17:56.562Z'
+  - url: poi-setup-10.0.0-beta.1.exe
+    sha512: y8oldag/8PtJReXwZNVEtFTPTDJ2FdBnweCZ4KziMXlHccyfeDCA1ePyjet5KWsdvhQtGWtzoLGO+5b46POJPg==
+    size: 122923648
+path: poi-setup-10.0.0-beta.1.exe
+sha512: y8oldag/8PtJReXwZNVEtFTPTDJ2FdBnweCZ4KziMXlHccyfeDCA1ePyjet5KWsdvhQtGWtzoLGO+5b46POJPg==
+releaseDate: '2018-12-20T20:19:28.463Z'
