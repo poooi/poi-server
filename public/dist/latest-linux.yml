@@ -1,9 +1,9 @@
-version: 9.0.4
+version: 10.0.0
 files:
-  - url: poi-9.0.4-x86_64.AppImage
-    sha512: vPMe2Y895IhbNZ+AaR+yY//PMzLI5RYAdOao9ME5oFUaVJyEO2Lsv2iWIOrIXf7+XiZHO8cUu532LmmNB3TIOw==
-    size: 73146251
-    blockMapSize: 75983
-path: poi-9.0.4-x86_64.AppImage
-sha512: vPMe2Y895IhbNZ+AaR+yY//PMzLI5RYAdOao9ME5oFUaVJyEO2Lsv2iWIOrIXf7+XiZHO8cUu532LmmNB3TIOw==
-releaseDate: '2018-11-16T16:15:27.356Z'
+  - url: poi-10.0.0-x86_64.AppImage
+    sha512: Qya6/HKK4oZGBbaNFT5T3DXSm6cd77RZlKv+6ltveZnaobjAQIgwZAiKo9s9uFvZlB0t8crWAYzrEuK51+to+Q==
+    size: 110287660
+    blockMapSize: 115824
+path: poi-10.0.0-x86_64.AppImage
+sha512: Qya6/HKK4oZGBbaNFT5T3DXSm6cd77RZlKv+6ltveZnaobjAQIgwZAiKo9s9uFvZlB0t8crWAYzrEuK51+to+Q==
+releaseDate: '2018-12-29T17:16:07.712Z'
