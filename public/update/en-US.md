@@ -10,3 +10,11 @@
 - Performance improvements
 ### Fixes
 - Fix audio hacks did not take effect
+
+## POI v10.1.0 changelog
+### Feature
+- Add a dialog for handling certificate error
+### Fixes
+- Fix tooltip display in certain position
+- Fix screenshot can't be take in certain cases
+- Fix autoresize in certain cases
