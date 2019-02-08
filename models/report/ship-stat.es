@@ -9,7 +9,8 @@ const ShipStat = new mongoose.Schema({
   asw_max: Number,
   evasion: Number,
   evasion_max: Number,
-  origin: String,
+  last_timestamp: Number,
+  count: Number,
 })
 
 mongoose.model('ShipStat', ShipStat)

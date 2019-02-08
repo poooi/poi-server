@@ -261,8 +261,15 @@ router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
 
 router.post('/api/report/v2/ship_stat', async (ctx, next) => {
   try {
-    const info = parseInfo(ctx)
-    await ShipStat.updateAsync({ id: info.id, lv: info.lv }, info, { upsert: true })
+    const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseInfo(ctx)
+    const last_timestamp = +new Date()
+    await ShipStat.updateAsync({
+      id, lv, los, los_max, asw, asw_max, evasion, evasion_max,
+    }, {
+      id, lv, los, los_max, asw, asw_max, evasion, evasion_max, last_timestamp, $inc: { count: 1 },
+    }, {
+      upsert: true,
+    })
     ctx.status = 200
     await next()
   } catch (e) {
