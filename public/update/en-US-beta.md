@@ -1,3 +1,8 @@
+## POI v10.2.2 changelog
+### Fix
+- Fix network error caused by region cookie expires
+- Fix battle end notification do not appear when notification type others is disabled
+
 ## POI v10.2.0 changelog
 ### Feature
 - Update AACI data
