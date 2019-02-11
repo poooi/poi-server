@@ -1,3 +1,7 @@
+## POI v10.2.3 changelog
+### Fix
+- [Windows] Fix vibrancy mode
+
 ## POI v10.2.2 changelog
 ### Fix
 - Fix network error caused by region cookie expires
