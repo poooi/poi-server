@@ -1,8 +1,8 @@
-version: 10.2.3
+version: 10.2.4
 files:
-  - url: poi-setup-10.2.3.exe
-    sha512: riZE8zzg8IqI1JOfjpeBCirU4E9APSDcyXf3pSQX/CXaA0GnZrSc+SyjIsE9Md0/K2M5jBaQMtFZtNCtnnPZZA==
-    size: 125621195
-path: poi-setup-10.2.3.exe
-sha512: riZE8zzg8IqI1JOfjpeBCirU4E9APSDcyXf3pSQX/CXaA0GnZrSc+SyjIsE9Md0/K2M5jBaQMtFZtNCtnnPZZA==
-releaseDate: '2019-02-11T17:02:39.759Z'
+  - url: poi-setup-10.2.4.exe
+    sha512: 0wPH2P2YAPL8UC3LE3VYg3v/LlmkoDGmh9WrcdCcW2v3Yit4KwW3tUy++hZZTpj6sYHdszhPY+9YbvXGz7v2bg==
+    size: 125820308
+path: poi-setup-10.2.4.exe
+sha512: 0wPH2P2YAPL8UC3LE3VYg3v/LlmkoDGmh9WrcdCcW2v3Yit4KwW3tUy++hZZTpj6sYHdszhPY+9YbvXGz7v2bg==
+releaseDate: '2019-02-28T19:08:33.917Z'

@@ -1,3 +1,7 @@
+## POI v10.2.4 changelog
+### Feature
+- Add support of Mutsu SP attack
+
 ## POI v10.2.3 changelog
 ### Fix
 - [Windows] Fix vibrancy mode
