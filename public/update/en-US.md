@@ -1,23 +1,10 @@
-## POI v10.2.4 changelog
-### Feature
-- Add support of Mutsu SP attack
+## POI v10.3.0 changelog
+### Features
+- Show luck increase by marriage
+- Allow only one poi instance running
+- Add new AACIs
+- Add quick display settings besides welcome message
+- Add bonus of land-base reconnaissance plane
 
-## POI v10.2.3 changelog
-### Fix
-- [Windows] Fix vibrancy mode
-
-## POI v10.2.2 changelog
-### Fix
-- Fix network error caused by region cookie expires
-- Fix battle end notification do not appear when notification type others is disabled
-
-## POI v10.2.0 changelog
-### Feature
-- Update AACI data
-- Update OASW data
-- Add support of battle end notification
-- Add new plugin `New Ship Reminder`
-
-### Fix
-- Fix can't get plugin beta updates
-- Fix crash caused by API change
+### Fixes
+- Fix task display when number of maximum tasks increase to 7 or more
