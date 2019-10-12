@@ -1,3 +1,4 @@
 #!/bin/bash
-cd /srv/http/poi
+cd /srv/poi
 git pull && npm run build
+supervisorctl restart poi
