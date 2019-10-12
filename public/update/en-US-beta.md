@@ -1,10 +1,10 @@
-## POI v10.3.0 changelog
+## POI v10.4.0 changelog
+### Warning: separate window mode is not working in this beta version!
 ### Features
-- Show luck increase by marriage
-- Allow only one poi instance running
-- Add new AACIs
-- Add quick display settings besides welcome message
-- Add bonus of land-base reconnaissance plane
+- Upgrade to electron@6 (Chromium@76)
+- Add firepower & asw display on ship panel
+- New design of ship avatar
+- Update OASW & AACI data
 
 ### Fixes
-- Fix task display when number of maximum tasks increase to 7 or more
+- Fix error casued by new equip develpment api
