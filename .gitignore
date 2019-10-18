@@ -29,8 +29,12 @@ node_modules
 public/update/*
 public/publish
 public/index.html
-public/*.js
-public/*.png
+public/**/*.js
+public/**/*.map
+public/favicon.ico
+public/*.json
+public/**/*.png
+public/**/*.css
 public/fcd
 public/dump
 public/google6fcabee0a20770ea.html
@@ -44,3 +48,5 @@ public/google6fcabee0a20770ea.html
 !public/update/zh-TW-beta.md
 !public/update/en-US-beta.md
 !public/dist/*
+
+.env

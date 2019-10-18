@@ -34,6 +34,7 @@
     "babel-preset-react": "^6.23.0",
     "bluebird": "^3.5.0",
     "df": "^1.1.1",
+    "dotenv": "^8.2.0",
     "glob": "^7.1.1",
     "koa": "^2.2.0",
     "koa-bodyparser": "^4.2.0",
