@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 cd /srv/poi
 pushd /srv/website
 npm i -g yarn

@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 cd /srv/poi
 git pull
 supervisorctl restart poi
