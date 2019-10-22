@@ -3,4 +3,6 @@ set -e
 
 cd /srv/poi
 git pull
+npm install
 supervisorctl restart poi
+supervisorctl restart poi-hook
