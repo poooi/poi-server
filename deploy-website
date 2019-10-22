@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+cd /srv/poi
+pushd /srv/website
+npm i -g yarn
+git fetch origin master
+git reset --hard origin/master
+yarn
+yarn build
+popd
+cp -r /srv/website/build/* public/
