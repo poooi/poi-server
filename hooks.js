@@ -14,19 +14,6 @@ router.post('/api/github-master-hook', async (ctx, next) => {
   await next()
 })
 
-router.post('/api/deploy-website', async (ctx, next) => {
-  console.log(`====================Website hook ${new Date} ====================`)
-  if (process.env.WEBSITE_TOKEN && process.env.WEBSITE_TOKEN === ctx.request.header['auth-token']) {
-    console.log('Auth passed')
-    const cp = ChildProcess.spawn('./deploy-website', { stdio: 'inherit' })
-    cp.on('close', code => console.log('* Website hook exit code:' + code))
-    ctx.body = 'chiba'
-  } else {
-    ctx.status = 404
-  }
-  await next()
-})
-
 // Start server
 const Port = 11280
 app.use(router.routes())
