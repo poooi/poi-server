@@ -21,8 +21,9 @@ router.post('/api/deploy-website', async (ctx, next) => {
     const cp = ChildProcess.spawn('./deploy-website', { stdio: 'inherit' })
     cp.on('close', code => console.log('* Website hook exit code:' + code))
     ctx.body = 'chiba'
+  } else {
+    ctx.status = 404
   }
-  ctx.status = 404
   await next()
 })
 
