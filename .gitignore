@@ -26,27 +26,6 @@ build/Release
 # https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
 node_modules
 
-public/update/*
-public/publish
-public/index.html
-public/**/*.js
-public/**/*.map
-public/favicon.ico
-public/*.json
-public/**/*.png
-public/**/*.css
-public/fcd
-public/dump
-public/google6fcabee0a20770ea.html
-!public/update/feed-github.json
-!public/update/feed-mirror.json
-!public/update/zh-CN.md
-!public/update/zh-TW.md
-!public/update/en-US.md
-!public/update/latest.json
-!public/update/zh-CN-beta.md
-!public/update/zh-TW-beta.md
-!public/update/en-US-beta.md
-!public/dist/*
+public
 
 .env

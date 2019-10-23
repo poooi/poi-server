@@ -1,9 +1,0 @@
-version: 10.3.0
-files:
-  - url: poi-10.3.0-x86_64.AppImage
-    sha512: ANpQYsciHBGAbRhsVJaWFYJZWvU4wbocnAKr0dNNcidNorKaYPyP9i8d7QWCcEKcuBalUgl8HNmF13/j00Ti+g==
-    size: 113071032
-    blockMapSize: 118012
-path: poi-10.3.0-x86_64.AppImage
-sha512: ANpQYsciHBGAbRhsVJaWFYJZWvU4wbocnAKr0dNNcidNorKaYPyP9i8d7QWCcEKcuBalUgl8HNmF13/j00Ti+g==
-releaseDate: '2019-05-26T19:24:09.184Z'
