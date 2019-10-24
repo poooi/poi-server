@@ -1,4 +1,4 @@
-import Router from 'koa-router'
+import Router from '@koa/router'
 import mongoose from 'mongoose'
 import fetch from 'node-fetch'
 import _ from 'lodash'

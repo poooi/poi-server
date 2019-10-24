@@ -1,5 +1,5 @@
 import bluebird from 'bluebird'
-import Router from 'koa-router'
+import Router from '@koa/router'
 import df from 'df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'

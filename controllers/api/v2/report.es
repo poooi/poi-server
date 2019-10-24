@@ -1,4 +1,4 @@
-import Router from 'koa-router'
+import Router from '@koa/router'
 import mongoose from 'mongoose'
 import { countBy } from 'lodash'
 import semver from 'semver'
