@@ -21,7 +21,9 @@ mongoose.connection.on('error', () => {
 })
 
 // Logger
-app.use(logger())
+if (! config.disableLogger) {
+  app.use(logger())
+}
 
 // Cache
 const _cache = new Cache({

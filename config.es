@@ -29,6 +29,7 @@ const config = {
     port: 17027,
     db: 'mongodb://localhost/poi-production',
     secret: 'ProductionSecret',
+    disableLogger: true,
   },
 }
 
