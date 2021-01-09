@@ -204,15 +204,12 @@ router.post('/api/report/v2/aaci', async (ctx, next) => {
   }
 })
 
+// FIXME: this action is no longer in use, keeping it until changes made in reporter
 router.get('/api/report/v2/known_recipes', async (ctx, next) => {
   try {
-    if (await ctx.cashed()) return  // Cache control
-    const allRecipes = await RecipeRecord.find().execAsync()
-    const counts = countBy(allRecipes, 'key')
-    const knownRecipes = Object.keys(counts).filter(key => counts[key] > 3)
     ctx.status = 200
     ctx.body   = {
-      recipes: knownRecipes,
+      recipes: [],
     }
     await next()
   }
@@ -226,8 +223,14 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     if (info.stage != -1) {
-      const record = new RecipeRecord(info)
-      await record.saveAsync()
+      const lastReported = +new Date()
+      const { recipeId, itemId, stage, day, secretary } = info
+
+      await RecipeRecord.updateAsync(
+        { recipeId, itemId, stage, day, secretary },
+        { ...info, lastReported, $inc: { count: 1 } },
+        { upsert: true }
+      )
     }
     ctx.status = 200
     await next()

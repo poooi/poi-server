@@ -18,6 +18,8 @@ const RecipeRecord = new mongoose.Schema({
   certainRemodelkit: Number,
   upgradeToItemId: Number,
   upgradeToItemLevel: Number,
+  lastReported: Number,
+  count: Number,
   key: String,
   origin: String,
 })
