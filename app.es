@@ -8,15 +8,11 @@ import Cache from 'node-cache'
 import path from 'path'
 import glob from 'glob'
 import mongoose from 'mongoose'
-import * as Sentry from '@sentry/node'
+import { captureException } from './sentry'
 
 import config from './config'
 bluebird.promisifyAll(mongoose)
 mongoose.Promise = Promise
-
-Sentry.init({
-  dsn: "https://99bc543aa0984d51917e02a873bb244f@o171991.ingest.sentry.io/5594215",
-})
 
 const app = new Koa()
 
@@ -67,11 +63,4 @@ app.listen(config.port, '127.0.0.1', () => {
   console.log(`Koa is listening on port ${config.port}`)
 })
 
-app.on('error', (err, ctx) => {
-  Sentry.withScope(function(scope) {
-    scope.addEventProcessor(function(event) {
-      return Sentry.Handlers.parseRequest(event, ctx.request)
-    })
-    Sentry.captureException(err)
-  })
-})
+app.on('error', captureException)

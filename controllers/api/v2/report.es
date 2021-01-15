@@ -1,7 +1,7 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
 import semver from 'semver'
-import * as Sentry from '@sentry/node'
+import { captureException } from '../../../sentry'
 
 const router = Router()
 
@@ -25,15 +25,6 @@ function parseInfo(ctx) {
   if (info.origin == null)
     info.origin = ctx.headers['user-agent']
   return info
-}
-
-const captureException = (err, ctx) => {
-  Sentry.withScope(function(scope) {
-    scope.addEventProcessor(function(event) {
-      return Sentry.Handlers.parseRequest(event, ctx.request)
-    })
-    Sentry.captureException(err)
-  })
 }
 
 router.post('/api/report/v2/create_ship', async (ctx, next) => {
@@ -298,7 +289,8 @@ router.post('/api/report/v2/ship_stat', async (ctx, next) => {
     })
     ctx.status = 200
     await next()
-  } catch (e) {
+  } catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -354,7 +346,8 @@ router.post('/api/report/v2/enemy_info', async (ctx, next) => {
     })
     ctx.status = 200
     await next()
-  } catch (e) {
+  } catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
