@@ -25,6 +25,8 @@
   },
   "homepage": "https://github.com/yudachi/poi-server#readme",
   "dependencies": {
+    "@sentry/node": "^5.30.0",
+    "@sentry/tracing": "^5.30.0",
     "babel-core": "^6.24.0",
     "babel-loader": "^6.4.1",
     "babel-plugin-add-module-exports": "^0.2.1",

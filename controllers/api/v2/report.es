@@ -1,7 +1,7 @@
 import Router from 'koa-router'
 import mongoose from 'mongoose'
-import { countBy } from 'lodash'
 import semver from 'semver'
+import * as Sentry from '@sentry/node'
 
 const router = Router()
 
@@ -27,6 +27,15 @@ function parseInfo(ctx) {
   return info
 }
 
+const captureException = (err, ctx) => {
+  Sentry.withScope(function(scope) {
+    scope.addEventProcessor(function(event) {
+      return Sentry.Handlers.parseRequest(event, ctx.request)
+    })
+    Sentry.captureException(err)
+  })
+}
+
 router.post('/api/report/v2/create_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
@@ -36,6 +45,7 @@ router.post('/api/report/v2/create_ship', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -50,6 +60,7 @@ router.post('/api/report/v2/create_item', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -64,6 +75,7 @@ router.post('/api/report/v2/remodel_item', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -78,6 +90,7 @@ router.post('/api/report/v2/drop_ship', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -102,6 +115,7 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -116,6 +130,7 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -134,6 +149,7 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -148,6 +164,7 @@ router.post('/api/report/v2/quest/:id', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -162,6 +179,7 @@ router.post('/api/report/v2/battle_api', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -176,6 +194,7 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -199,6 +218,7 @@ router.post('/api/report/v2/aaci', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -214,6 +234,7 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -236,6 +257,7 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
@@ -250,6 +272,7 @@ router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
     await next()
   }
   catch (err) {
+    captureException(err, ctx)
     ctx.status = 500
     await next()
   }
