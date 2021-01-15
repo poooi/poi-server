@@ -9,6 +9,8 @@ import path from 'path'
 import glob from 'glob'
 import mongoose from 'mongoose'
 import { captureException } from './sentry'
+import childProcess from 'child_process'
+import { trim } from 'lodash'
 
 import config from './config'
 bluebird.promisifyAll(mongoose)
@@ -64,3 +66,11 @@ app.listen(config.port, '127.0.0.1', () => {
 })
 
 app.on('error', captureException)
+
+childProcess.exec('git rev-parse HEAD', (err, stdout) => {
+  if (!err) {
+    global.latestCommit = trim(stdout)
+  } else {
+    console.error(err)
+  }
+})

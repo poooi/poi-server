@@ -57,6 +57,12 @@ router.post('/api/github-master-hook', async (ctx, next) => {
   await next()
 })
 
+router.get('/api/latest-commit', async (ctx, next) => {
+  ctx.status = 200
+  ctx.body = global.latestCommit
+  await next()
+})
+
 export default (app) => {
   app.use(router.routes())
 }
