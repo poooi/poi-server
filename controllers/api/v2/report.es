@@ -2,6 +2,7 @@ import Router from 'koa-router'
 import mongoose from 'mongoose'
 import semver from 'semver'
 import { captureException } from '../../../sentry'
+import { isString } from 'lodash'
 
 const router = Router()
 
@@ -21,9 +22,10 @@ const ShipStat           = mongoose.model('ShipStat')
 const EnemyInfo          = mongoose.model('EnemyInfo')
 
 function parseInfo(ctx) {
-  const info = JSON.parse(ctx.request.body.data)
-  if (info.origin == null)
-    info.origin = ctx.headers['user-agent']
+  const info = isString(ctx.request.body.data) ? JSON.parse(ctx.request.body.data) : ctx.request.body.data
+  if (info.origin == null) {
+    info.origin = ctx.headers['x-reporter'] || ctx.headers['user-agent']
+  }
   return info
 }
 
