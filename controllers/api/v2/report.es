@@ -1,4 +1,4 @@
-import Router from 'koa-router'
+import Router from '@koa/router'
 import mongoose from 'mongoose'
 import semver from 'semver'
 import { captureException } from '../../../sentry'
