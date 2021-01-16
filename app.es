@@ -8,11 +8,12 @@ import Cache from 'node-cache'
 import path from 'path'
 import glob from 'glob'
 import mongoose from 'mongoose'
-import { captureException } from './sentry'
 import childProcess from 'child_process'
 import { trim } from 'lodash'
 
 import config from './config'
+import { captureException } from './sentry'
+
 bluebird.promisifyAll(mongoose)
 mongoose.Promise = Promise
 

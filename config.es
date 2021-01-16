@@ -11,6 +11,7 @@ const config = {
     port: 17027,
     db: 'mongodb://localhost/poi-development',
     secret: 'DevelopmentSecret',
+    env,
   },
   test: {
     root: rootPath,
@@ -20,6 +21,7 @@ const config = {
     port: 17027,
     db: 'mongodb://localhost/poi-test',
     secret: 'TestSecret',
+    env,
   },
   production: {
     root: rootPath,
@@ -30,6 +32,7 @@ const config = {
     db: 'mongodb://localhost/poi-production',
     secret: 'ProductionSecret',
     disableLogger: true,
+    env,
   },
 }
 

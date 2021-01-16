@@ -1,7 +1,10 @@
 import * as Sentry from '@sentry/node'
 
+import config from './config'
+
 Sentry.init({
   dsn: "https://99bc543aa0984d51917e02a873bb244f@o171991.ingest.sentry.io/5594215",
+  environment: config.env,
 })
 
 
