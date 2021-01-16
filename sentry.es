@@ -64,3 +64,11 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
     transaction.finish()
   })
 }
+
+export const reportCustomExceptionsMiddleware = async (ctx, next) => {
+  await next()
+
+  if (ctx.status === 404 && ctx._matchedRoute) {
+    captureException(new Error('unexpected 404'), ctx)
+  }
+}

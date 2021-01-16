@@ -12,7 +12,7 @@ import childProcess from 'child_process'
 import { trim } from 'lodash'
 
 import config from './config'
-import { captureException, sentryTracingMiddileaware } from './sentry'
+import { captureException, sentryTracingMiddileaware, reportCustomExceptionsMiddleware } from './sentry'
 
 bluebird.promisifyAll(mongoose)
 mongoose.Promise = Promise
@@ -26,6 +26,7 @@ mongoose.connection.on('error', () => {
 })
 
 app.use(sentryTracingMiddileaware)
+app.use(reportCustomExceptionsMiddleware)
 
 // Logger
 if (! config.disableLogger) {
