@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/node'
 import { extractTraceparentData, stripUrlQueryAndFragment, Integrations } from '@sentry/tracing'
+import _ from 'lodash'
 
 import config from './config'
 
@@ -55,6 +56,10 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
     scope.setTags({
       reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+      url: ctx.request.url,
+    })
+    scope.setContext({
+      data: _.get(ctx.request, 'body.data'),
     })
     transaction.finish()
   })
