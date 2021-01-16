@@ -6,7 +6,7 @@ import config from './config'
 Sentry.init({
   dsn: "https://99bc543aa0984d51917e02a873bb244f@o171991.ingest.sentry.io/5594215",
   environment: config.env,
-  tracesSampleRate: 0.2,
+  tracesSampleRate: 0.05,
   integrations: [
     new Integrations.Mongo(),
   ],
@@ -23,6 +23,7 @@ export const captureException = (err, ctx) => {
 }
 
 export const sentryTracingMiddileaware = async (ctx, next) => {
+  Sentry.withScope(scope => {})
   const reqMethod = (ctx.method || '').toUpperCase()
   const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url)
 
@@ -47,5 +48,8 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
     transaction.setName(`${reqMethod} ${mountPath}${ctx._matchedRoute}`)
   }
   transaction.setHttpStatus(ctx.status)
-  transaction.finish()
+  Sentry.withScope(scope => {
+    scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
+    transaction.finish()
+  })
 }
