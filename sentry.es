@@ -27,7 +27,6 @@ export const captureException = (err, ctx) => {
 }
 
 export const sentryTracingMiddileaware = async (ctx, next) => {
-  Sentry.withScope(scope => {})
   const reqMethod = (ctx.method || '').toUpperCase()
   const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url)
 
