@@ -12,7 +12,7 @@ import childProcess from 'child_process'
 import { trim } from 'lodash'
 
 import config from './config'
-import { captureException } from './sentry'
+import { captureException, sentryTracingMiddileaware } from './sentry'
 
 bluebird.promisifyAll(mongoose)
 mongoose.Promise = Promise
@@ -24,6 +24,8 @@ mongoose.connect(config.db)
 mongoose.connection.on('error', () => {
   throw new Error('Unable to connect to database at ' + config.db)
 })
+
+app.use(sentryTracingMiddileaware)
 
 // Logger
 if (! config.disableLogger) {
