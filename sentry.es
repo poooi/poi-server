@@ -58,9 +58,7 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
       reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
       url: ctx.request.url,
     })
-    scope.setContext({
-      data: _.get(ctx.request, 'body.data'),
-    })
+    scope.setContext('data', ctx.request.body.data)
     transaction.finish()
   })
 }
