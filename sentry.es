@@ -15,6 +15,9 @@ Sentry.init({
 export const captureException = (err, ctx) => {
   Sentry.withScope(function(scope) {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
+    scope.setTags({
+      reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+    })
     scope.addEventProcessor(function(event) {
       return Sentry.Handlers.parseRequest(event, ctx.request)
     })
@@ -50,6 +53,9 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
   transaction.setHttpStatus(ctx.status)
   Sentry.withScope(scope => {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
+    scope.setTags({
+      reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+    })
     transaction.finish()
   })
 }
