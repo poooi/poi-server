@@ -2,7 +2,9 @@
 set -e
 
 cd /srv/poi
-git pull
+git fetch origin
+git checkout master
+git reset --hard origin/master
 npm install
 supervisorctl restart poi
 supervisorctl restart poi-hook
