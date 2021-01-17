@@ -39,7 +39,7 @@
     "koa": "^2.13.1",
     "koa-bodyparser": "^4.3.0",
     "koa-cash": "^4.0.5",
-    "koa-logger": "^3.2.1",
+    "koa-pino-logger": "^3.0.0",
     "koa-static": "^5.0.0",
     "lodash": "^4.17.20",
     "mongoose": "^5.11.12",
