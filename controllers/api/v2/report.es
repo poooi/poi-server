@@ -33,7 +33,7 @@ router.post('/api/report/v2/create_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new CreateShipRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -48,7 +48,7 @@ router.post('/api/report/v2/create_item', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new CreateItemRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -63,7 +63,7 @@ router.post('/api/report/v2/remodel_item', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new RemodelItemRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -78,7 +78,7 @@ router.post('/api/report/v2/drop_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new DropShipRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -95,7 +95,7 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
     let record = await SelectRankRecord.findOne({
       teitokuId: info.teitokuId,
       mapareaId: info.mapareaId,
-    }).execAsync()
+    }).exec()
     if (record != null) {
       record.teitokuLv = info.teitokuLv
       record.rank = info.rank
@@ -103,7 +103,7 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
     } else {
       record = new SelectRankRecord(info)
     }
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -118,7 +118,7 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new PassEventRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -133,7 +133,7 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
 router.get('/api/report/v2/known_quests', async (ctx, next) => {
   try {
     if (await ctx.cashed()) return  // Cache control
-    const knownQuests = await Quest.find().distinct('questId').execAsync()
+    const knownQuests = await Quest.find().distinct('questId').exec()
     knownQuests.sort()
     ctx.status = 200
     ctx.body   = {
@@ -152,7 +152,7 @@ router.post('/api/report/v2/quest/:id', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new Quest(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -167,7 +167,7 @@ router.post('/api/report/v2/battle_api', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new BattleAPI(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -182,7 +182,7 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new NightContactRecord(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -205,7 +205,7 @@ router.post('/api/report/v2/aaci', async (ctx, next) => {
       semver.gte(info.origin.replace('Reporter ', ''), '3.6.0')
     ) {
       const record = new AACIRecord(info)
-      await record.saveAsync()
+      await record.save()
     }
     ctx.status = 200
     await next()
@@ -240,7 +240,7 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
       const lastReported = +new Date()
       const { recipeId, itemId, stage, day, secretary } = info
 
-      await RecipeRecord.updateAsync(
+      await RecipeRecord.update(
         { recipeId, itemId, stage, day, secretary },
         { ...info, lastReported, $inc: { count: 1 } },
         { upsert: true }
@@ -260,7 +260,7 @@ router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new NightBattleCI(info)
-    await record.saveAsync()
+    await record.save()
     ctx.status = 200
     await next()
   }
@@ -282,7 +282,7 @@ router.post('/api/report/v2/ship_stat', async (ctx, next) => {
   try {
     const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseInfo(ctx)
     const last_timestamp = +new Date()
-    await ShipStat.updateAsync({
+    await ShipStat.update({
       id, lv, los, los_max, asw, asw_max, evasion, evasion_max,
     }, {
       id, lv, los, los_max, asw, asw_max, evasion, evasion_max, last_timestamp, $inc: { count: 1 },
@@ -316,7 +316,7 @@ router.post('/api/report/v2/enemy_info', async (ctx, next) => {
       bombersMin,
       bombersMax,
     } = info
-    await EnemyInfo.updateAsync({
+    await EnemyInfo.update({
       ships1,
       levels1,
       hp1,

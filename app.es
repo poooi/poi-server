@@ -1,4 +1,3 @@
-import bluebird from 'bluebird'
 import Koa from 'koa'
 import bodyparser from 'koa-bodyparser'
 import cache from 'koa-cash'
@@ -14,13 +13,10 @@ import { trim } from 'lodash'
 import config from './config'
 import { captureException, sentryTracingMiddileaware, reportCustomExceptionsMiddleware } from './sentry'
 
-bluebird.promisifyAll(mongoose)
-mongoose.Promise = Promise
-
 const app = new Koa()
 
 // Database
-mongoose.connect(config.db)
+mongoose.connect(config.db, {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true})
 mongoose.connection.on('error', () => {
   throw new Error('Unable to connect to database at ' + config.db)
 })

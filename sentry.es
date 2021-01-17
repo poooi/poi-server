@@ -1,6 +1,5 @@
 import * as Sentry from '@sentry/node'
 import { extractTraceparentData, stripUrlQueryAndFragment, Integrations } from '@sentry/tracing'
-import _ from 'lodash'
 
 import config from './config'
 
