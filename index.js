@@ -1,2 +1,5 @@
-require('@babel/register')(require('./babel.config'))
+require('@babel/register')({
+  cache: false,
+})
+
 require('./app')
