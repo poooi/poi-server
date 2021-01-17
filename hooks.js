@@ -1,5 +1,5 @@
 const Koa = require('koa')
-const Router = require('koa-router')
+const Router = require('@koa/router')
 const ChildProcess = require('child_process')
 require('dotenv').config()
 
