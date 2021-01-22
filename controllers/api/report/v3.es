@@ -52,6 +52,8 @@ router.post('/quest', async (ctx, next) => {
     await bluebird.map(records, (quest) => {
       return Quest.updateOne({
         key: quest.key,
+        questId: quest.questId,
+        category: quest.category,
       }, { $setOnInsert: quest }, { upsert: true })
     })
 
