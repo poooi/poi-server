@@ -17,6 +17,7 @@ export const captureException = (err, ctx) => {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
     scope.setTags({
       reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+      version: global.latestCommit?.slice(0, 8),
     })
     scope.addEventProcessor(function(event) {
       return Sentry.Handlers.parseRequest(event, ctx.request)
