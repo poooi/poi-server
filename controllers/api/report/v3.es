@@ -18,7 +18,7 @@ const parseInfo = (ctx) => {
   return info
 }
 
-const createHash = text => crypto.createHash('md5').update(text).digest('hex')
+const createHash = _.memoize(text => crypto.createHash('md5').update(text).digest('hex'))
 
 const createQuestHash = ({ title, detail }) => createHash(`${title}${detail}`)
 
