@@ -149,18 +149,8 @@ router.get('/known_quests', async (ctx, next) => {
 })
 
 router.post('/quest/:id', async (ctx, next) => {
-  try {
-    const info = parseInfo(ctx)
-    const record = new Quest(info)
-    await record.save()
-    ctx.status = 200
-    await next()
-  }
-  catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
-  }
+  ctx.status = 200
+  await next()
 })
 
 router.post('/battle_api', async (ctx, next) => {

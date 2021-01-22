@@ -1,15 +1,13 @@
 import mongoose from 'mongoose'
 
 const Quest = new mongoose.Schema({
-  questId: {
-    type: Number,
-    unique: true,
-  },
+  questId:  Number,
   title: String,
   detail: String,
   category: Number,
   type: Number,
   origin: String,
+  key: String,
 })
 
 Quest.virtual('date').get(() => {
