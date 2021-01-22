@@ -6,7 +6,7 @@ import mongoose from 'mongoose'
 import config from '../../config'
 
 const dfAsync = bluebird.promisify(df)
-const router = Router()
+export const router = new Router()
 
 const CreateShipRecord   = mongoose.model('CreateShipRecord')
 const CreateItemRecord   = mongoose.model('CreateItemRecord')
@@ -19,7 +19,7 @@ const BattleAPI          = mongoose.model('BattleAPI')
 const AACIRecord         = mongoose.model('AACIRecord')
 const NightContactRecord = mongoose.model('NightContactRecord')
 
-router.get('/api/status', async (ctx, next) => {
+router.get('/status', async (ctx, next) => {
   const dsk = await dfAsync()
   const ret = {
     env : process.env.NODE_ENV,
@@ -42,7 +42,7 @@ router.get('/api/status', async (ctx, next) => {
   await next()
 })
 
-router.post('/api/github-master-hook', async (ctx, next) => {
+router.post('/github-master-hook', async (ctx, next) => {
   const update = childProcess.spawn(config.root + '/github-master-hook', [])
   update.stdout.on('data', (data) =>
     console.log('GitHub hook out: ' + data))
@@ -57,7 +57,7 @@ router.post('/api/github-master-hook', async (ctx, next) => {
   await next()
 })
 
-router.get('/api/latest-commit', async (ctx, next) => {
+router.get('/latest-commit', async (ctx, next) => {
   ctx.status = 200
   ctx.body = global.latestCommit
   await next()

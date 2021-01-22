@@ -13,6 +13,9 @@ import { trim } from 'lodash'
 import config from './config'
 import { captureException, sentryTracingMiddileaware, reportCustomExceptionsMiddleware } from './sentry'
 
+import './models'
+import { router } from './controllers'
+
 const app = new Koa()
 
 // Database
@@ -50,13 +53,8 @@ app.use(bodyparser({
   },
 }))
 
-// Models
-glob.sync(path.join(config.root, 'models/**'), { nodir: true })
-  .forEach((file) => require(file))
-
 // Controllers
-glob.sync(path.join(config.root, 'controllers/**'), { nodir: true })
-  .forEach((file) => require(file)(app))
+app.use(router.routes())
 
 // Static
 app.use(serve(path.join(config.root, 'public')))

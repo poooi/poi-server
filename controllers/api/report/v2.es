@@ -4,7 +4,7 @@ import semver from 'semver'
 import { captureException } from '../../../sentry'
 import { isString, flatMap, drop } from 'lodash'
 
-const router = Router()
+export const router = new Router()
 
 const CreateShipRecord   = mongoose.model('CreateShipRecord')
 const CreateItemRecord   = mongoose.model('CreateItemRecord')
@@ -29,7 +29,7 @@ function parseInfo(ctx) {
   return info
 }
 
-router.post('/api/report/v2/create_ship', async (ctx, next) => {
+router.post('/create_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new CreateShipRecord(info)
@@ -44,7 +44,7 @@ router.post('/api/report/v2/create_ship', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/create_item', async (ctx, next) => {
+router.post('/create_item', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new CreateItemRecord(info)
@@ -59,7 +59,7 @@ router.post('/api/report/v2/create_item', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/remodel_item', async (ctx, next) => {
+router.post('/remodel_item', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new RemodelItemRecord(info)
@@ -74,7 +74,7 @@ router.post('/api/report/v2/remodel_item', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/drop_ship', async (ctx, next) => {
+router.post('/drop_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new DropShipRecord(info)
@@ -89,7 +89,7 @@ router.post('/api/report/v2/drop_ship', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/select_rank', async (ctx, next) => {
+router.post('/select_rank', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     let record = await SelectRankRecord.findOne({
@@ -114,7 +114,7 @@ router.post('/api/report/v2/select_rank', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/pass_event', async (ctx, next) => {
+router.post('/pass_event', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new PassEventRecord(info)
@@ -130,7 +130,7 @@ router.post('/api/report/v2/pass_event', async (ctx, next) => {
 })
 
 // Use knownQuests to cache current known quests state.
-router.get('/api/report/v2/known_quests', async (ctx, next) => {
+router.get('/known_quests', async (ctx, next) => {
   try {
     if (await ctx.cashed()) return  // Cache control
     const knownQuests = await Quest.find().distinct('questId').exec()
@@ -148,7 +148,7 @@ router.get('/api/report/v2/known_quests', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/quest/:id', async (ctx, next) => {
+router.post('/quest/:id', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new Quest(info)
@@ -163,7 +163,7 @@ router.post('/api/report/v2/quest/:id', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/battle_api', async (ctx, next) => {
+router.post('/battle_api', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new BattleAPI(info)
@@ -178,7 +178,7 @@ router.post('/api/report/v2/battle_api', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/night_contcat', async (ctx, next) => {
+router.post('/night_contcat', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new NightContactRecord(info)
@@ -193,7 +193,7 @@ router.post('/api/report/v2/night_contcat', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/aaci', async (ctx, next) => {
+router.post('/aaci', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     // aaci type 7 in poi <= 7.9.0 is not correctly detected
@@ -218,7 +218,7 @@ router.post('/api/report/v2/aaci', async (ctx, next) => {
 })
 
 // FIXME: this action is no longer in use, keeping it until changes made in reporter
-router.get('/api/report/v2/known_recipes', async (ctx, next) => {
+router.get('/known_recipes', async (ctx, next) => {
   try {
     ctx.status = 200
     ctx.body   = {
@@ -233,7 +233,7 @@ router.get('/api/report/v2/known_recipes', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
+router.post('/remodel_recipe', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     if (info.stage != -1) {
@@ -256,7 +256,7 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/remodel_recipe_deduplicate', async (ctx, next) => {
+router.post('/remodel_recipe_deduplicate', async (ctx, next) => {
   try {
     const duplicates = await RecipeRecord.aggregate([
       { $group: { _id: "$key", "count": { $sum : 1}, records: { $addToSet: "$_id" } } },
@@ -280,7 +280,7 @@ router.post('/api/report/v2/remodel_recipe_deduplicate', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
+router.post('/night_battle_ci', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new NightBattleCI(info)
@@ -297,12 +297,12 @@ router.post('/api/report/v2/night_battle_ci', async (ctx, next) => {
 
 // Compat for legacy plugin's night battle ss ci reporter
 // which is now night battle ci reporter and has changed url to above
-router.post('/api/report/v2/night_battle_ss_ci', async (ctx, next) => {
+router.post('/night_battle_ss_ci', async (ctx, next) => {
   ctx.status = 200
   await next()
 })
 
-router.post('/api/report/v2/ship_stat', async (ctx, next) => {
+router.post('/ship_stat', async (ctx, next) => {
   try {
     const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseInfo(ctx)
     const last_timestamp = +new Date()
@@ -322,7 +322,7 @@ router.post('/api/report/v2/ship_stat', async (ctx, next) => {
   }
 })
 
-router.post('/api/report/v2/enemy_info', async (ctx, next) => {
+router.post('/enemy_info', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const {
@@ -379,6 +379,3 @@ router.post('/api/report/v2/enemy_info', async (ctx, next) => {
   }
 })
 
-export default (app) => {
-  app.use(router.routes())
-}
