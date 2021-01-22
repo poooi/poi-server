@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import mongoose from 'mongoose'
 import semver from 'semver'
 import { captureException } from '../../../sentry'
-import { isString } from 'lodash'
+import { isString, flatMap, drop } from 'lodash'
 
 const router = Router()
 
@@ -240,13 +240,37 @@ router.post('/api/report/v2/remodel_recipe', async (ctx, next) => {
       const lastReported = +new Date()
       const { recipeId, itemId, stage, day, secretary } = info
 
-      await RecipeRecord.update(
+      await RecipeRecord.updateOne(
         { recipeId, itemId, stage, day, secretary },
         { ...info, lastReported, $inc: { count: 1 } },
         { upsert: true }
       )
     }
     ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    captureException(err, ctx)
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/api/report/v2/remodel_recipe_deduplicate', async (ctx, next) => {
+  try {
+    const duplicates = await RecipeRecord.aggregate([
+      { $group: { _id: "$key", "count": { $sum : 1}, records: { $addToSet: "$_id" } } },
+      { $match: { _id: { $ne: null}, count: { $gt: 1 } } },
+    ]).exec()
+
+    const recordsToDelete = flatMap(duplicates, item => drop(item.records, 1))
+
+    await RecipeRecord.deleteMany({ _id: { $in: recordsToDelete }})
+
+    ctx.status = 200
+    ctx.body = {
+      recipes: recordsToDelete,
+    }
     await next()
   }
   catch (err) {
@@ -282,7 +306,7 @@ router.post('/api/report/v2/ship_stat', async (ctx, next) => {
   try {
     const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseInfo(ctx)
     const last_timestamp = +new Date()
-    await ShipStat.update({
+    await ShipStat.updateOne({
       id, lv, los, los_max, asw, asw_max, evasion, evasion_max,
     }, {
       id, lv, los, los_max, asw, asw_max, evasion, evasion_max, last_timestamp, $inc: { count: 1 },
@@ -316,7 +340,7 @@ router.post('/api/report/v2/enemy_info', async (ctx, next) => {
       bombersMin,
       bombersMax,
     } = info
-    await EnemyInfo.update({
+    await EnemyInfo.updateOne({
       ships1,
       levels1,
       hp1,
