@@ -44,17 +44,17 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
   ctx.__sentry_transaction = transaction
   await next()
 
-  // if using koa router, a nicer way to capture transaction using the matched route
-  if (ctx._matchedRoute) {
-    const mountPath = ctx.mountPath || ""
-    transaction.setName(`${reqMethod} ${mountPath}${ctx._matchedRoute}`)
-  }
+
+  const mountPath = ctx.mountPath || ""
+  transaction.setName(`${reqMethod} ${mountPath}${ctx.path}`)
+
   transaction.setHttpStatus(ctx.status)
   Sentry.withScope(scope => {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
     scope.setTags({
       reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
       url: ctx.request.url,
+      version: global.latestCommit?.slice(0, 8),
     })
     scope.setContext('data', ctx.request.body.data)
     transaction.finish()
