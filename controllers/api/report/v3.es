@@ -52,7 +52,7 @@ router.post('/quest', async (ctx, next) => {
     await bluebird.map(records, (quest) => {
       return Quest.updateOne({
         key: quest.key,
-      }, quest, { upsert: true })
+      }, { $setOnInsert: quest }, { upsert: true })
     })
 
     ctx.status = 200
