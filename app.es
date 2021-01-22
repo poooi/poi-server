@@ -2,9 +2,7 @@ import Koa from 'koa'
 import bodyparser from 'koa-bodyparser'
 import cache from 'koa-cash'
 import logger from 'koa-pino-logger'
-import serve from 'koa-static'
 import Cache from 'node-cache'
-import path from 'path'
 import mongoose from 'mongoose'
 import childProcess from 'child_process'
 import { trim } from 'lodash'
@@ -48,15 +46,13 @@ app.use(cache({
 app.use(bodyparser({
   strict: true,
   onerror: (err, ctx) => {
+    captureException(err, ctx)
     console.error(`bodyparser error`)
   },
 }))
 
 // Controllers
 app.use(router.routes())
-
-// Static
-app.use(serve(path.join(config.root, 'public')))
 
 app.listen(config.port, '127.0.0.1', () => {
   console.log(`Koa is listening on port ${config.port}`)
