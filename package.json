@@ -29,8 +29,8 @@
     "@babel/preset-env": "^7.12.11",
     "@babel/register": "^7.12.10",
     "@koa/router": "^10.0.0",
-    "@sentry/node": "^5.30.0",
-    "@sentry/tracing": "^5.30.0",
+    "@sentry/node": "^6.0.1",
+    "@sentry/tracing": "^6.0.1",
     "babel-plugin-add-module-exports": "^1.0.4",
     "bluebird": "^3.7.2",
     "df": "^1.1.1",
@@ -40,14 +40,14 @@
     "koa-cash": "^4.0.5",
     "koa-pino-logger": "^3.0.0",
     "lodash": "^4.17.20",
-    "mongoose": "^5.11.12",
+    "mongoose": "^5.11.13",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.1",
     "semver": "^7.3.4"
   },
   "devDependencies": {
-    "babel-eslint": "^7.2.1",
-    "eslint": "^3.19.0",
-    "eslint-plugin-import": "^2.2.0"
+    "babel-eslint": "^10.1.0",
+    "eslint": "^7.18.0",
+    "eslint-plugin-import": "^2.22.1"
   }
 }
