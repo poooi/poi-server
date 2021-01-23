@@ -6,23 +6,25 @@ import { isString, flatMap, drop } from 'lodash'
 
 export const router = new Router()
 
-const CreateShipRecord   = mongoose.model('CreateShipRecord')
-const CreateItemRecord   = mongoose.model('CreateItemRecord')
-const RemodelItemRecord  = mongoose.model('RemodelItemRecord')
-const DropShipRecord     = mongoose.model('DropShipRecord')
-const SelectRankRecord   = mongoose.model('SelectRankRecord')
-const PassEventRecord    = mongoose.model('PassEventRecord')
-const Quest              = mongoose.model('Quest')
-const BattleAPI          = mongoose.model('BattleAPI')
+const CreateShipRecord = mongoose.model('CreateShipRecord')
+const CreateItemRecord = mongoose.model('CreateItemRecord')
+const RemodelItemRecord = mongoose.model('RemodelItemRecord')
+const DropShipRecord = mongoose.model('DropShipRecord')
+const SelectRankRecord = mongoose.model('SelectRankRecord')
+const PassEventRecord = mongoose.model('PassEventRecord')
+const Quest = mongoose.model('Quest')
+const BattleAPI = mongoose.model('BattleAPI')
 const NightContactRecord = mongoose.model('NightContactRecord')
-const AACIRecord         = mongoose.model('AACIRecord')
-const RecipeRecord       = mongoose.model('RecipeRecord')
-const NightBattleCI      = mongoose.model('NightBattleCI')
-const ShipStat           = mongoose.model('ShipStat')
-const EnemyInfo          = mongoose.model('EnemyInfo')
+const AACIRecord = mongoose.model('AACIRecord')
+const RecipeRecord = mongoose.model('RecipeRecord')
+const NightBattleCI = mongoose.model('NightBattleCI')
+const ShipStat = mongoose.model('ShipStat')
+const EnemyInfo = mongoose.model('EnemyInfo')
 
 function parseInfo(ctx) {
-  const info = isString(ctx.request.body.data) ? JSON.parse(ctx.request.body.data) : ctx.request.body.data
+  const info = isString(ctx.request.body.data)
+    ? JSON.parse(ctx.request.body.data)
+    : ctx.request.body.data
   if (info.origin == null) {
     info.origin = ctx.headers['x-reporter'] || ctx.headers['user-agent']
   }
@@ -36,8 +38,7 @@ router.post('/create_ship', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -51,8 +52,7 @@ router.post('/create_item', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -66,8 +66,7 @@ router.post('/remodel_item', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -81,8 +80,7 @@ router.post('/drop_ship', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -106,8 +104,7 @@ router.post('/select_rank', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -121,8 +118,7 @@ router.post('/pass_event', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -132,16 +128,15 @@ router.post('/pass_event', async (ctx, next) => {
 // Use knownQuests to cache current known quests state.
 router.get('/known_quests', async (ctx, next) => {
   try {
-    if (await ctx.cashed()) return  // Cache control
+    if (await ctx.cashed()) return // Cache control
     const knownQuests = await Quest.find().distinct('questId').exec()
     knownQuests.sort()
     ctx.status = 200
-    ctx.body   = {
+    ctx.body = {
       quests: knownQuests,
     }
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -160,8 +155,7 @@ router.post('/battle_api', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -175,8 +169,7 @@ router.post('/night_contcat', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -199,8 +192,7 @@ router.post('/aaci', async (ctx, next) => {
     }
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -211,12 +203,11 @@ router.post('/aaci', async (ctx, next) => {
 router.get('/known_recipes', async (ctx, next) => {
   try {
     ctx.status = 200
-    ctx.body   = {
+    ctx.body = {
       recipes: [],
     }
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -233,13 +224,12 @@ router.post('/remodel_recipe', async (ctx, next) => {
       await RecipeRecord.updateOne(
         { recipeId, itemId, stage, day, secretary },
         { ...info, lastReported, $inc: { count: 1 } },
-        { upsert: true }
+        { upsert: true },
       )
     }
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -249,21 +239,20 @@ router.post('/remodel_recipe', async (ctx, next) => {
 router.post('/remodel_recipe_deduplicate', async (ctx, next) => {
   try {
     const duplicates = await RecipeRecord.aggregate([
-      { $group: { _id: "$key", "count": { $sum : 1}, records: { $addToSet: "$_id" } } },
-      { $match: { _id: { $ne: null}, count: { $gt: 1 } } },
+      { $group: { _id: '$key', count: { $sum: 1 }, records: { $addToSet: '$_id' } } },
+      { $match: { _id: { $ne: null }, count: { $gt: 1 } } },
     ]).exec()
 
-    const recordsToDelete = flatMap(duplicates, item => drop(item.records, 1))
+    const recordsToDelete = flatMap(duplicates, (item) => drop(item.records, 1))
 
-    await RecipeRecord.deleteMany({ _id: { $in: recordsToDelete }})
+    await RecipeRecord.deleteMany({ _id: { $in: recordsToDelete } })
 
     ctx.status = 200
     ctx.body = {
       recipes: recordsToDelete,
     }
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -277,8 +266,7 @@ router.post('/night_battle_ci', async (ctx, next) => {
     await record.save()
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -296,13 +284,33 @@ router.post('/ship_stat', async (ctx, next) => {
   try {
     const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseInfo(ctx)
     const last_timestamp = +new Date()
-    await ShipStat.updateOne({
-      id, lv, los, los_max, asw, asw_max, evasion, evasion_max,
-    }, {
-      id, lv, los, los_max, asw, asw_max, evasion, evasion_max, last_timestamp, $inc: { count: 1 },
-    }, {
-      upsert: true,
-    })
+    await ShipStat.updateOne(
+      {
+        id,
+        lv,
+        los,
+        los_max,
+        asw,
+        asw_max,
+        evasion,
+        evasion_max,
+      },
+      {
+        id,
+        lv,
+        los,
+        los_max,
+        asw,
+        asw_max,
+        evasion,
+        evasion_max,
+        last_timestamp,
+        $inc: { count: 1 },
+      },
+      {
+        upsert: true,
+      },
+    )
     ctx.status = 200
     await next()
   } catch (err) {
@@ -330,36 +338,40 @@ router.post('/enemy_info', async (ctx, next) => {
       bombersMin,
       bombersMax,
     } = info
-    await EnemyInfo.updateOne({
-      ships1,
-      levels1,
-      hp1,
-      stats1,
-      equips1,
-      ships2,
-      levels2,
-      hp2,
-      stats2,
-      equips2,
-      planes,
-    }, {
-      ships1,
-      levels1,
-      hp1,
-      stats1,
-      equips1,
-      ships2,
-      levels2,
-      hp2,
-      stats2,
-      equips2,
-      planes,
-      $min: { bombersMax },
-      $max: { bombersMin },
-      $inc: { count: 1 },
-    }, {
-      upsert: true,
-    })
+    await EnemyInfo.updateOne(
+      {
+        ships1,
+        levels1,
+        hp1,
+        stats1,
+        equips1,
+        ships2,
+        levels2,
+        hp2,
+        stats2,
+        equips2,
+        planes,
+      },
+      {
+        ships1,
+        levels1,
+        hp1,
+        stats1,
+        equips1,
+        ships2,
+        levels2,
+        hp2,
+        stats2,
+        equips2,
+        planes,
+        $min: { bombersMax },
+        $max: { bombersMin },
+        $inc: { count: 1 },
+      },
+      {
+        upsert: true,
+      },
+    )
     ctx.status = 200
     await next()
   } catch (err) {
@@ -368,4 +380,3 @@ router.post('/enemy_info', async (ctx, next) => {
     await next()
   }
 })
-

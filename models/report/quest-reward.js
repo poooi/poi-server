@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 
 const QuestReward = new mongoose.Schema({
-  questId:  Number,
+  questId: Number,
   title: String,
   detail: String,
   category: Number,

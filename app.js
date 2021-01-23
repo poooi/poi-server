@@ -8,7 +8,11 @@ import childProcess from 'child_process'
 import { trim } from 'lodash'
 
 import config from './config'
-import { captureException, sentryTracingMiddileaware, reportCustomExceptionsMiddleware } from './sentry'
+import {
+  captureException,
+  sentryTracingMiddileaware,
+  reportCustomExceptionsMiddleware,
+} from './sentry'
 
 import './models'
 import { router } from './controllers'
@@ -16,7 +20,11 @@ import { router } from './controllers'
 const app = new Koa()
 
 // Database
-mongoose.connect(config.db, {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true})
+mongoose.connect(config.db, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true,
+})
 mongoose.connection.on('error', () => {
   throw new Error('Unable to connect to database at ' + config.db)
 })
@@ -25,7 +33,7 @@ app.use(sentryTracingMiddileaware)
 app.use(reportCustomExceptionsMiddleware)
 
 // Logger
-if (! config.disableLogger) {
+if (!config.disableLogger) {
   app.use(logger())
 }
 
@@ -34,22 +42,24 @@ const _cache = new Cache({
   stdTTL: 10 * 60,
   checkperiod: 0,
 })
-app.use(cache({
-  threshold: '1GB',  // Compression is handled by nginx.
-  get: (key, maxAge) =>
-    _cache.get(key),
-  set: (key, value, maxAge) =>
-    _cache.set(key, value, maxAge > 0 ? maxAge : null),
-}))
+app.use(
+  cache({
+    threshold: '1GB', // Compression is handled by nginx.
+    get: (key, maxAge) => _cache.get(key),
+    set: (key, value, maxAge) => _cache.set(key, value, maxAge > 0 ? maxAge : null),
+  }),
+)
 
 // Body Parser
-app.use(bodyparser({
-  strict: true,
-  onerror: (err, ctx) => {
-    captureException(err, ctx)
-    console.error(`bodyparser error`)
-  },
-}))
+app.use(
+  bodyparser({
+    strict: true,
+    onerror: (err, ctx) => {
+      captureException(err, ctx)
+      console.error(`bodyparser error`)
+    },
+  }),
+)
 
 // Controllers
 app.use(router.routes())

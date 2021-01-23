@@ -19,22 +19,21 @@ const parseInfo = (ctx) => {
   return info
 }
 
-const createHash = _.memoize(text => crypto.createHash('md5').update(text).digest('hex'))
+const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
 
 const createQuestHash = ({ title, detail }) => createHash(`${title}${detail}`)
 
 router.get('/known_quests', async (ctx, next) => {
   try {
-    if (await ctx.cashed()) return  // Cache control
+    if (await ctx.cashed()) return // Cache control
     const knownQuests = await Quest.distinct('key').exec()
-    const quests = knownQuests.map(key => key.slice(0, 8))
+    const quests = knownQuests.map((key) => key.slice(0, 8))
     ctx.status = 200
-    ctx.body   = {
+    ctx.body = {
       quests,
     }
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -44,24 +43,27 @@ router.get('/known_quests', async (ctx, next) => {
 router.post('/quest', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
-    const records = _.map(info.quests, quest => ({
+    const records = _.map(info.quests, (quest) => ({
       ...quest,
       key: createQuestHash(quest),
       origin: info.origin,
     }))
 
     await bluebird.map(records, (quest) => {
-      return Quest.updateOne({
-        key: quest.key,
-        questId: quest.questId,
-        category: quest.category,
-      }, { $setOnInsert: quest }, { upsert: true })
+      return Quest.updateOne(
+        {
+          key: quest.key,
+          questId: quest.questId,
+          category: quest.category,
+        },
+        { $setOnInsert: quest },
+        { upsert: true },
+      )
     })
 
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
@@ -74,27 +76,29 @@ router.post('/quest_reward', async (ctx, next) => {
 
     const key = createQuestHash(info)
 
-    await QuestReward.updateOne({
-      key,
-      questId: info.questId,
-      selections: info.selections,
-      bounsCount: info.bounsCount,
-    }, { $setOnInsert: info },  { upsert: true })
+    await QuestReward.updateOne(
+      {
+        key,
+        questId: info.questId,
+        selections: info.selections,
+        bounsCount: info.bounsCount,
+      },
+      { $setOnInsert: info },
+      { upsert: true },
+    )
 
     ctx.status = 200
     await next()
-  }
-  catch (err) {
+  } catch (err) {
     captureException(err, ctx)
     ctx.status = 500
     await next()
   }
 })
 
-
 router.post('/quest_normalize', async (ctx, next) => {
   const quests = await Quest.find({ key: { $eq: null } }).exec()
-  await bluebird.map(quests, quest => Quest.updateOne(quest, { key: createQuestHash(quest) }))
+  await bluebird.map(quests, (quest) => Quest.updateOne(quest, { key: createQuestHash(quest) }))
   ctx.status = 200
   ctx.body = {
     quests,

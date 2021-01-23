@@ -5,12 +5,14 @@ const PassEventRecord = new mongoose.Schema({
   teitokuLv: Number,
   mapId: Number,
   mapLv: Number,
-  rewards: [{
-    rewardType: Number,
-    rewardId: Number,
-    rewardCount: Number,
-    rewardLevel: Number,
-  }],
+  rewards: [
+    {
+      rewardType: Number,
+      rewardId: Number,
+      rewardCount: Number,
+      rewardLevel: Number,
+    },
+  ],
   origin: String,
 })
 
