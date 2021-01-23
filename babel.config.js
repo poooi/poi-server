@@ -1,4 +1,4 @@
 module.exports = {
-  presets: [['@babel/preset-env', { targets: { node: '14' } }]],
+  presets: [['@babel/preset-env', { targets: { node: '14' } }], '@babel/preset-typescript'],
   plugins: [require.resolve('babel-plugin-add-module-exports')],
 }

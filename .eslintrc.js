@@ -3,21 +3,19 @@ module.exports = {
     es6: true,
     node: true,
   },
-  extends: ['eslint:recommended', 'plugin:import/errors', 'plugin:import/warnings', 'prettier'],
-  parser: 'babel-eslint',
-  plugins: ['import', 'prettier'],
+  extends: [
+    'eslint:recommended',
+    'plugin:import/errors',
+    'plugin:import/warnings',
+    'plugin:import/typescript',
+    'plugin:@typescript-eslint/recommended',
+    'prettier',
+    'prettier/@typescript-eslint',
+  ],
+  parser: '@typescript-eslint/parser',
+  plugins: ['import', 'prettier', '@typescript-eslint'],
   rules: {
     'no-console': 'off',
-    'no-var': 'error',
-    'no-unused-vars': ['warn', { args: 'none' }],
     'prettier/prettier': 'error',
-  },
-  settings: {
-    'import/resolver': {
-      node: {
-        extensions: ['.js', '.jsx', '.es', '.coffee', '.cjsx'],
-        paths: [__dirname],
-      },
-    },
   },
 }

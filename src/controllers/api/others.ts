@@ -1,11 +1,9 @@
-import bluebird from 'bluebird'
 import Router from '@koa/router'
-import df from 'df'
+import df from '@sindresorhus/df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
-import config from '../../config'
+import config from '../../../config'
 
-const dfAsync = bluebird.promisify(df)
 export const router = new Router()
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
@@ -20,7 +18,7 @@ const AACIRecord = mongoose.model('AACIRecord')
 const NightContactRecord = mongoose.model('NightContactRecord')
 
 router.get('/status', async (ctx, next) => {
-  const dsk = await dfAsync()
+  const dsk = await df()
   const ret = {
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),

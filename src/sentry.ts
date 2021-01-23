@@ -1,7 +1,9 @@
 import * as Sentry from '@sentry/node'
+import { ExpressRequest } from '@sentry/node/dist/handlers'
 import { extractTraceparentData, stripUrlQueryAndFragment, Integrations } from '@sentry/tracing'
+import { DefaultState, DefaultContext, Middleware, ParameterizedContext } from 'koa'
 
-import config from './config'
+import config from '../config'
 
 Sentry.init({
   dsn: 'https://99bc543aa0984d51917e02a873bb244f@o171991.ingest.sentry.io/5594215',
@@ -10,7 +12,10 @@ Sentry.init({
   integrations: [new Integrations.Mongo()],
 })
 
-export const captureException = (err, ctx) => {
+export const captureException = (
+  err: Error,
+  ctx: ParameterizedContext<DefaultState, DefaultContext>,
+): void => {
   Sentry.withScope(function (scope) {
     scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
     scope.setTags({
@@ -18,13 +23,13 @@ export const captureException = (err, ctx) => {
       version: global.latestCommit?.slice(0, 8),
     })
     scope.addEventProcessor(function (event) {
-      return Sentry.Handlers.parseRequest(event, ctx.request)
+      return Sentry.Handlers.parseRequest(event, (ctx.request as any) as ExpressRequest)
     })
     Sentry.captureException(err)
   })
 }
 
-export const sentryTracingMiddileaware = async (ctx, next) => {
+export const sentryTracingMiddileaware: Middleware = async (ctx, next) => {
   const reqMethod = (ctx.method || '').toUpperCase()
   const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url)
 
@@ -57,12 +62,4 @@ export const sentryTracingMiddileaware = async (ctx, next) => {
     scope.setContext('data', ctx.request.body.data)
     transaction.finish()
   })
-}
-
-export const reportCustomExceptionsMiddleware = async (ctx, next) => {
-  await next()
-
-  if (ctx.status === 404 && ctx._matchedRoute) {
-    captureException(new Error('unexpected 404'), ctx)
-  }
 }

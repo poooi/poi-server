@@ -6,16 +6,13 @@ import Cache from 'node-cache'
 import mongoose from 'mongoose'
 import childProcess from 'child_process'
 import { trim } from 'lodash'
+import bytes from 'bytes'
 
 import config from './config'
-import {
-  captureException,
-  sentryTracingMiddileaware,
-  reportCustomExceptionsMiddleware,
-} from './sentry'
+import { captureException, sentryTracingMiddileaware } from './src/sentry'
 
-import './models'
-import { router } from './controllers'
+import './src/models'
+import { router } from './src/controllers'
 
 const app = new Koa()
 
@@ -30,7 +27,6 @@ mongoose.connection.on('error', () => {
 })
 
 app.use(sentryTracingMiddileaware)
-app.use(reportCustomExceptionsMiddleware)
 
 // Logger
 if (!config.disableLogger) {
@@ -44,9 +40,11 @@ const _cache = new Cache({
 })
 app.use(
   cache({
-    threshold: '1GB', // Compression is handled by nginx.
-    get: (key, maxAge) => _cache.get(key),
-    set: (key, value, maxAge) => _cache.set(key, value, maxAge > 0 ? maxAge : null),
+    threshold: bytes('1GB'), // Compression is handled by nginx.
+    get: async (key) => _cache.get(key),
+    set: async (key, value, maxAge) => {
+      _cache.set(key, value, maxAge > 0 ? maxAge : 0)
+    },
   }),
 )
 
