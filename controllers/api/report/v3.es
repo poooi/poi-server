@@ -9,6 +9,7 @@ import { captureException } from '../../../sentry'
 export const router = new Router()
 
 const Quest = mongoose.model('Quest')
+const QuestReward = mongoose.model('QuestReward')
 
 const parseInfo = (ctx) => {
   const info = ctx.request.body.data
@@ -56,6 +57,29 @@ router.post('/quest', async (ctx, next) => {
         category: quest.category,
       }, { $setOnInsert: quest }, { upsert: true })
     })
+
+    ctx.status = 200
+    await next()
+  }
+  catch (err) {
+    captureException(err, ctx)
+    ctx.status = 500
+    await next()
+  }
+})
+
+router.post('/quest_reward', async (ctx, next) => {
+  try {
+    const info = parseInfo(ctx)
+
+    const key = createQuestHash(info)
+
+    await QuestReward.updateOne({
+      key,
+      questId: info.questId,
+      selections: info.selections,
+      bounsCount: info.bounsCount,
+    }, { $setOnInsert: info },  { upsert: true })
 
     ctx.status = 200
     await next()
