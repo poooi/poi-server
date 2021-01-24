@@ -1,8 +1,10 @@
 import Router from '@koa/router'
 import mongoose from 'mongoose'
 import semver from 'semver'
-import { captureException } from '../../../sentry'
+import { ParameterizedContext } from 'koa'
 import { isString, flatMap, drop } from 'lodash'
+
+import { captureException } from '../../../sentry'
 
 export const router = new Router()
 
@@ -21,7 +23,7 @@ const NightBattleCI = mongoose.model('NightBattleCI')
 const ShipStat = mongoose.model('ShipStat')
 const EnemyInfo = mongoose.model('EnemyInfo')
 
-function parseInfo(ctx) {
+function parseInfo(ctx: ParameterizedContext) {
   const info = isString(ctx.request.body.data)
     ? JSON.parse(ctx.request.body.data)
     : ctx.request.body.data

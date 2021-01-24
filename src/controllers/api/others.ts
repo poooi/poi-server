@@ -57,7 +57,3 @@ router.get('/latest-commit', async (ctx, next) => {
   ctx.body = global.latestCommit
   await next()
 })
-
-export default (app) => {
-  app.use(router.routes())
-}

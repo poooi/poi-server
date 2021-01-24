@@ -3,15 +3,20 @@ import mongoose from 'mongoose'
 import crypto from 'crypto'
 import _ from 'lodash'
 import bluebird from 'bluebird'
+import { ParameterizedContext } from 'koa'
 
 import { captureException } from '../../../sentry'
+import {
+  QuestPayload,
+  QuestRewardPayload,
+  Quest,
+  QuestReward,
+  QuestDocument,
+} from '../../../models'
 
 export const router = new Router()
 
-const Quest = mongoose.model('Quest')
-const QuestReward = mongoose.model('QuestReward')
-
-const parseInfo = (ctx) => {
+const parseInfo = (ctx: ParameterizedContext) => {
   const info = ctx.request.body.data
   if (info.origin == null) {
     info.origin = ctx.headers['x-reporter'] || ctx.headers['user-agent']
@@ -21,12 +26,13 @@ const parseInfo = (ctx) => {
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
 
-const createQuestHash = ({ title, detail }) => createHash(`${title}${detail}`)
+const createQuestHash = ({ title, detail }: QuestPayload | QuestRewardPayload) =>
+  createHash(`${title}${detail}`)
 
 router.get('/known_quests', async (ctx, next) => {
   try {
     if (await ctx.cashed()) return // Cache control
-    const knownQuests = await Quest.distinct('key').exec()
+    const knownQuests: QuestDocument['key'][] = await Quest.distinct('key').exec()
     const quests = knownQuests.map((key) => key.slice(0, 8))
     ctx.status = 200
     ctx.body = {
@@ -94,14 +100,4 @@ router.post('/quest_reward', async (ctx, next) => {
     ctx.status = 500
     await next()
   }
-})
-
-router.post('/quest_normalize', async (ctx, next) => {
-  const quests = await Quest.find({ key: { $eq: null } }).exec()
-  await bluebird.map(quests, (quest) => Quest.updateOne(quest, { key: createQuestHash(quest) }))
-  ctx.status = 200
-  ctx.body = {
-    quests,
-  }
-  await next()
 })

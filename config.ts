@@ -2,7 +2,19 @@ import path from 'path'
 const rootPath = path.normalize(__dirname)
 const env = process.env.NODE_ENV || 'development'
 
-const config = {
+interface EnvConfig {
+  root: string
+  app: {
+    name: string
+  }
+  port: number
+  db: string
+  secret: string
+  disableLogger?: boolean
+  env: string
+}
+
+const config: { [key: string]: EnvConfig } = {
   development: {
     root: rootPath,
     app: {
@@ -36,4 +48,4 @@ const config = {
   },
 }
 
-export default config[env]
+export default config[env as keyof typeof config]

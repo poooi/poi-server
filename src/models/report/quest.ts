@@ -9,11 +9,11 @@ export interface QuestPayload {
   origin: string
 }
 
-interface QuestPayloadDocument extends Document, QuestPayload {
+export interface QuestDocument extends Document, QuestPayload {
   key: string
 }
 
-const QuestSchema = new mongoose.Schema<QuestPayloadDocument>({
+const QuestSchema = new mongoose.Schema<QuestDocument>({
   questId: Number,
   title: String,
   detail: String,
@@ -23,8 +23,8 @@ const QuestSchema = new mongoose.Schema<QuestPayloadDocument>({
   key: String,
 })
 
-QuestSchema.virtual('date').get(function (this: QuestPayloadDocument) {
+QuestSchema.virtual('date').get(function (this: QuestDocument) {
   this._id.getTimestamp()
 })
 
-export const Quest = mongoose.model<QuestPayloadDocument>('Quest', QuestSchema)
+export const Quest = mongoose.model<QuestDocument>('Quest', QuestSchema)
