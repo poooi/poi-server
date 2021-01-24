@@ -1,6 +1,16 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const SelectRankRecord = new mongoose.Schema({
+export interface SelectRankRecordPayload {
+  teitokuId: string
+  teitokuLv: number
+  mapareaId: number
+  rank: number
+  origin: string
+}
+
+interface SelectRankRecordDocument extends SelectRankRecordPayload, Document {}
+
+const SelectRankRecordSchema = new mongoose.Schema<SelectRankRecordDocument>({
   teitokuId: String,
   teitokuLv: Number,
   mapareaId: Number,
@@ -8,8 +18,11 @@ const SelectRankRecord = new mongoose.Schema({
   origin: String,
 })
 
-SelectRankRecord.virtual('date').get(() => {
+SelectRankRecordSchema.virtual('date').get(function (this: SelectRankRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('SelectRankRecord', SelectRankRecord)
+export const SelectRankRecord = mongoose.model<SelectRankRecordDocument>(
+  'SelectRankRecord',
+  SelectRankRecordSchema,
+)

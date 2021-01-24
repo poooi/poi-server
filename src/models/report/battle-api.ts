@@ -6,14 +6,20 @@ interface BattleAPIDocument extends Document {
   data: any
 }
 
-const BattleAPI = new mongoose.Schema<BattleAPIDocument>({
+export interface BattleAPIPayload {
+  path: BattleAPIDocument['path']
+  data: BattleAPIDocument['data']
+  origin: BattleAPIDocument['origin']
+}
+
+const BattleAPISchema = new mongoose.Schema<BattleAPIDocument>({
   origin: String,
   path: String,
   data: Object,
 })
 
-BattleAPI.virtual('date').get(function (this: BattleAPIDocument) {
+BattleAPISchema.virtual('date').get(function (this: BattleAPIDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('BattleAPI', BattleAPI)
+export const BattleAPI = mongoose.model<BattleAPIDocument>('BattleAPI', BattleAPISchema)

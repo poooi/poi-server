@@ -1,6 +1,19 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const Quest = new mongoose.Schema({
+export interface QuestPayload {
+  questId: number
+  title: string
+  detail: string
+  category: number
+  type: number
+  origin: string
+}
+
+interface QuestPayloadDocument extends Document, QuestPayload {
+  key: string
+}
+
+const QuestSchema = new mongoose.Schema<QuestPayloadDocument>({
   questId: Number,
   title: String,
   detail: String,
@@ -10,8 +23,8 @@ const Quest = new mongoose.Schema({
   key: String,
 })
 
-Quest.virtual('date').get(() => {
+QuestSchema.virtual('date').get(function (this: QuestPayloadDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('Quest', Quest)
+export const Quest = mongoose.model<QuestPayloadDocument>('Quest', QuestSchema)

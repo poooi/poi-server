@@ -1,6 +1,17 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const CreateItemRecord = new mongoose.Schema({
+export interface CreateItemRecordPayload {
+  items: number[]
+  secretary: number
+  itemId: number
+  teitokuLv: number
+  successful: boolean
+  origin: string
+}
+
+interface CreateItemRecordDocument extends Document, CreateItemRecordPayload {}
+
+const CreateItemRecordSchema = new mongoose.Schema<CreateItemRecordDocument>({
   items: [Number],
   secretary: Number,
   itemId: Number,
@@ -9,8 +20,11 @@ const CreateItemRecord = new mongoose.Schema({
   origin: String,
 })
 
-CreateItemRecord.virtual('date').get(() => {
+CreateItemRecordSchema.virtual('date').get(function (this: CreateItemRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('CreateItemRecord', CreateItemRecord)
+export const CreateItemRecord = mongoose.model<CreateItemRecordDocument>(
+  'CreateItemRecord',
+  CreateItemRecordSchema,
+)

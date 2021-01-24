@@ -1,6 +1,22 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const RemodelItemRecord = new mongoose.Schema({
+export interface RemodelItemRecordPayload {
+  successful: boolean
+  itemId: number
+  itemLevel: number
+  flagshipId: number
+  flagshipLevel: number
+  flagshipCond: number
+  consortId: number
+  consortLevel: number
+  consortCond: number
+  teitokuLv: number
+  certain: boolean
+}
+
+interface RemodelItemRecordDocument extends RemodelItemRecordPayload, Document {}
+
+const RemodelItemRecordSchema = new mongoose.Schema<RemodelItemRecordDocument>({
   successful: Boolean,
   itemId: Number,
   itemLevel: Number,
@@ -14,8 +30,11 @@ const RemodelItemRecord = new mongoose.Schema({
   certain: Boolean,
 })
 
-RemodelItemRecord.virtual('date').get(() => {
+RemodelItemRecordSchema.virtual('date').get(function (this: RemodelItemRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('RemodelItemRecord', RemodelItemRecord)
+export const RemodelItemRecord = mongoose.model<RemodelItemRecordDocument>(
+  'RemodelItemRecord',
+  RemodelItemRecordSchema,
+)

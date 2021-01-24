@@ -1,6 +1,28 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const DropShipRecord = new mongoose.Schema({
+export interface DropShipRecordPayload {
+  shipId: number
+  itemId: number
+  mapId: number
+  quest: string
+  cellId: number
+  enemy: string
+  rank: string
+  isBoss: boolean
+  teitokuLv: number
+  mapLv: number
+  enemyShips1: number[]
+  enemyShips2: number[]
+  enemyFormation: number
+  baseExp: number
+  teitokuId: string
+  shipCounts: number[]
+  origin: string
+}
+
+interface DropShipRecordDocument extends Document, DropShipRecordPayload {}
+
+const DropShipRecordSchema = new mongoose.Schema<DropShipRecordDocument>({
   shipId: Number,
   itemId: Number,
   mapId: Number,
@@ -20,8 +42,11 @@ const DropShipRecord = new mongoose.Schema({
   origin: String,
 })
 
-DropShipRecord.virtual('date').get(() => {
+DropShipRecordSchema.virtual('date').get(function (this: DropShipRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('DropShipRecord', DropShipRecord)
+export const DropShipRecord = mongoose.model<DropShipRecordDocument>(
+  'DropShipRecord',
+  DropShipRecordSchema,
+)

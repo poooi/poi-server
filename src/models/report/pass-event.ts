@@ -1,6 +1,22 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const PassEventRecord = new mongoose.Schema({
+export interface PassEventRecordPayload {
+  teitokuId: string
+  teitokuLv: number
+  mapId: number
+  mapLv: number
+  rewards: {
+    rewardType: number
+    rewardId: number
+    rewardCount: number
+    rewardLevel: number
+  }[]
+  origin: string
+}
+
+interface PassEventRecordDocument extends PassEventRecordPayload, Document {}
+
+const PassEventRecordSchema = new mongoose.Schema<PassEventRecordDocument>({
   teitokuId: String,
   teitokuLv: Number,
   mapId: Number,
@@ -16,8 +32,11 @@ const PassEventRecord = new mongoose.Schema({
   origin: String,
 })
 
-PassEventRecord.virtual('date').get(() => {
+PassEventRecordSchema.virtual('date').get(function (this: PassEventRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('PassEventRecord', PassEventRecord)
+export const PassEventRecord = mongoose.model<PassEventRecordDocument>(
+  'PassEventRecord',
+  PassEventRecordSchema,
+)

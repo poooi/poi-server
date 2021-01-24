@@ -1,6 +1,31 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const NightBattleCI = new mongoose.Schema({
+export interface NightBattleCIPayload {
+  shipId: number
+  CI: string
+  type: string
+  lv: number
+  rawLuck: number
+  pos: number
+  status: string
+  items: number[]
+  improvement: number[]
+  searchLight: boolean
+  flare: number
+  defenseId: number
+  defenseTypeId: number
+  ciType: number
+  display: number[]
+  hitType: number[]
+  damage: number[]
+  damageTotal: number
+  time: number
+  origin: string
+}
+
+interface NightBattleCIDocument extends NightBattleCIPayload, Document {}
+
+const NightBattleCISchema = new mongoose.Schema<NightBattleCIDocument>({
   shipId: Number,
   CI: String,
   type: String,
@@ -23,8 +48,11 @@ const NightBattleCI = new mongoose.Schema({
   origin: String,
 })
 
-NightBattleCI.virtual('date').get(() => {
+NightBattleCISchema.virtual('date').get(function (this: NightBattleCIDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('NightBattleCI', NightBattleCI)
+export const NightBattleCI = mongoose.model<NightBattleCIDocument>(
+  'NightBattleCI',
+  NightBattleCISchema,
+)

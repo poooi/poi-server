@@ -1,6 +1,23 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const QuestReward = new mongoose.Schema({
+export interface QuestRewardPayload {
+  questId: number
+  title: string
+  detail: string
+  category: number
+  type: number
+  origin: string
+  selections: [number]
+  material: [number]
+  bonus: any[]
+  bounsCount: number
+}
+
+interface QuestReardDocument extends Document, QuestRewardPayload {
+  key: string
+}
+
+const QuestRewardSchema = new mongoose.Schema<QuestReardDocument>({
   questId: Number,
   title: String,
   detail: String,
@@ -14,8 +31,8 @@ const QuestReward = new mongoose.Schema({
   bounsCount: Number,
 })
 
-QuestReward.virtual('date').get(() => {
+QuestRewardSchema.virtual('date').get(function (this: QuestReardDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('QuestReward', QuestReward)
+export const QuestReward = mongoose.model<QuestReardDocument>('QuestReward', QuestRewardSchema)

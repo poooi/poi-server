@@ -1,6 +1,19 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const CreateShipRecord = new mongoose.Schema({
+export interface CreateShipRecordPayload {
+  items: number[]
+  kdockId: number
+  secretary: number
+  shipId: number
+  highspeed: number
+  teitokuLv: number
+  largeFlag: boolean
+  origin: string
+}
+
+interface CreateShipRecordDocument extends Document, CreateShipRecordPayload {}
+
+const CreateShipRecordSchema = new mongoose.Schema<CreateShipRecordDocument>({
   items: [Number],
   kdockId: Number,
   secretary: Number,
@@ -11,8 +24,11 @@ const CreateShipRecord = new mongoose.Schema({
   origin: String,
 })
 
-CreateShipRecord.virtual('date').get(() => {
+CreateShipRecordSchema.virtual('date').get(function (this: CreateShipRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('CreateShipRecord', CreateShipRecord)
+export const CreateShipRecord = mongoose.model<CreateShipRecordDocument>(
+  'CreateShipRecord',
+  CreateShipRecordSchema,
+)

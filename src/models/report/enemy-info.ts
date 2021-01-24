@@ -1,6 +1,25 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const EnemyInfo = new mongoose.Schema({
+export interface EnemyInfoPayload {
+  ships1: number[]
+  levels1: number[]
+  hp1: number[]
+  stats1: number[][]
+  equips1: number[][]
+  ships2: number[]
+  levels2: number[]
+  hp2: number[]
+  stats2: number[][]
+  equips2: number[][]
+  planes: number
+  bombersMin: number
+  bombersMax: number
+  count: number
+}
+
+interface EnemyInfoDocument extends EnemyInfoPayload, Document {}
+
+const EnemyInfoSchema = new mongoose.Schema<EnemyInfoDocument>({
   ships1: [Number],
   levels1: [Number],
   hp1: [Number],
@@ -17,4 +36,4 @@ const EnemyInfo = new mongoose.Schema({
   count: Number,
 })
 
-mongoose.model('EnemyInfo', EnemyInfo)
+export const EnemyInfo = mongoose.model<EnemyInfoDocument>('EnemyInfo', EnemyInfoSchema)

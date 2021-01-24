@@ -1,6 +1,17 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const NightContactRecord = new mongoose.Schema({
+export interface NightContactRecordPayload {
+  fleetType: number
+  shipId: number
+  shipLv: number
+  itemId: number
+  itemLv: number
+  contact: boolean
+}
+
+interface NightContactRecordDocument extends NightContactRecordPayload, Document {}
+
+const NightContactRecordSchema = new mongoose.Schema<NightContactRecordDocument>({
   fleetType: Number,
   shipId: Number,
   shipLv: Number,
@@ -9,8 +20,11 @@ const NightContactRecord = new mongoose.Schema({
   contact: Boolean,
 })
 
-NightContactRecord.virtual('date').get(() => {
+NightContactRecordSchema.virtual('date').get(function (this: NightContactRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('NightContactRecord', NightContactRecord)
+export const NightContactRecord = mongoose.model<NightContactRecordDocument>(
+  'NightContactRecord',
+  NightContactRecordSchema,
+)

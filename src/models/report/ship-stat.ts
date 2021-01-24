@@ -1,6 +1,22 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const ShipStat = new mongoose.Schema({
+export interface ShipStatPayload {
+  id: number
+  lv: number
+  los: number
+  los_max: number
+  asw: number
+  asw_max: number
+  evasion: number
+  evasion_max: number
+  last_timestamp: number
+  count: number
+}
+
+// FIXME: ship stat id type overrides document's
+type ShipStatDocument = Document & ShipStatPayload
+
+const ShipStatSchema = new mongoose.Schema<ShipStatDocument>({
   id: Number,
   lv: Number,
   los: Number,
@@ -13,4 +29,4 @@ const ShipStat = new mongoose.Schema({
   count: Number,
 })
 
-mongoose.model('ShipStat', ShipStat)
+export const ShipStat = mongoose.model<ShipStatDocument>('ShipStat', ShipStatSchema)

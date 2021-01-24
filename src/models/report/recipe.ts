@@ -1,6 +1,32 @@
-import mongoose from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
-const RecipeRecord = new mongoose.Schema({
+export interface RecipeRecordPayload {
+  recipeId: number
+  itemId: number
+  stage: number
+  day: number
+  secretary: number
+  fuel: number
+  ammo: number
+  steel: number
+  bauxite: number
+  reqItemId: number
+  reqItemCount: number
+  buildkit: number
+  remodelkit: number
+  certainBuildkit: number
+  certainRemodelkit: number
+  upgradeToItemId: number
+  upgradeToItemLevel: number
+  lastReported: number
+  count: number
+  key: string
+  origin: string
+}
+
+interface RecipeRecordDocument extends Document, RecipeRecordPayload {}
+
+const RecipeRecordSchema = new mongoose.Schema<RecipeRecordDocument>({
   recipeId: Number,
   itemId: Number,
   stage: Number,
@@ -24,8 +50,8 @@ const RecipeRecord = new mongoose.Schema({
   origin: String,
 })
 
-RecipeRecord.virtual('date').get(() => {
+RecipeRecordSchema.virtual('date').get(function (this: RecipeRecordDocument) {
   this._id.getTimestamp()
 })
 
-mongoose.model('RecipeRecord', RecipeRecord)
+export const RecipeRecord = mongoose.model('RecipeRecord', RecipeRecordSchema)
