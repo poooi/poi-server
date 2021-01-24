@@ -8,11 +8,11 @@ import childProcess from 'child_process'
 import { trim } from 'lodash'
 import bytes from 'bytes'
 
-import config from './config'
-import { captureException, sentryTracingMiddileaware } from './src/sentry'
+import config from '../config'
+import { captureException, sentryTracingMiddileaware } from './sentry'
 
-import './src/models'
-import { router } from './src/controllers'
+import './models'
+import { router } from './controllers'
 
 const app = new Koa()
 
