@@ -1,19 +1,23 @@
 # poi-server
+
 poi server.
-
-## Dependencies
-
-Node.js(>= v4.0), MongoDB.
-
-## Run
-
-```bash
-npm i
-npm i -g bower
-bower i
-gulp
-```
 
 ## Usage
 
 See the [wiki](https://github.com/poooi/poi-server/wiki).
+
+## Development
+
+### Prerequists:
+
+- Node.js 14.x
+- MongoDB v4.2
+
+Other versions are not tested
+
+### Setup
+
+- Install dependencies with npm install
+- copy `.env.example` to create `.env`, this contains config file for the server
+- start mongodb, if the db path or port is different, specify them in the `.env` file
+- start the server by `node index.js`
