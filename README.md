@@ -1,5 +1,8 @@
 # poi-server
 
+![service status](https://api.poi.moe/api/service-status-badge)
+![service version](https://api.poi.moe/api/service-version-badge)
+
 poi server.
 
 ## Usage

@@ -2,6 +2,8 @@ import Router from '@koa/router'
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
+import { makeBadge } from 'badge-maker'
+
 import { config } from '../../config'
 
 export const router = new Router()
@@ -55,5 +57,39 @@ router.post('/github-master-hook', async (ctx, next) => {
 router.get('/latest-commit', async (ctx, next) => {
   ctx.status = 200
   ctx.body = global.latestCommit
+  await next()
+})
+
+let serviceUpBadge: string
+
+router.get('/service-status-badge', async (ctx, next) => {
+  if (!serviceUpBadge) {
+    serviceUpBadge = makeBadge({
+      label: 'service',
+      message: 'up',
+      color: 'success',
+      style: 'flat-square',
+    })
+  }
+  ctx.status = 200
+  ctx.set('Content-Type', 'image/svg+xml')
+  ctx.body = serviceUpBadge
+  await next()
+})
+
+let serviceVersionBadge: string
+
+router.get('/service-version-badge', async (ctx, next) => {
+  if (!serviceVersionBadge) {
+    serviceVersionBadge = makeBadge({
+      label: 'version',
+      message: global.latestCommit?.slice(0, 8) || '',
+      color: 'informational',
+      style: 'flat-square',
+    })
+  }
+  ctx.status = 200
+  ctx.set('Content-Type', 'image/svg+xml')
+  ctx.body = serviceVersionBadge
   await next()
 })
