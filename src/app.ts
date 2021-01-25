@@ -8,7 +8,7 @@ import childProcess from 'child_process'
 import { trim } from 'lodash'
 import bytes from 'bytes'
 
-import config from '../config'
+import { config } from './config'
 import { captureException, sentryTracingMiddileaware } from './sentry'
 
 import './models'

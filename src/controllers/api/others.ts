@@ -2,7 +2,7 @@ import Router from '@koa/router'
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
-import config from '../../../config'
+import { config } from '../../config'
 
 export const router = new Router()
 
