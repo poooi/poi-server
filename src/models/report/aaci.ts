@@ -42,8 +42,4 @@ const AACIRecordSchema = new mongoose.Schema<AACIRecordDocument>({
   origin: String,
 })
 
-AACIRecordSchema.virtual('date').get(function (this: AACIRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const AACIRecord = mongoose.model<AACIRecordDocument>('AACIRecord', AACIRecordSchema)

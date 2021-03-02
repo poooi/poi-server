@@ -23,8 +23,4 @@ const QuestSchema = new mongoose.Schema<QuestDocument>({
   key: String,
 })
 
-QuestSchema.virtual('date').get(function (this: QuestDocument) {
-  this._id.getTimestamp()
-})
-
 export const Quest = mongoose.model<QuestDocument>('Quest', QuestSchema)

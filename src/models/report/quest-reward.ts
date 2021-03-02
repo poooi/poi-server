@@ -31,8 +31,4 @@ const QuestRewardSchema = new mongoose.Schema<QuestReardDocument>({
   bounsCount: Number,
 })
 
-QuestRewardSchema.virtual('date').get(function (this: QuestReardDocument) {
-  this._id.getTimestamp()
-})
-
 export const QuestReward = mongoose.model<QuestReardDocument>('QuestReward', QuestRewardSchema)

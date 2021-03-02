@@ -32,10 +32,6 @@ const PassEventRecordSchema = new mongoose.Schema<PassEventRecordDocument>({
   origin: String,
 })
 
-PassEventRecordSchema.virtual('date').get(function (this: PassEventRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const PassEventRecord = mongoose.model<PassEventRecordDocument>(
   'PassEventRecord',
   PassEventRecordSchema,

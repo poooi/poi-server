@@ -30,10 +30,6 @@ const RemodelItemRecordSchema = new mongoose.Schema<RemodelItemRecordDocument>({
   certain: Boolean,
 })
 
-RemodelItemRecordSchema.virtual('date').get(function (this: RemodelItemRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const RemodelItemRecord = mongoose.model<RemodelItemRecordDocument>(
   'RemodelItemRecord',
   RemodelItemRecordSchema,

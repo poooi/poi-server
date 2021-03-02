@@ -24,10 +24,6 @@ const CreateShipRecordSchema = new mongoose.Schema<CreateShipRecordDocument>({
   origin: String,
 })
 
-CreateShipRecordSchema.virtual('date').get(function (this: CreateShipRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const CreateShipRecord = mongoose.model<CreateShipRecordDocument>(
   'CreateShipRecord',
   CreateShipRecordSchema,

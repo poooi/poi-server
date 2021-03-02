@@ -20,10 +20,6 @@ const NightContactRecordSchema = new mongoose.Schema<NightContactRecordDocument>
   contact: Boolean,
 })
 
-NightContactRecordSchema.virtual('date').get(function (this: NightContactRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const NightContactRecord = mongoose.model<NightContactRecordDocument>(
   'NightContactRecord',
   NightContactRecordSchema,

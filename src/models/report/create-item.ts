@@ -20,10 +20,6 @@ const CreateItemRecordSchema = new mongoose.Schema<CreateItemRecordDocument>({
   origin: String,
 })
 
-CreateItemRecordSchema.virtual('date').get(function (this: CreateItemRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const CreateItemRecord = mongoose.model<CreateItemRecordDocument>(
   'CreateItemRecord',
   CreateItemRecordSchema,

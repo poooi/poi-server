@@ -50,8 +50,4 @@ const RecipeRecordSchema = new mongoose.Schema<RecipeRecordDocument>({
   origin: String,
 })
 
-RecipeRecordSchema.virtual('date').get(function (this: RecipeRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const RecipeRecord = mongoose.model('RecipeRecord', RecipeRecordSchema)

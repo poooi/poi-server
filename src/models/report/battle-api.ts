@@ -18,8 +18,4 @@ const BattleAPISchema = new mongoose.Schema<BattleAPIDocument>({
   data: Object,
 })
 
-BattleAPISchema.virtual('date').get(function (this: BattleAPIDocument) {
-  this._id.getTimestamp()
-})
-
 export const BattleAPI = mongoose.model<BattleAPIDocument>('BattleAPI', BattleAPISchema)

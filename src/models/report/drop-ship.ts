@@ -42,10 +42,6 @@ const DropShipRecordSchema = new mongoose.Schema<DropShipRecordDocument>({
   origin: String,
 })
 
-DropShipRecordSchema.virtual('date').get(function (this: DropShipRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const DropShipRecord = mongoose.model<DropShipRecordDocument>(
   'DropShipRecord',
   DropShipRecordSchema,

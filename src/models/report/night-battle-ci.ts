@@ -48,10 +48,6 @@ const NightBattleCISchema = new mongoose.Schema<NightBattleCIDocument>({
   origin: String,
 })
 
-NightBattleCISchema.virtual('date').get(function (this: NightBattleCIDocument) {
-  this._id.getTimestamp()
-})
-
 export const NightBattleCI = mongoose.model<NightBattleCIDocument>(
   'NightBattleCI',
   NightBattleCISchema,

@@ -18,10 +18,6 @@ const SelectRankRecordSchema = new mongoose.Schema<SelectRankRecordDocument>({
   origin: String,
 })
 
-SelectRankRecordSchema.virtual('date').get(function (this: SelectRankRecordDocument) {
-  this._id.getTimestamp()
-})
-
 export const SelectRankRecord = mongoose.model<SelectRankRecordDocument>(
   'SelectRankRecord',
   SelectRankRecordSchema,
