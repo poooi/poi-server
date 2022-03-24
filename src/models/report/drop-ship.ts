@@ -17,6 +17,7 @@ export interface DropShipRecordPayload {
   baseExp: number
   teitokuId: string
   shipCounts: number[]
+  ownedShipSnapshot: Record<number, number[]>
   origin: string
 }
 
@@ -39,6 +40,7 @@ const DropShipRecordSchema = new mongoose.Schema<DropShipRecordDocument>({
   baseExp: Number,
   teitokuId: String,
   shipCounts: [Number],
+  ownedShipSnapshot: mongoose.SchemaTypes.Mixed,
   origin: String,
 })
 
