@@ -3,6 +3,7 @@ import df from '@sindresorhus/df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
 import { makeBadge } from 'badge-maker'
+import path from 'path'
 
 import { config } from '../../config'
 
@@ -43,7 +44,7 @@ router.get('/status', async (ctx, next) => {
 })
 
 router.post('/github-master-hook', async (ctx, next) => {
-  const update = childProcess.spawn(config.root + '/github-master-hook', [])
+  const update = childProcess.spawn(path.resolve(config.root, '../github-master-hook'), [])
   update.stdout.on('data', (data) => console.log('GitHub hook out: ' + data))
   update.stderr.on('data', (data) => console.log('GitHub hook err: ' + data))
   update.on('close', (code) => console.log('GitHub hook exit: ' + code))
