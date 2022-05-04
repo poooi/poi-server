@@ -5,14 +5,13 @@ import { ParameterizedContext } from 'koa'
 import { isString, flatMap, drop } from 'lodash'
 
 import { captureException } from '../../../sentry'
-import { DropShipRecord } from '../../../models'
+import { DropShipRecord, SelectRankRecord } from '../../../models'
 
 export const router = new Router()
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
 const CreateItemRecord = mongoose.model('CreateItemRecord')
 const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const SelectRankRecord = mongoose.model('SelectRankRecord')
 const PassEventRecord = mongoose.model('PassEventRecord')
 const Quest = mongoose.model('Quest')
 const BattleAPI = mongoose.model('BattleAPI')
