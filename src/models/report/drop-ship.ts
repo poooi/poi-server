@@ -39,7 +39,6 @@ const DropShipRecordSchema = new mongoose.Schema<DropShipRecordDocument>({
   enemyFormation: Number,
   baseExp: Number,
   teitokuId: String,
-  shipCounts: [Number],
   ownedShipSnapshot: mongoose.SchemaTypes.Mixed,
   origin: String,
 })
