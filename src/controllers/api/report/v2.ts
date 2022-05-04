@@ -5,13 +5,13 @@ import { ParameterizedContext } from 'koa'
 import { isString, flatMap, drop } from 'lodash'
 
 import { captureException } from '../../../sentry'
+import { DropShipRecord } from '../../../models'
 
 export const router = new Router()
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
 const CreateItemRecord = mongoose.model('CreateItemRecord')
 const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord = mongoose.model('DropShipRecord')
 const SelectRankRecord = mongoose.model('SelectRankRecord')
 const PassEventRecord = mongoose.model('PassEventRecord')
 const Quest = mongoose.model('Quest')
@@ -79,6 +79,10 @@ router.post('/drop_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new DropShipRecord(info)
+    // drop own ship snapshot for non-event maps
+    if (record.mapId < 100) {
+      record.ownedShipSnapshot = {}
+    }
     await record.save()
     ctx.status = 200
     await next()
