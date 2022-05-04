@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-require('dotenv').config()
+const { register } = require('esbuild-register/dist/node')
 
-require('@babel/register')({
-  cache: false,
-  extensions: ['.ts'],
-})
+require('dotenv').config()
+register()
 
 require('./src/app')

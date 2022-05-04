@@ -3,8 +3,9 @@ set -e
 
 cd /srv/poi
 git fetch origin
+supervisorctl stop poi
 git checkout master
 git reset --hard origin/master
 npm install
-supervisorctl restart poi
+supervisorctl start poi
 supervisorctl restart poi-hook
