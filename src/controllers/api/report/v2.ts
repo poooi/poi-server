@@ -78,8 +78,8 @@ router.post('/drop_ship', async (ctx, next) => {
   try {
     const info = parseInfo(ctx)
     const record = new DropShipRecord(info)
-    // drop own ship snapshot for non-event maps
-    if (record.mapId < 100) {
+    // drop own ship snapshot for non-event maps and normal maps except 7-3/7-4
+    if (record.mapId < 73) {
       record.ownedShipSnapshot = {}
     }
     await record.save()
