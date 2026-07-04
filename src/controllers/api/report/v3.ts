@@ -90,6 +90,8 @@ class ItemImprovementRecipeValidationError extends Error {}
 
 const ITEM_IMPROVEMENT_RECIPE_MAX_EXPORT_LIMIT = 1000
 const ITEM_IMPROVEMENT_RECIPE_DEFAULT_EXPORT_LIMIT = 500
+const ITEM_IMPROVEMENT_RECIPE_MAX_INGEST_BATCH_SIZE = 100
+const ITEM_IMPROVEMENT_RECIPE_INGEST_CONCURRENCY = 10
 const ITEM_IMPROVEMENT_RECIPE_JST_MIDNIGHT_TOLERANCE = 15 * 60 * 1000
 const ITEM_IMPROVEMENT_RECIPE_MIN_TIMESTAMP = Date.UTC(2013, 3, 23)
 const ITEM_IMPROVEMENT_RECIPE_MAX_FUTURE_SKEW = 10 * 60 * 1000
@@ -322,7 +324,7 @@ const createItemImprovementRecipeRecordSchema = (serverReceivedAt: number) => {
 
 const itemImprovementRecipeDataSchema = z
   .object({
-    records: z.array(z.unknown()).optional(),
+    records: z.array(z.unknown()).max(ITEM_IMPROVEMENT_RECIPE_MAX_INGEST_BATCH_SIZE).optional(),
   })
   .catchall(z.unknown())
 
@@ -436,6 +438,7 @@ const createCostKey = (record: ItemImprovementRecipeDetailRecord): string =>
     record.recipeId,
     record.itemId,
     record.itemLevel,
+    record.stage,
     record.day,
     record.observedSecondShipId,
     record.fuel,
@@ -657,8 +660,10 @@ router.post('/item_improvement_recipe', async (ctx, next) => {
       normalizeItemImprovementRecipeRecord(record, serverReceivedAt, origin),
     )
 
-    await bluebird.map(records, (record) =>
-      saveItemImprovementRecipeRecord(record, serverReceivedAt),
+    await bluebird.map(
+      records,
+      (record) => saveItemImprovementRecipeRecord(record, serverReceivedAt),
+      { concurrency: ITEM_IMPROVEMENT_RECIPE_INGEST_CONCURRENCY },
     )
 
     ctx.status = 200

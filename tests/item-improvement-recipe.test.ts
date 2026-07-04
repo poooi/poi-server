@@ -128,7 +128,7 @@ describe('item improvement recipe v3 facts', () => {
 
     expect(update.$setOnInsert).toEqual(
       expect.objectContaining({
-        key: 'v1|cost|33|700|6|6|0|10|20|30|40|3|4|5|6|90:3|65:1,66:2|0',
+        key: 'v1|cost|33|700|6|1|6|0|10|20|30|40|3|4|5|6|90:3|65:1,66:2|0',
         recipeId: 33,
         itemId: 700,
         reqSlotItems: [{ id: 90, count: 3 }],
@@ -247,7 +247,7 @@ describe('item improvement recipe v3 facts', () => {
       key: 'v1|availability|33|700|6|0',
     })
     expect(costUpdateOne.mock.calls[0][0]).toEqual({
-      key: 'v1|cost|33|700|6|6|0|10|20|30|40|3|4|5|6|90:2|65:1|0',
+      key: 'v1|cost|33|700|6|1|6|0|10|20|30|40|3|4|5|6|90:2|65:1|0',
     })
     expect(updateUpdateOne.mock.calls[0][0]).toEqual({
       key: 'v1|update|33|700|10|6|102|701|0',
@@ -293,5 +293,27 @@ describe('item improvement recipe v3 facts', () => {
       observedFlagshipIds: { $each: [101] },
     })
     expect(update.$inc).toEqual({ count: 1 })
+  })
+
+  test('rejects oversized ingest batches', async () => {
+    const availabilityUpdateOne = vi.spyOn(ItemImprovementRecipeAvailabilityFact, 'updateOne')
+    const records = Array.from({ length: 101 }, () => ({
+      schemaVersion: 1,
+      source: 'list',
+      clientObservedAt: observedAt,
+      recipeId: 33,
+      itemId: 700,
+      day: 6,
+      observedSecondShipId: 0,
+      observedFlagshipId: 101,
+    }))
+
+    const ctx = await invokeItemImprovementRecipePost({ records })
+
+    expect(ctx.status).toBe(400)
+    expect(ctx.body).toEqual({
+      error: 'records: Too big: expected array to have <=100 items',
+    })
+    expect(availabilityUpdateOne).not.toHaveBeenCalled()
   })
 })
