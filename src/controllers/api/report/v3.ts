@@ -620,6 +620,8 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
 
     const records = await model
       .find(query)
+      // Export endpoints intentionally omit reporter origins to avoid exposing client-version
+      // fingerprinting data. Stored fact documents keep origins for internal diagnostics.
       .select('-__v -origins')
       .sort({ lastReported: 1, _id: 1 })
       .limit(limit)

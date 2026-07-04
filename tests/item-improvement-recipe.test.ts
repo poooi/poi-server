@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import mongoose from 'mongoose'
 import {
   ItemImprovementRecipeAvailabilityFact,
   ItemImprovementRecipeCostFact,
@@ -41,6 +42,18 @@ const getItemImprovementRecipePostHandler = () => {
   return layer.stack[0]
 }
 
+const getAvailabilityExportHandler = () => {
+  const stack = ((router as unknown) as { stack: RouteLayer[] }).stack
+  const layer = stack.find(
+    (item) =>
+      item.path === '/item_improvement_recipes/availability' && item.methods.includes('GET'),
+  )
+  if (layer == null) {
+    throw new Error('item improvement recipe availability export route is not registered')
+  }
+  return layer.stack[0]
+}
+
 const invokeItemImprovementRecipePost = async (data: unknown) => {
   const headers: Record<string, string> = {
     'x-reporter': reporterOrigin,
@@ -59,6 +72,46 @@ const invokeItemImprovementRecipePost = async (data: unknown) => {
 
   await getItemImprovementRecipePostHandler()(ctx, async () => undefined)
   return ctx
+}
+
+const invokeAvailabilityExport = async (query: Record<string, unknown>) => {
+  const ctx: TestContext = {
+    request: {
+      body: {
+        data: {},
+      },
+    },
+    headers: {},
+    query,
+    get: () => '',
+    cashed: async () => false,
+  }
+
+  await getAvailabilityExportHandler()(ctx, async () => undefined)
+  return ctx
+}
+
+interface FakeFindChain {
+  select: ReturnType<typeof vi.fn>
+  sort: ReturnType<typeof vi.fn>
+  limit: ReturnType<typeof vi.fn>
+  exec: ReturnType<typeof vi.fn>
+}
+
+const mockAvailabilityFind = (records: unknown[]) => {
+  const chain: FakeFindChain = {
+    select: vi.fn(() => chain),
+    sort: vi.fn(() => chain),
+    limit: vi.fn(() => chain),
+    exec: vi.fn(async () => records),
+  }
+  const find = vi
+    .spyOn(ItemImprovementRecipeAvailabilityFact, 'find')
+    .mockReturnValue(chain as never)
+  return {
+    chain,
+    find,
+  }
 }
 
 beforeEach(() => {
@@ -315,5 +368,64 @@ describe('item improvement recipe v3 facts', () => {
       error: 'records: Too big: expected array to have <=100 items',
     })
     expect(availabilityUpdateOne).not.toHaveBeenCalled()
+  })
+
+  test('rejects invalid export cursors', async () => {
+    const { find } = mockAvailabilityFind([])
+
+    const ctx = await invokeAvailabilityExport({ afterId: 'invalid-object-id' })
+
+    expect(ctx.status).toBe(400)
+    expect(ctx.body).toEqual({ error: 'afterId: must be a valid ObjectId' })
+    expect(find).not.toHaveBeenCalled()
+  })
+
+  test('exports facts with clamped limit, pagination cursor, and no origins', async () => {
+    const firstId = new mongoose.Types.ObjectId()
+    const secondId = new mongoose.Types.ObjectId()
+    const { chain, find } = mockAvailabilityFind([
+      {
+        _id: firstId,
+        key: 'v1|availability|33|700|6|0',
+        lastReported: 2000,
+      },
+      {
+        _id: secondId,
+        key: 'v1|availability|34|701|6|0',
+        lastReported: 3000,
+      },
+    ])
+
+    const ctx = await invokeAvailabilityExport({
+      updatedAfter: '1000',
+      afterId: firstId.toString(),
+      limit: '5000',
+    })
+
+    expect(ctx.status).toBe(200)
+    expect(find.mock.calls[0][0]).toEqual({
+      $or: [{ lastReported: { $gt: 1000 } }, { lastReported: 1000, _id: { $gt: firstId } }],
+    })
+    expect(chain.select).toHaveBeenCalledWith('-__v -origins')
+    expect(chain.sort).toHaveBeenCalledWith({ lastReported: 1, _id: 1 })
+    expect(chain.limit).toHaveBeenCalledWith(1000)
+    expect(ctx.body).toEqual({
+      records: [
+        {
+          _id: firstId,
+          key: 'v1|availability|33|700|6|0',
+          lastReported: 2000,
+        },
+        {
+          _id: secondId,
+          key: 'v1|availability|34|701|6|0',
+          lastReported: 3000,
+        },
+      ],
+      next: {
+        updatedAfter: 3000,
+        afterId: secondId.toString(),
+      },
+    })
   })
 })
