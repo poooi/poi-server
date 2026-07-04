@@ -14,17 +14,24 @@ case "$0" in
   /tmp/poi-server-deploy.*) trap 'rm -f "$0"' EXIT ;;
 esac
 
-export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
-FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
+export FNM_DIR="${FNM_DIR:-/srv/poi/.fnm}"
+FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
+BOOTSTRAP_FNM_BIN="${BOOTSTRAP_FNM_BIN:-/home/poi/.local/share/fnm/fnm}"
 DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
 
-if [ ! -x "$FNM_BIN" ]; then
-  echo "fnm is required but was not found at $FNM_BIN" >&2
+if [ ! -x "$BOOTSTRAP_FNM_BIN" ]; then
+  echo "fnm is required but was not found at $BOOTSTRAP_FNM_BIN" >&2
   exit 127
 fi
 
+mkdir -p "$(dirname "$FNM_BIN")" "$FNM_DIR"
+install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
+
 previous_sha="$(git rev-parse HEAD)"
 git fetch origin
+if supervisorctl status poi | grep -q RUNNING; then
+  supervisorctl stop poi
+fi
 git checkout master
 git reset --hard origin/master
 eval "$("$FNM_BIN" env --shell bash)"
@@ -32,7 +39,11 @@ eval "$("$FNM_BIN" env --shell bash)"
 npm ci --omit=dev
 supervisorctl reread
 supervisorctl update
-supervisorctl restart poi
+if supervisorctl status poi | grep -q RUNNING; then
+  supervisorctl restart poi
+else
+  supervisorctl start poi
+fi
 supervisorctl restart poi-hook
 
 {

@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
-FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
+export FNM_DIR="${FNM_DIR:-/srv/poi/.fnm}"
+FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
 
 if [ ! -x "$FNM_BIN" ]; then
   echo "fnm is required but was not found at $FNM_BIN" >&2

@@ -3,6 +3,7 @@
 *.sh text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+.gitignore text eol=lf
 github-master-hook text eol=lf
 fnm-exec text eol=lf
 supervisior.conf text eol=lf
