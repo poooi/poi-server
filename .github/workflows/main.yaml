@@ -12,6 +12,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:4.4
+        ports:
+          - 27017:27017
 
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +29,8 @@ jobs:
       - run: npm run lint
       - run: npm run type-check
       - run: npm test
+      - run: npm run build
+      - run: npm run smoke
       - name: Validate deploy hooks
         run: |
           bash -n github-master-hook

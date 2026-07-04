@@ -10,10 +10,11 @@
   "scripts": {
     "start": "node --harmony index.js",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
-    "build": "NODE_ENV=production webpack -p --config webpack.config.prod.js",
+    "build": "tsdown src/app.ts --format cjs --platform node --target node24 --out-dir dist --clean",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts --ext .js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "node scripts/smoke-server.cjs"
   },
   "repository": {
     "type": "git",
@@ -38,8 +39,6 @@
     "badge-maker": "^3.3.0",
     "bluebird": "^3.7.2",
     "dotenv": "^8.2.0",
-    "esbuild": "^0.14.38",
-    "esbuild-register": "^3.3.2",
     "koa": "^2.13.1",
     "koa-bodyparser": "^4.3.0",
     "koa-cash": "^4.0.5",
@@ -78,6 +77,7 @@
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-prettier": "^3.3.1",
     "prettier": "^2.2.1",
+    "tsdown": "^0.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }
