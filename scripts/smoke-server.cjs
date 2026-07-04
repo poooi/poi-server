@@ -2,6 +2,7 @@ const childProcess = require('child_process')
 
 const port = 17927
 const baseUrl = `http://127.0.0.1:${port}`
+const smokeCommit = 'smoke-commit'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -28,6 +29,17 @@ const waitForStatus = async (url, timeoutMs) => {
   throw lastError || new Error(`Timed out waiting for ${url}`)
 }
 
+const assertLatestCommit = async () => {
+  const response = await fetch(`${baseUrl}/api/latest-commit`)
+  if (!response.ok) {
+    throw new Error(`Unexpected ${response.status} from /api/latest-commit`)
+  }
+  const body = await response.text()
+  if (body !== smokeCommit) {
+    throw new Error(`Unexpected latest commit: ${body}`)
+  }
+}
+
 const server = childProcess.spawn('node', ['index.js'], {
   stdio: 'inherit',
   env: {
@@ -36,6 +48,7 @@ const server = childProcess.spawn('node', ['index.js'], {
     POI_SERVER_PORT: String(port),
     POI_SERVER_DB: 'mongodb://127.0.0.1:27017/poi-smoke',
     POI_SERVER_DISABLE_LOGGER: '1',
+    POI_SERVER_COMMIT: smokeCommit,
   },
 })
 
@@ -61,7 +74,8 @@ process.on('SIGTERM', () => {
 })
 
 waitForStatus(`${baseUrl}/api/status`, 30000)
-  .then(() => {
+  .then(async () => {
+    await assertLatestCommit()
     cleanup()
   })
   .catch((err) => {

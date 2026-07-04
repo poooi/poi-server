@@ -5,6 +5,7 @@ import logger from 'koa-pino-logger'
 import Cache from 'node-cache'
 import mongoose from 'mongoose'
 import childProcess from 'child_process'
+import fs from 'fs'
 import { trim } from 'lodash'
 import bytes from 'bytes'
 
@@ -68,10 +69,36 @@ app.listen(config.port, '127.0.0.1', () => {
 
 app.on('error', captureException)
 
-childProcess.exec('git rev-parse HEAD', (err, stdout) => {
-  if (!err) {
-    global.latestCommit = trim(stdout)
-  } else {
-    console.error(err)
+const readDeployStateCommit = () => {
+  try {
+    const deployState = fs.readFileSync('.deploy-state', 'utf8')
+    const match = /^sha=(.+)$/m.exec(deployState)
+    return match?.[1] == null ? undefined : trim(match[1])
+  } catch (err) {
+    return undefined
   }
-})
+}
+
+const loadLatestCommit = () => {
+  const configuredCommit = process.env.POI_SERVER_COMMIT
+  if (configuredCommit) {
+    global.latestCommit = trim(configuredCommit)
+    return
+  }
+
+  const deployStateCommit = readDeployStateCommit()
+  if (deployStateCommit) {
+    global.latestCommit = deployStateCommit
+    return
+  }
+
+  childProcess.exec('git rev-parse HEAD', (err, stdout) => {
+    if (!err) {
+      global.latestCommit = trim(stdout)
+    } else {
+      console.error(err)
+    }
+  })
+}
+
+loadLatestCommit()
