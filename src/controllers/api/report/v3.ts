@@ -21,10 +21,19 @@ import {
 
 export const router = new Router()
 
-const parseInfo = (ctx: ParameterizedContext) => {
-  const info = ctx.request.body.data
+const getRequestData = (ctx: ParameterizedContext) => {
+  const body = ctx.request.body
+  return body != null && typeof body === 'object' && 'data' in body ? body.data : undefined
+}
+
+const getHeaderValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value.join(',') : value
+
+const parseInfo = (ctx: ParameterizedContext): Record<string, any> => {
+  const info = getRequestData(ctx) as Record<string, any>
   if (info.origin == null) {
-    info.origin = ctx.headers['x-reporter'] || ctx.headers['user-agent']
+    info.origin =
+      getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent'])
   }
   return info
 }
@@ -233,7 +242,7 @@ const toRecordWithFlagshipIds = <
   TRecord extends {
     observedFlagshipId?: number
     observedFlagshipIds?: number[]
-  }
+  },
 >(
   record: TRecord,
 ) => {
@@ -393,13 +402,13 @@ const parseJsonData = (data: unknown) => {
   }
   try {
     return JSON.parse(data)
-  } catch (err) {
+  } catch {
     throw new ItemImprovementRecipeValidationError('data must be valid JSON')
   }
 }
 
 const parseItemImprovementRecipeData = (ctx: ParameterizedContext) => {
-  const parsedData = itemImprovementRecipeDataSchema.parse(parseJsonData(ctx.request.body.data))
+  const parsedData = itemImprovementRecipeDataSchema.parse(parseJsonData(getRequestData(ctx)))
   if (parsedData.records != null) {
     return parsedData.records
   }
@@ -608,17 +617,19 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
     if (await ctx.cashed()) return // Cache control
 
     const { updatedAfter, afterId, limit } = parseExportCursor(ctx)
-    const query = (afterId == null
-      ? { lastReported: { $gt: updatedAfter } }
-      : {
-          $or: [
-            { lastReported: { $gt: updatedAfter } },
-            {
-              lastReported: updatedAfter,
-              _id: { $gt: new mongoose.Types.ObjectId(afterId) },
-            },
-          ],
-        }) as mongoose.FilterQuery<TDocument>
+    const query = (
+      afterId == null
+        ? { lastReported: { $gt: updatedAfter } }
+        : {
+            $or: [
+              { lastReported: { $gt: updatedAfter } },
+              {
+                lastReported: updatedAfter,
+                _id: { $gt: new mongoose.Types.ObjectId(afterId) },
+              },
+            ],
+          }
+    ) as mongoose.FilterQuery<TDocument>
 
     const records = await model
       .find(query)
@@ -751,7 +762,7 @@ router.post('/quest', async (ctx, next) => {
 
 router.post('/quest_reward', async (ctx, next) => {
   try {
-    const info = parseInfo(ctx)
+    const info = parseInfo(ctx) as QuestRewardPayload
 
     const key = createQuestHash(info)
 

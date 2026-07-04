@@ -1,20 +1,38 @@
 import * as Sentry from '@sentry/node'
 import { ExpressRequest } from '@sentry/node/dist/handlers'
+import { Context } from '@sentry/types'
 import { extractTraceparentData, stripUrlQueryAndFragment } from '@sentry/tracing'
 import { DefaultState, DefaultContext, Middleware, ParameterizedContext } from 'koa'
+
+const getHeaderValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value.join(',') : value
+
+const getRequestBodyData = (ctx: ParameterizedContext) => {
+  const body = ctx.request.body
+  return body != null && typeof body === 'object' && 'data' in body ? body.data : undefined
+}
+
+const getRequestBodyContext = (ctx: ParameterizedContext): Context | null => {
+  const data = getRequestBodyData(ctx)
+  return data != null && typeof data === 'object' && !Array.isArray(data) ? (data as Context) : null
+}
 
 export const captureException = (
   err: Error,
   ctx: ParameterizedContext<DefaultState, DefaultContext>,
 ): void => {
   Sentry.withScope(function (scope) {
-    scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
+    scope.setUser({
+      ip_address:
+        getHeaderValue(ctx.headers['x-real-ip']) || getHeaderValue(ctx.headers['x-forwarded-for']),
+    })
     scope.setTags({
-      reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+      reporter:
+        getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent']),
       version: global.latestCommit?.slice(0, 8),
     })
     scope.addEventProcessor(function (event) {
-      return Sentry.Handlers.parseRequest(event, (ctx.request as any) as ExpressRequest)
+      return Sentry.Handlers.parseRequest(event, ctx.request as any as ExpressRequest)
     })
     Sentry.captureException(err)
   })
@@ -44,13 +62,17 @@ export const sentryTracingMiddileaware: Middleware = async (ctx, next) => {
 
   transaction.setHttpStatus(ctx.status)
   Sentry.withScope((scope) => {
-    scope.setUser({ ip_address: ctx.headers['x-real-ip'] || ctx.headers['x-forwarded-for'] })
+    scope.setUser({
+      ip_address:
+        getHeaderValue(ctx.headers['x-real-ip']) || getHeaderValue(ctx.headers['x-forwarded-for']),
+    })
     scope.setTags({
-      reporter: ctx.headers['x-reporter'] || ctx.headers['user-agent'],
+      reporter:
+        getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent']),
       url: ctx.request.url,
       version: global.latestCommit?.slice(0, 8),
     })
-    scope.setContext('data', ctx.request.body.data)
+    scope.setContext('data', getRequestBodyContext(ctx))
     transaction.finish()
   })
 }

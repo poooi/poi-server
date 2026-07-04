@@ -22,12 +22,20 @@ const NightBattleCI = mongoose.model('NightBattleCI')
 const ShipStat = mongoose.model('ShipStat')
 const EnemyInfo = mongoose.model('EnemyInfo')
 
-function parseInfo(ctx: ParameterizedContext) {
-  const info = isString(ctx.request.body.data)
-    ? JSON.parse(ctx.request.body.data)
-    : ctx.request.body.data
+const getRequestData = (ctx: ParameterizedContext) => {
+  const body = ctx.request.body
+  return body != null && typeof body === 'object' && 'data' in body ? body.data : undefined
+}
+
+const getHeaderValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value.join(',') : value
+
+function parseInfo(ctx: ParameterizedContext): Record<string, any> {
+  const data = getRequestData(ctx)
+  const info = (isString(data) ? JSON.parse(data) : data) as Record<string, any>
   if (info.origin == null) {
-    info.origin = ctx.headers['x-reporter'] || ctx.headers['user-agent']
+    info.origin =
+      getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent'])
   }
   return info
 }

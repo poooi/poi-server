@@ -40,10 +40,10 @@ const _cache = new Cache({
 })
 app.use(
   cache({
-    threshold: bytes('1GB'), // Compression is handled by nginx.
+    threshold: bytes('1GB') ?? 0, // Compression is handled by nginx.
     get: async (key) => _cache.get(key),
     set: async (key, value, maxAge) => {
-      _cache.set(key, value, maxAge > 0 ? maxAge : 0)
+      _cache.set(key, value, maxAge != null && maxAge > 0 ? maxAge : 0)
     },
   }),
 )

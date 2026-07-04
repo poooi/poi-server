@@ -32,7 +32,7 @@ interface RouteLayer {
 }
 
 const getItemImprovementRecipePostHandler = () => {
-  const stack = ((router as unknown) as { stack: RouteLayer[] }).stack
+  const stack = (router as unknown as { stack: RouteLayer[] }).stack
   const layer = stack.find(
     (item) => item.path === '/item_improvement_recipe' && item.methods.includes('POST'),
   )
@@ -43,7 +43,7 @@ const getItemImprovementRecipePostHandler = () => {
 }
 
 const getAvailabilityExportHandler = () => {
-  const stack = ((router as unknown) as { stack: RouteLayer[] }).stack
+  const stack = (router as unknown as { stack: RouteLayer[] }).stack
   const layer = stack.find(
     (item) =>
       item.path === '/item_improvement_recipes/availability' && item.methods.includes('GET'),
