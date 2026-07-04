@@ -16,18 +16,11 @@ esac
 
 export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
 FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
-DEPLOY_LOCK="${DEPLOY_LOCK:-/tmp/poi-server-deploy.lock}"
 DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
 
 if [ ! -x "$FNM_BIN" ]; then
   echo "fnm is required but was not found at $FNM_BIN" >&2
   exit 127
-fi
-
-exec 9>"$DEPLOY_LOCK"
-if ! flock -n 9; then
-  echo "Another poi-server deployment is already running"
-  exit 0
 fi
 
 previous_sha="$(git rev-parse HEAD)"
