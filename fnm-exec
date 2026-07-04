@@ -3,6 +3,7 @@ set -euo pipefail
 
 export FNM_DIR="${FNM_DIR:-/srv/poi/.fnm}"
 FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-/tmp/poi-fnm-state-$(id -u)}"
 
 if [ ! -x "$FNM_BIN" ]; then
   echo "fnm is required but was not found at $FNM_BIN" >&2
@@ -10,5 +11,8 @@ if [ ! -x "$FNM_BIN" ]; then
 fi
 
 cd /srv/poi
+mkdir -p "$XDG_STATE_HOME"
+eval "$("$FNM_BIN" env --shell bash)"
+"$FNM_BIN" use --install-if-missing
 
-exec "$FNM_BIN" exec --using .node-version "$@"
+exec "$@"
