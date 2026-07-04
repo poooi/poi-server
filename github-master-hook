@@ -19,13 +19,13 @@ FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
 BOOTSTRAP_FNM_BIN="${BOOTSTRAP_FNM_BIN:-/home/poi/.local/share/fnm/fnm}"
 DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
 
-if [ ! -x "$BOOTSTRAP_FNM_BIN" ]; then
-  echo "fnm is required but was not found at $BOOTSTRAP_FNM_BIN" >&2
+mkdir -p "$(dirname "$FNM_BIN")" "$FNM_DIR"
+if [ -x "$BOOTSTRAP_FNM_BIN" ]; then
+  install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
+elif [ ! -x "$FNM_BIN" ]; then
+  echo "fnm is required but was not found at $FNM_BIN or $BOOTSTRAP_FNM_BIN" >&2
   exit 127
 fi
-
-mkdir -p "$(dirname "$FNM_BIN")" "$FNM_DIR"
-install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
 
 previous_sha="$(git rev-parse HEAD)"
 git fetch origin
