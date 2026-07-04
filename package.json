@@ -10,7 +10,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
-    "build": "node --check hooks.js && node --check scripts/smoke-server.cjs",
+    "build": "npm run type-check && node --check hooks.js && node --check scripts/smoke-server.cjs",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts --ext .js",
     "test": "vitest run",

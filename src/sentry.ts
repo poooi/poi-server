@@ -1,16 +1,7 @@
 import * as Sentry from '@sentry/node'
 import { ExpressRequest } from '@sentry/node/dist/handlers'
-import { extractTraceparentData, stripUrlQueryAndFragment, Integrations } from '@sentry/tracing'
+import { extractTraceparentData, stripUrlQueryAndFragment } from '@sentry/tracing'
 import { DefaultState, DefaultContext, Middleware, ParameterizedContext } from 'koa'
-
-import { config } from './config'
-
-Sentry.init({
-  dsn: 'https://99bc543aa0984d51917e02a873bb244f@o171991.ingest.sentry.io/5594215',
-  environment: config.env,
-  tracesSampleRate: 0.001,
-  integrations: [new Integrations.Mongo()],
-})
 
 export const captureException = (
   err: Error,
