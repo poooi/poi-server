@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node --harmony index.js",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
-    "build": "tsdown src/app.ts --format cjs --platform node --target node24 --out-dir dist --clean",
+    "build": "node --check index.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts --ext .js",
     "test": "vitest run",
@@ -77,7 +77,6 @@
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-prettier": "^3.3.1",
     "prettier": "^2.2.1",
-    "tsdown": "^0.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }

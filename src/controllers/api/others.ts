@@ -5,7 +5,7 @@ import mongoose from 'mongoose'
 import { makeBadge } from 'badge-maker'
 import path from 'path'
 
-import { config } from '../../config'
+import { config } from '../../config.ts'
 
 export const router = new Router()
 

@@ -2,4 +2,7 @@
 
 require('dotenv').config()
 
-require('./dist/app.cjs')
+import('./src/app.ts').catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

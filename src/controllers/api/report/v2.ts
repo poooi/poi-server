@@ -1,11 +1,11 @@
 import Router from '@koa/router'
 import mongoose from 'mongoose'
 import semver from 'semver'
-import { ParameterizedContext } from 'koa'
-import { isString, flatMap, drop } from 'lodash'
+import type { ParameterizedContext } from 'koa'
+import _ from 'lodash'
 
-import { captureException } from '../../../sentry'
-import { DropShipRecord, SelectRankRecord } from '../../../models'
+import { captureException } from '../../../sentry.ts'
+import { DropShipRecord, SelectRankRecord } from '../../../models/index.ts'
 
 export const router = new Router()
 
@@ -23,7 +23,7 @@ const ShipStat = mongoose.model('ShipStat')
 const EnemyInfo = mongoose.model('EnemyInfo')
 
 function parseInfo(ctx: ParameterizedContext) {
-  const info = isString(ctx.request.body.data)
+  const info = _.isString(ctx.request.body.data)
     ? JSON.parse(ctx.request.body.data)
     : ctx.request.body.data
   if (info.origin == null) {
@@ -248,7 +248,7 @@ router.post('/remodel_recipe_deduplicate', async (ctx, next) => {
       { $match: { _id: { $ne: null }, count: { $gt: 1 } } },
     ]).exec()
 
-    const recordsToDelete = flatMap(duplicates, (item) => drop(item.records, 1))
+    const recordsToDelete = _.flatMap(duplicates, (item) => _.drop(item.records, 1))
 
     await RecipeRecord.deleteMany({ _id: { $in: recordsToDelete } })
 

@@ -3,21 +3,23 @@ import mongoose from 'mongoose'
 import crypto from 'crypto'
 import _ from 'lodash'
 import bluebird from 'bluebird'
-import { ParameterizedContext } from 'koa'
+import type { ParameterizedContext } from 'koa'
 import { z, ZodError } from 'zod'
 
-import { captureException } from '../../../sentry'
+import { captureException } from '../../../sentry.ts'
 import {
   ItemImprovementRecipeAvailabilityFact,
   ItemImprovementRecipeCostFact,
   ItemImprovementRecipeUpdateFact,
-  QuestPayload,
-  QuestRewardPayload,
   Quest,
   QuestReward,
+} from '../../../models/index.ts'
+import type {
+  QuestPayload,
+  QuestRewardPayload,
   QuestDocument,
   RequiredItem,
-} from '../../../models'
+} from '../../../models/index.ts'
 
 export const router = new Router()
 

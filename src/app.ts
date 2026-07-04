@@ -5,14 +5,14 @@ import logger from 'koa-pino-logger'
 import Cache from 'node-cache'
 import mongoose from 'mongoose'
 import childProcess from 'child_process'
-import { trim } from 'lodash'
+import _ from 'lodash'
 import bytes from 'bytes'
 
-import { config } from './config'
-import { captureException, sentryTracingMiddileaware } from './sentry'
+import { config } from './config.ts'
+import { captureException, sentryTracingMiddileaware } from './sentry.ts'
 
-import './models'
-import { router } from './controllers'
+import './models/index.ts'
+import { router } from './controllers/index.ts'
 
 const app = new Koa()
 
@@ -70,7 +70,7 @@ app.on('error', captureException)
 
 childProcess.exec('git rev-parse HEAD', (err, stdout) => {
   if (!err) {
-    global.latestCommit = trim(stdout)
+    global.latestCommit = _.trim(stdout)
   } else {
     console.error(err)
   }

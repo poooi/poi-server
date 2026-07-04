@@ -1,8 +1,8 @@
 import Router from '@koa/router'
 
-import { router as othersRouter } from './api/others'
-import { router as reportV2Router } from './api/report/v2'
-import { router as reportV3Router } from './api/report/v3'
+import { router as othersRouter } from './api/others.ts'
+import { router as reportV2Router } from './api/report/v2.ts'
+import { router as reportV3Router } from './api/report/v3.ts'
 
 export const router = new Router()
 

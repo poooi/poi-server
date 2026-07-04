@@ -1,6 +1,7 @@
 import path from 'path'
-const rootPath = path.normalize(__dirname)
-import { defaults } from 'lodash'
+import _ from 'lodash'
+
+const rootPath = path.normalize(path.join(process.cwd(), 'src'))
 
 interface EnvConfig {
   root: string
@@ -23,7 +24,7 @@ const parseEnvInt = (value: string | undefined) => {
   return Number.isFinite(res) ? res : undefined
 }
 
-export const config: Readonly<EnvConfig> = defaults<Partial<EnvConfig>, EnvConfig>(
+export const config: Readonly<EnvConfig> = _.defaults<Partial<EnvConfig>, EnvConfig>(
   {
     port: parseEnvInt(process.env.POI_SERVER_PORT),
     db: process.env.POI_SERVER_DB,
