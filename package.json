@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "Server side of poi.",
   "private": true,
-  "main": "index.js",
+  "main": "src/app.ts",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "start": "node --harmony index.js",
+    "start": "tsx src/app.ts",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
-    "build": "tsdown src/app.ts --format cjs --platform node --target node24 --out-dir dist --clean",
+    "build": "node --check hooks.js && node --check scripts/smoke-server.cjs",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts --ext .js",
     "test": "vitest run",
@@ -48,6 +48,7 @@
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.1",
     "semver": "^7.3.4",
+    "tsx": "^4.23.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -77,7 +78,6 @@
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-prettier": "^3.3.1",
     "prettier": "^2.2.1",
-    "tsdown": "^0.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
   }
