@@ -29,9 +29,7 @@ install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
 
 previous_sha="$(git rev-parse HEAD)"
 git fetch origin
-if supervisorctl status poi | grep -q RUNNING; then
-  supervisorctl stop poi
-fi
+supervisorctl stop poi || true
 git checkout master
 git reset --hard origin/master
 eval "$("$FNM_BIN" env --shell bash)"
@@ -39,11 +37,7 @@ eval "$("$FNM_BIN" env --shell bash)"
 npm ci --omit=dev
 supervisorctl reread
 supervisorctl update
-if supervisorctl status poi | grep -q RUNNING; then
-  supervisorctl restart poi
-else
-  supervisorctl start poi
-fi
+supervisorctl start poi
 supervisorctl restart poi-hook
 
 {
