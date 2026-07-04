@@ -1,7 +1,13 @@
-declare let latestCommit: string
+interface GlobalThis {
+  latestCommit: string
+}
+
+declare const global: typeof globalThis & {
+  latestCommit: string
+}
 
 declare namespace NodeJS {
   interface Global {
-    latestCommit: typeof latestCommit
+    latestCommit: GlobalThis['latestCommit']
   }
 }
