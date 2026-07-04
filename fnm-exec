@@ -10,7 +10,5 @@ if [ ! -x "$FNM_BIN" ]; then
 fi
 
 cd /srv/poi
-eval "$("$FNM_BIN" env --shell bash)"
-"$FNM_BIN" use --install-if-missing
 
-exec "$@"
+exec "$FNM_BIN" exec --using .node-version "$@"
