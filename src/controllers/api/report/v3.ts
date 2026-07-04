@@ -408,10 +408,10 @@ const parseItemImprovementRecipeData = (ctx: ParameterizedContext) => {
 
 const normalizeItemImprovementRecipeRecord = (
   value: unknown,
-  serverReceivedAt: number,
+  schema: ReturnType<typeof createItemImprovementRecipeRecordSchema>,
   origin: string | undefined,
 ): ItemImprovementRecipeRecord => {
-  const record = createItemImprovementRecipeRecordSchema(serverReceivedAt).parse(value)
+  const record = schema.parse(value)
   return {
     ...record,
     origin,
@@ -656,8 +656,9 @@ router.post('/item_improvement_recipe', async (ctx, next) => {
   try {
     const serverReceivedAt = Date.now()
     const origin = getReporterOrigin(ctx)
+    const schema = createItemImprovementRecipeRecordSchema(serverReceivedAt)
     const records = parseItemImprovementRecipeData(ctx).map((record) =>
-      normalizeItemImprovementRecipeRecord(record, serverReceivedAt, origin),
+      normalizeItemImprovementRecipeRecord(record, schema, origin),
     )
 
     await bluebird.map(
