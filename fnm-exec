@@ -11,6 +11,6 @@ fi
 
 cd /srv/poi
 eval "$("$FNM_BIN" env --shell bash)"
-"$FNM_BIN" use --install-if-missing
+"$FNM_BIN" use
 
 exec "$@"

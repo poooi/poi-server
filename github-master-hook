@@ -2,6 +2,18 @@
 set -euo pipefail
 
 cd /srv/poi
+
+if [ "${POI_DEPLOY_FROM_TEMP:-0}" != "1" ]; then
+  temp_script="$(mktemp /tmp/poi-server-deploy.XXXXXX)"
+  cp "$0" "$temp_script"
+  chmod +x "$temp_script"
+  POI_DEPLOY_FROM_TEMP=1 exec "$temp_script" "$@"
+fi
+
+case "$0" in
+  /tmp/poi-server-deploy.*) trap 'rm -f "$0"' EXIT ;;
+esac
+
 export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
 FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
 DEPLOY_LOCK="${DEPLOY_LOCK:-/tmp/poi-server-deploy.lock}"
