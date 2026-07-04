@@ -326,7 +326,9 @@ describe('item improvement recipe v3 facts', () => {
     const update = availabilityUpdateOne.mock.calls[0][1] as {
       $setOnInsert: {
         firstReported: number
-        count?: number
+      }
+      $min: {
+        firstClientObservedAt: number
       }
       $addToSet: {
         sources: string
@@ -339,7 +341,8 @@ describe('item improvement recipe v3 facts', () => {
     }
 
     expect(update.$setOnInsert.firstReported).toBe(receivedAt)
-    expect(update.$setOnInsert.count).toBeUndefined()
+    expect(update.$setOnInsert).not.toHaveProperty('firstClientObservedAt')
+    expect(update.$min).toEqual({ firstClientObservedAt: observedAt })
     expect(update.$addToSet).toEqual({
       sources: 'list',
       origins: reporterOrigin,

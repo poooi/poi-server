@@ -487,6 +487,8 @@ const createItemImprovementFactUpdate = (
     $setOnInsert: {
       ...stableFields,
       firstReported: lastReported,
+    },
+    $min: {
       firstClientObservedAt: record.clientObservedAt,
     },
     $max: {
