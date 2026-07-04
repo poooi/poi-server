@@ -65,7 +65,7 @@ const postQuest = async () => {
 
 const tsx = process.platform === 'win32' ? 'node_modules\\.bin\\tsx.cmd' : './node_modules/.bin/tsx'
 
-const server = childProcess.spawn(tsx, ['src/app.ts'], {
+const server = childProcess.spawn(tsx, ['src/index.ts'], {
   stdio: 'inherit',
   env: {
     ...process.env,
