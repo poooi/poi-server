@@ -2,10 +2,19 @@
 set -e
 
 cd /srv/poi
+if ! command -v fnm >/dev/null 2>&1; then
+  echo "fnm is required but was not found in PATH" >&2
+  exit 127
+fi
+
 git fetch origin
 supervisorctl stop poi
 git checkout master
 git reset --hard origin/master
+eval "$(fnm env --shell bash)"
+fnm use --install-if-missing
 npm install
+supervisorctl reread
+supervisorctl update
 supervisorctl start poi
 supervisorctl restart poi-hook
