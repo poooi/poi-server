@@ -32,9 +32,10 @@ git fetch origin
 supervisorctl stop poi || true
 git checkout master
 git reset --hard origin/master
-eval "$("$FNM_BIN" env --shell bash)"
-"$FNM_BIN" use --install-if-missing
-npm ci --omit=dev
+"$FNM_BIN" install
+"$FNM_BIN" exec --using .node-version npm ci
+"$FNM_BIN" exec --using .node-version npm run build
+"$FNM_BIN" exec --using .node-version npm prune --omit=dev
 supervisorctl reread
 supervisorctl update
 supervisorctl stop poi || true
