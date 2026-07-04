@@ -1,20 +1,37 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 cd /srv/poi
-if ! command -v fnm >/dev/null 2>&1; then
-  echo "fnm is required but was not found in PATH" >&2
+export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
+FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
+DEPLOY_LOCK="${DEPLOY_LOCK:-/tmp/poi-server-deploy.lock}"
+DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
+
+if [ ! -x "$FNM_BIN" ]; then
+  echo "fnm is required but was not found at $FNM_BIN" >&2
   exit 127
 fi
 
+exec 9>"$DEPLOY_LOCK"
+if ! flock -n 9; then
+  echo "Another poi-server deployment is already running"
+  exit 0
+fi
+
+previous_sha="$(git rev-parse HEAD)"
 git fetch origin
-supervisorctl stop poi
 git checkout master
 git reset --hard origin/master
-eval "$(fnm env --shell bash)"
-fnm use --install-if-missing
-npm install
+eval "$("$FNM_BIN" env --shell bash)"
+"$FNM_BIN" use --install-if-missing
+npm ci --omit=dev
 supervisorctl reread
 supervisorctl update
-supervisorctl start poi
+supervisorctl restart poi
 supervisorctl restart poi-hook
+
+{
+  echo "previous_sha=$previous_sha"
+  echo "sha=$(git rev-parse HEAD)"
+  echo "deployed_at=$(date --iso-8601=seconds)"
+} >"$DEPLOY_STATE"

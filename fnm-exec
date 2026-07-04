@@ -1,13 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-if ! command -v fnm >/dev/null 2>&1; then
-  echo "fnm is required but was not found in PATH" >&2
+export FNM_DIR="${FNM_DIR:-/home/poi/.local/share/fnm}"
+FNM_BIN="${FNM_BIN:-$FNM_DIR/fnm}"
+
+if [ ! -x "$FNM_BIN" ]; then
+  echo "fnm is required but was not found at $FNM_BIN" >&2
   exit 127
 fi
 
 cd /srv/poi
-eval "$(fnm env --shell bash)"
-fnm use --install-if-missing
+eval "$("$FNM_BIN" env --shell bash)"
+"$FNM_BIN" use --install-if-missing
 
 exec "$@"
