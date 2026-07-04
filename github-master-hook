@@ -1,11 +1,48 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 cd /srv/poi
+
+if [ "${POI_DEPLOY_FROM_TEMP:-0}" != "1" ]; then
+  temp_script="$(mktemp /tmp/poi-server-deploy.XXXXXX)"
+  cp "$0" "$temp_script"
+  chmod +x "$temp_script"
+  POI_DEPLOY_FROM_TEMP=1 exec "$temp_script" "$@"
+fi
+
+case "$0" in
+  /tmp/poi-server-deploy.*) trap 'rm -f "$0"' EXIT ;;
+esac
+
+export FNM_DIR="${FNM_DIR:-/srv/poi/.fnm}"
+FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
+BOOTSTRAP_FNM_BIN="${BOOTSTRAP_FNM_BIN:-/home/poi/.local/share/fnm/fnm}"
+DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
+
+mkdir -p "$(dirname "$FNM_BIN")" "$FNM_DIR"
+if [ -x "$BOOTSTRAP_FNM_BIN" ]; then
+  install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
+elif [ ! -x "$FNM_BIN" ]; then
+  echo "fnm is required but was not found at $FNM_BIN or $BOOTSTRAP_FNM_BIN" >&2
+  exit 127
+fi
+
+previous_sha="$(git rev-parse HEAD)"
 git fetch origin
-supervisorctl stop poi
+supervisorctl stop poi || true
 git checkout master
 git reset --hard origin/master
-npm install
+eval "$("$FNM_BIN" env --shell bash)"
+"$FNM_BIN" use --install-if-missing
+npm ci --omit=dev
+supervisorctl reread
+supervisorctl update
+supervisorctl stop poi || true
 supervisorctl start poi
 supervisorctl restart poi-hook
+
+{
+  echo "previous_sha=$previous_sha"
+  echo "sha=$(git rev-parse HEAD)"
+  echo "deployed_at=$(date --iso-8601=seconds)"
+} >"$DEPLOY_STATE"

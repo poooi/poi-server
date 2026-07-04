@@ -24,3 +24,8 @@ jobs:
       - run: npm run lint
       - run: npm run type-check
       - run: npm test
+      - name: Validate deploy hooks
+        run: |
+          bash -n github-master-hook
+          bash -n fnm-exec
+          ! grep -Il $'\r' github-master-hook fnm-exec supervisior.conf
