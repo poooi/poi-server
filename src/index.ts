@@ -16,5 +16,5 @@ void import('./sentry-bootstrap')
     } catch (sentryErr) {
       console.error(sentryErr)
     }
-    process.exitCode = 1
+    process.exit(1)
   })
