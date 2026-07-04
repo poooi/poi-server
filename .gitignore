@@ -27,6 +27,7 @@ build/Release
 node_modules
 .fnm-bin/
 .fnm/
+.deploy-state
 
 public
 
