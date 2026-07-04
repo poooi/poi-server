@@ -37,6 +37,7 @@ eval "$("$FNM_BIN" env --shell bash)"
 npm ci --omit=dev
 supervisorctl reread
 supervisorctl update
+supervisorctl stop poi || true
 supervisorctl start poi
 supervisorctl restart poi-hook
 
