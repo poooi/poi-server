@@ -1,4 +1,5 @@
 import Fastify from 'fastify'
+import { randomUUID } from 'crypto'
 
 import { config } from './config'
 import './models'
@@ -8,6 +9,9 @@ import { registerSentryHooks } from './sentry'
 interface CreateAppOptions {
   disableLogger?: boolean
 }
+
+const getHeaderValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value.join(',') : value
 
 const getErrorStatusCode = (err: unknown) => {
   if (
@@ -23,12 +27,50 @@ const getErrorStatusCode = (err: unknown) => {
   return 500
 }
 
+const createLoggerOptions = (disableLogger: boolean) =>
+  disableLogger
+    ? false
+    : {
+        level: config.logLevel,
+        redact: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["set-cookie"]'],
+        serializers: {
+          req: (request: {
+            headers: Record<string, string | string[] | undefined>
+            hostname?: string
+            id?: string
+            ip?: string
+            method?: string
+            socket?: { remotePort?: number }
+            url?: string
+          }) => ({
+            host: request.hostname,
+            id: request.id,
+            ip:
+              getHeaderValue(request.headers['x-real-ip']) ||
+              getHeaderValue(request.headers['x-forwarded-for']) ||
+              request.ip,
+            method: request.method,
+            remotePort: request.socket?.remotePort,
+            reporter: getHeaderValue(request.headers['x-reporter']),
+            url: request.url,
+            userAgent: getHeaderValue(request.headers['user-agent']),
+          }),
+          res: (reply: { statusCode?: number }) => ({
+            statusCode: reply.statusCode,
+          }),
+        },
+      }
+
 export const createApp = ({
   disableLogger = Boolean(config.disableLogger),
 }: CreateAppOptions = {}) => {
   const app = Fastify({
     bodyLimit: 1024 * 1024,
-    logger: disableLogger ? false : true,
+    genReqId: (request) =>
+      getHeaderValue(request.headers['x-request-id']) ||
+      getHeaderValue(request.headers['x-correlation-id']) ||
+      randomUUID(),
+    logger: createLoggerOptions(disableLogger),
   })
 
   registerSentryHooks(app)

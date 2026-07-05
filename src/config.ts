@@ -8,6 +8,7 @@ interface EnvConfig {
   db: string
   disableLogger?: number
   env: string
+  logLevel: string
 }
 
 const defaultConfig: EnvConfig = {
@@ -16,6 +17,7 @@ const defaultConfig: EnvConfig = {
   db: 'mongodb://localhost:27017/poi-development',
   env: 'development',
   disableLogger: 0,
+  logLevel: 'info',
 }
 
 const parseEnvInt = (value: string | undefined) => {
@@ -29,6 +31,7 @@ export const config: Readonly<EnvConfig> = defaults<Partial<EnvConfig>, EnvConfi
     db: process.env.POI_SERVER_DB,
     env: process.env.NODE_ENV,
     disableLogger: parseEnvInt(process.env.POI_SERVER_DISABLE_LOGGER),
+    logLevel: process.env.POI_SERVER_LOG_LEVEL,
   },
   defaultConfig,
 )
