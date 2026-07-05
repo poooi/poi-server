@@ -25,10 +25,14 @@ const runMasterHook = () => {
 
 const createHookServer = ({ runHook = runMasterHook } = {}) =>
   http.createServer((req, res) => {
-    const path = new URL(
-      req.url || '/',
-      `http://${req.headers.host || `${defaultHost}:${defaultPort}`}`,
-    ).pathname
+    let path
+    try {
+      path = new URL(req.url || '/', `http://${defaultHost}:${defaultPort}`).pathname
+    } catch {
+      send(res, 400, 'bad request')
+      return
+    }
+
     if (req.method === 'POST' && path === '/api/github-master-hook') {
       runHook()
       send(res, 200, 'ok')
