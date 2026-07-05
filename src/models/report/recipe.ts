@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose'
+import mongoose, { type Document } from 'mongoose'
 
 export interface RecipeRecordPayload {
   recipeId: number

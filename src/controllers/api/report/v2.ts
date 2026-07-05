@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import mongoose from 'mongoose'
 import semver from 'semver'
-import { ParameterizedContext } from 'koa'
+import { type ParameterizedContext } from 'koa'
 import { isString, flatMap, drop } from 'lodash'
 
 import { captureException } from '../../../sentry'
@@ -30,14 +30,49 @@ const getRequestData = (ctx: ParameterizedContext) => {
 const getHeaderValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value.join(',') : value
 
+class ReportPayloadValidationError extends Error {}
+
+const parseJsonData = (data: unknown) => {
+  if (!isString(data)) {
+    return data
+  }
+
+  try {
+    return JSON.parse(data)
+  } catch {
+    throw new ReportPayloadValidationError('data must be valid JSON')
+  }
+}
+
 function parseInfo(ctx: ParameterizedContext): Record<string, any> {
-  const data = getRequestData(ctx)
-  const info = (isString(data) ? JSON.parse(data) : data) as Record<string, any>
+  const data = parseJsonData(getRequestData(ctx))
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) {
+    throw new ReportPayloadValidationError('data must be a JSON object')
+  }
+
+  const info = data as Record<string, any>
   if (info.origin == null) {
     info.origin =
       getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent'])
   }
   return info
+}
+
+const handleReportError = async (
+  err: Error,
+  ctx: ParameterizedContext,
+  next: () => Promise<unknown>,
+) => {
+  if (err instanceof ReportPayloadValidationError) {
+    ctx.status = 400
+    ctx.body = { error: err.message }
+    await next()
+    return
+  }
+
+  captureException(err, ctx)
+  ctx.status = 500
+  await next()
 }
 
 router.post('/create_ship', async (ctx, next) => {
@@ -48,9 +83,7 @@ router.post('/create_ship', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -62,9 +95,7 @@ router.post('/create_item', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -76,9 +107,7 @@ router.post('/remodel_item', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -94,9 +123,7 @@ router.post('/drop_ship', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -118,9 +145,7 @@ router.post('/select_rank', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -132,9 +157,7 @@ router.post('/pass_event', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -169,9 +192,7 @@ router.post('/battle_api', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -183,9 +204,7 @@ router.post('/night_contcat', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -206,9 +225,7 @@ router.post('/aaci', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -243,9 +260,7 @@ router.post('/remodel_recipe', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -280,9 +295,7 @@ router.post('/night_battle_ci', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -327,9 +340,7 @@ router.post('/ship_stat', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -388,8 +399,6 @@ router.post('/enemy_info', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })

@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import crypto from 'crypto'
 import _ from 'lodash'
 import bluebird from 'bluebird'
-import { ParameterizedContext } from 'koa'
+import { type ParameterizedContext } from 'koa'
 import { z, ZodError } from 'zod'
 
 import { captureException } from '../../../sentry'
@@ -11,12 +11,12 @@ import {
   ItemImprovementRecipeAvailabilityFact,
   ItemImprovementRecipeCostFact,
   ItemImprovementRecipeUpdateFact,
-  QuestPayload,
-  QuestRewardPayload,
+  type QuestPayload,
+  type QuestRewardPayload,
   Quest,
   QuestReward,
-  QuestDocument,
-  RequiredItem,
+  type QuestDocument,
+  type RequiredItem,
 } from '../../../models'
 
 export const router = new Router()
@@ -29,13 +29,49 @@ const getRequestData = (ctx: ParameterizedContext) => {
 const getHeaderValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value.join(',') : value
 
+class ReportPayloadValidationError extends Error {}
+
+const parseReportJsonData = (data: unknown) => {
+  if (!_.isString(data)) {
+    return data
+  }
+
+  try {
+    return JSON.parse(data)
+  } catch {
+    throw new ReportPayloadValidationError('data must be valid JSON')
+  }
+}
+
 const parseInfo = (ctx: ParameterizedContext): Record<string, any> => {
-  const info = getRequestData(ctx) as Record<string, any>
+  const data = parseReportJsonData(getRequestData(ctx))
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) {
+    throw new ReportPayloadValidationError('data must be a JSON object')
+  }
+
+  const info = data as Record<string, any>
   if (info.origin == null) {
     info.origin =
       getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent'])
   }
   return info
+}
+
+const handleReportError = async (
+  err: Error,
+  ctx: ParameterizedContext,
+  next: () => Promise<unknown>,
+) => {
+  if (err instanceof ReportPayloadValidationError) {
+    ctx.status = 400
+    ctx.body = { error: err.message }
+    await next()
+    return
+  }
+
+  captureException(err, ctx)
+  ctx.status = 500
+  await next()
 }
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
@@ -754,9 +790,7 @@ router.post('/quest', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })
 
@@ -780,8 +814,6 @@ router.post('/quest_reward', async (ctx, next) => {
     ctx.status = 200
     await next()
   } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    await handleReportError(err, ctx, next)
   }
 })

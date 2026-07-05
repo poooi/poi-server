@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose'
+import mongoose, { type Document } from 'mongoose'
 
 export interface EnemyInfoPayload {
   ships1: number[]

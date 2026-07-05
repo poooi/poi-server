@@ -1,8 +1,13 @@
 import * as Sentry from '@sentry/node'
-import { ExpressRequest } from '@sentry/node/dist/handlers'
-import { Context } from '@sentry/types'
+import { type ExpressRequest } from '@sentry/node/dist/handlers'
+import { type Context } from '@sentry/types'
 import { extractTraceparentData, stripUrlQueryAndFragment } from '@sentry/tracing'
-import { DefaultState, DefaultContext, Middleware, ParameterizedContext } from 'koa'
+import {
+  type DefaultState,
+  type DefaultContext,
+  type Middleware,
+  type ParameterizedContext,
+} from 'koa'
 
 const getHeaderValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value.join(',') : value
