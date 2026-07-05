@@ -25,7 +25,7 @@ vi.mock('@sentry/tracing', () => ({
   stripUrlQueryAndFragment: vi.fn((url: string) => url.split('?')[0]),
 }))
 
-import { sentryTracingMiddileaware } from '../src/sentry'
+import { sentryTracingMiddleware } from '../src/sentry'
 
 const createContext = (data: unknown) =>
   ({
@@ -62,7 +62,7 @@ describe('sentry tracing middleware', () => {
   })
 
   test('wraps non-object request body data in Sentry context', async () => {
-    await sentryTracingMiddileaware(createContext('{"questId":1}'), async () => undefined)
+    await sentryTracingMiddleware(createContext('{"questId":1}'), async () => undefined)
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       data: '{"questId":1}',
@@ -70,7 +70,7 @@ describe('sentry tracing middleware', () => {
   })
 
   test('wraps array request body data in Sentry context', async () => {
-    await sentryTracingMiddileaware(createContext([{ questId: 1 }]), async () => undefined)
+    await sentryTracingMiddleware(createContext([{ questId: 1 }]), async () => undefined)
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       data: [{ questId: 1 }],
@@ -78,7 +78,7 @@ describe('sentry tracing middleware', () => {
   })
 
   test('keeps object request body data as Sentry context', async () => {
-    await sentryTracingMiddileaware(createContext({ questId: 1 }), async () => undefined)
+    await sentryTracingMiddleware(createContext({ questId: 1 }), async () => undefined)
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       questId: 1,

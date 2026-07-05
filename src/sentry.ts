@@ -49,7 +49,7 @@ export const captureException = (
   })
 }
 
-export const sentryTracingMiddileaware: Middleware = async (ctx, next) => {
+export const sentryTracingMiddleware: Middleware = async (ctx, next) => {
   const reqMethod = (ctx.method || '').toUpperCase()
   const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url)
 
@@ -87,3 +87,5 @@ export const sentryTracingMiddileaware: Middleware = async (ctx, next) => {
     transaction.finish()
   })
 }
+
+export const sentryTracingMiddileaware = sentryTracingMiddleware

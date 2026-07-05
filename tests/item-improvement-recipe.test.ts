@@ -472,6 +472,16 @@ describe('report payload parsing', () => {
     expect(ctx.body).toEqual({ error: 'data must be valid JSON' })
   })
 
+  test.each([undefined, 1, [], '1'])(
+    'returns 400 for missing/non-object v2 payloads: %s',
+    async (data) => {
+      const ctx = await invokeReportPost(v2Router, '/create_ship', data)
+
+      expect(ctx.status).toBe(400)
+      expect(ctx.body).toEqual({ error: 'data must be a JSON object' })
+    },
+  )
+
   test('returns 400 for missing v3 payload objects', async () => {
     const updateOne = vi.spyOn(Quest, 'updateOne')
 
