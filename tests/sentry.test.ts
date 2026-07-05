@@ -135,4 +135,21 @@ describe('sentry tracing hooks', () => {
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', { questId: 1 })
     expect(sentryMocks.captureException).toHaveBeenCalledWith(err)
   })
+
+  test('captures unhandled route errors exactly once and still finishes the span', async () => {
+    const app = Fastify({ logger: false })
+    registerSentryHooks(app)
+    app.setErrorHandler((_err, _request, reply) => reply.code(500).send())
+    app.get('/boom', async () => {
+      throw new Error('boom')
+    })
+
+    const response = await app.inject('/boom')
+
+    await app.close()
+
+    expect(response.statusCode).toBe(500)
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1)
+    expect(sentryMocks.finish).toHaveBeenCalledTimes(1)
+  })
 })

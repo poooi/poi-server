@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
+import { type Quest } from '../src/models'
 
 const sentryMocks = vi.hoisted(() => ({
   finish: vi.fn(),
@@ -20,7 +21,21 @@ vi.mock('@sentry/node', () => ({
   captureException: vi.fn(),
 }))
 
+const questDistinctMock = vi.hoisted(() => vi.fn())
+
+vi.mock('../src/models', async () => {
+  const actual = await vi.importActual('../src/models')
+  return {
+    ...actual,
+    Quest: {
+      ...(actual as { Quest: typeof Quest }).Quest,
+      distinct: questDistinctMock,
+    },
+  }
+})
+
 import { createApp } from '../src/create-app'
+import { clearResponseCacheForTests } from '../src/http/cache'
 import { toAppRequest } from '../src/http/fastify'
 
 describe('Fastify route adapters', () => {
@@ -40,6 +55,8 @@ describe('Fastify route adapters', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    questDistinctMock.mockReset()
+    clearResponseCacheForTests()
   })
 
   test('registers common routes with preserved status and headers', async () => {
@@ -113,6 +130,24 @@ describe('Fastify route adapters', () => {
 
     expect(response.statusCode).toBe(400)
     expect(response.json()).toEqual({ error: 'afterId: must be a valid ObjectId' })
+  })
+
+  test('preserves cached GET responses within the TTL', async () => {
+    questDistinctMock
+      .mockReturnValueOnce({ exec: vi.fn(async () => ['first']) })
+      .mockReturnValueOnce({ exec: vi.fn(async () => ['second']) })
+    const app = createApp({ disableLogger: true })
+
+    const firstResponse = await app.inject('/api/report/v3/known_quests')
+    const secondResponse = await app.inject('/api/report/v3/known_quests')
+
+    await app.close()
+
+    expect(firstResponse.statusCode).toBe(200)
+    expect(secondResponse.statusCode).toBe(200)
+    expect(firstResponse.json()).toEqual({ quests: ['first'] })
+    expect(secondResponse.json()).toEqual({ quests: ['first'] })
+    expect(questDistinctMock).toHaveBeenCalledTimes(1)
   })
 
   test('maps AppRequest path from the concrete URL path', () => {
