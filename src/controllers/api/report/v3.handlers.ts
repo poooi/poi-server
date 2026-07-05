@@ -616,6 +616,7 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
     const lastRecord = records[records.length - 1]
 
     return withCloudflareCache(
+      request,
       ok({
         records,
         next:
@@ -675,7 +676,10 @@ export const itemImprovementRecipeUpdates = (request: AppRequest) =>
 export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
   try {
     const knownQuestKeys: QuestDocument['key'][] = await Quest.distinct('key').exec()
-    return withCloudflareCache(ok({ quests: knownQuestKeys.map((key) => key.slice(0, 8)) }))
+    return withCloudflareCache(
+      request,
+      ok({ quests: knownQuestKeys.map((key) => key.slice(0, 8)) }),
+    )
   } catch (err) {
     captureException(err, request)
     return internalServerError()

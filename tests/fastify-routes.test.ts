@@ -139,6 +139,10 @@ describe('Fastify route adapters', () => {
     expect(firstResponse.headers['cloudflare-cdn-cache-control']).toBe(
       cloudflareCacheHeaders['Cloudflare-CDN-Cache-Control'],
     )
+    expect(secondResponse.headers['cache-control']).toBe(cloudflareCacheHeaders['Cache-Control'])
+    expect(secondResponse.headers['cloudflare-cdn-cache-control']).toBe(
+      cloudflareCacheHeaders['Cloudflare-CDN-Cache-Control'],
+    )
     expect(questDistinctMock).toHaveBeenCalledTimes(2)
   })
 

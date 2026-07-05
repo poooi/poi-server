@@ -86,7 +86,7 @@ export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
   try {
     const knownQuestIds = await Quest.find().distinct('questId').exec()
     knownQuestIds.sort()
-    return withCloudflareCache(ok({ quests: knownQuestIds }))
+    return withCloudflareCache(request, ok({ quests: knownQuestIds }))
   } catch (err) {
     captureException(err, request)
     return internalServerError()

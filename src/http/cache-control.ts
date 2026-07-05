@@ -1,3 +1,4 @@
+import { type AppRequest } from './request'
 import { type AppResult } from './result'
 
 export const cloudflareCacheHeaders = {
@@ -6,8 +7,8 @@ export const cloudflareCacheHeaders = {
     'public, max-age=600, stale-while-revalidate=60, stale-if-error=300',
 }
 
-export const withCloudflareCache = (result: AppResult): AppResult => {
-  if (result.status !== 200) {
+export const withCloudflareCache = (request: AppRequest, result: AppResult): AppResult => {
+  if (request.method !== 'GET' || result.status !== 200) {
     return result
   }
 
