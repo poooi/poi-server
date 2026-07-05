@@ -37,7 +37,7 @@ jobs:
       - name: Run e2e tests
         run: npm run test:e2e
         env:
-          POI_E2E_MONGODB_URI: mongodb://127.0.0.1:27017/poi-e2e
+          POI_SERVER_DB: mongodb://127.0.0.1:27017/poi-e2e
       - run: npm run build
       - run: npm run smoke
       - name: Validate deploy hooks

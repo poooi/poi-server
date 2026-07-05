@@ -201,7 +201,7 @@ const itemImprovementRecords = [
 ]
 
 beforeAll(async () => {
-  let db = process.env.POI_E2E_MONGODB_URI
+  let db = process.env.POI_SERVER_DB
   if (db == null || db === '') {
     mongo = await MongoMemoryServer.create()
     db = mongo.getUri()

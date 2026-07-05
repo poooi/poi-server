@@ -54,8 +54,26 @@ export const startServer = async ({
   const app = createApp({ disableLogger })
   app.on('error', captureException)
 
-  const server = await new Promise<Server>((resolve) => {
-    const listener = app.listen(port, host, () => resolve(listener))
+  const server = await new Promise<Server>((resolve, reject) => {
+    const listener = app.listen(port, host)
+
+    function cleanup() {
+      listener.off('error', onError)
+      listener.off('listening', onListening)
+    }
+
+    function onError(err: Error) {
+      cleanup()
+      reject(err)
+    }
+
+    function onListening() {
+      cleanup()
+      resolve(listener)
+    }
+
+    listener.once('error', onError)
+    listener.once('listening', onListening)
   })
 
   if (shouldLoadLatestCommit) {
