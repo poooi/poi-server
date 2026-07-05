@@ -136,12 +136,12 @@ describe('Fastify route adapters', () => {
     expect(firstResponse.json()).toEqual({ quests: ['first'] })
     expect(secondResponse.json()).toEqual({ quests: ['second'] })
     expect(firstResponse.headers['cache-control']).toBe(cloudflareCacheHeaders['Cache-Control'])
-    expect(firstResponse.headers['cloudflare-cdn-cache-control']).toBe(
-      cloudflareCacheHeaders['Cloudflare-CDN-Cache-Control'],
+    expect(firstResponse.headers['cdn-cache-control']).toBe(
+      cloudflareCacheHeaders['CDN-Cache-Control'],
     )
     expect(secondResponse.headers['cache-control']).toBe(cloudflareCacheHeaders['Cache-Control'])
-    expect(secondResponse.headers['cloudflare-cdn-cache-control']).toBe(
-      cloudflareCacheHeaders['Cloudflare-CDN-Cache-Control'],
+    expect(secondResponse.headers['cdn-cache-control']).toBe(
+      cloudflareCacheHeaders['CDN-Cache-Control'],
     )
     expect(questDistinctMock).toHaveBeenCalledTimes(2)
   })

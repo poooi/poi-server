@@ -266,8 +266,7 @@ import { type AppResult } from './result'
 
 export const cloudflareCacheHeaders = {
   'Cache-Control': 'public, max-age=60',
-  'Cloudflare-CDN-Cache-Control':
-    'public, max-age=600, stale-while-revalidate=60, stale-if-error=300',
+  'CDN-Cache-Control': 'public, max-age=600, stale-while-revalidate=60, stale-if-error=300',
 }
 
 export const withCloudflareCache = (request: AppRequest, result: AppResult): AppResult => {
@@ -499,7 +498,7 @@ Add cases:
    - First `GET /api/report/v3/known_quests`.
    - Insert a quest directly.
    - Second `GET` returns fresh origin data, proving no in-process cache remains.
-   - Both successful responses include `Cache-Control` and `Cloudflare-CDN-Cache-Control`.
+   - Both successful responses include `Cache-Control` and `CDN-Cache-Control`.
 
 ### `tests/sentry.test.ts`
 
