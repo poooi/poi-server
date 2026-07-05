@@ -1,4 +1,5 @@
 import ChildProcess from 'child_process'
+import path from 'path'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 import 'dotenv/config'
@@ -12,7 +13,7 @@ interface CreateHookAppOptions {
 
 export const runMasterHook = () => {
   console.log(`====================Master hook ${new Date()} ====================`)
-  const cp = ChildProcess.spawn('./github-master-hook', [], {
+  const cp = ChildProcess.spawn(path.resolve(__dirname, 'github-master-hook'), [], {
     stdio: 'inherit',
   })
   cp.on('error', (err) => console.error('* Master hook spawn error:', err))
