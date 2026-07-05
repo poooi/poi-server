@@ -43,11 +43,15 @@ const createLoggerOptions = (disableLogger: boolean) =>
             socket?: { remotePort?: number }
             url?: string
           }) => ({
+            cfConnectingIpv6: getHeaderValue(request.headers['cf-connecting-ipv6']),
             cfCountry: getHeaderValue(request.headers['cf-ipcountry']),
+            cfPseudoIpv4: getHeaderValue(request.headers['cf-pseudo-ipv4']),
             cfRay: getHeaderValue(request.headers['cf-ray']),
+            cfWorker: getHeaderValue(request.headers['cf-worker']),
             host: request.hostname,
             id: request.id,
             ip:
+              getHeaderValue(request.headers['cf-connecting-ipv6']) ||
               getHeaderValue(request.headers['cf-connecting-ip']) ||
               getHeaderValue(request.headers['true-client-ip']) ||
               getHeaderValue(request.headers['x-real-ip']) ||

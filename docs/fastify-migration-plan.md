@@ -45,9 +45,9 @@ This migration must be implementation-ready: every phase below has concrete file
   - `GET /api/report/v3/item_improvement_recipes/costs`
   - `GET /api/report/v3/item_improvement_recipes/updates`
 - Current Sentry metadata:
-  - IP from `cf-connecting-ip`, `true-client-ip`, `x-real-ip`, or `x-forwarded-for`.
+  - IP from `cf-connecting-ipv6`, `cf-connecting-ip`, `true-client-ip`, `x-real-ip`, or `x-forwarded-for`.
   - reporter from `x-reporter` or `user-agent`.
-  - Cloudflare metadata from `cf-ray` and `cf-ipcountry`.
+  - Cloudflare metadata from `cf-ray`, `cf-ipcountry`, `cf-pseudo-ipv4`, and `cf-worker`.
   - version from `global.latestCommit?.slice(0, 8)`.
   - body context from outer body `data`.
 
@@ -351,7 +351,8 @@ Implementation notes:
 
 - `bodyLimit: 1024 * 1024` preserves the effective 1 MiB default.
 - `genReqId` should prefer `x-request-id`, `x-correlation-id`, then Cloudflare `cf-ray`.
-- Request logs should include Cloudflare `cf-ray`, `cf-ipcountry`, and client IP from Cloudflare headers before fallback proxy headers.
+- Request logs should include Cloudflare `cf-ray`, `cf-ipcountry`, `cf-worker`, pseudo IPv4/IPv6 metadata, and client IP from Cloudflare headers before fallback proxy headers.
+- Cloudflare docs note `CF-Connecting-IPv6` preserves the real IPv6 address when Pseudo IPv4 overwrites `CF-Connecting-IP`; `CF-IPCountry` is only present when visitor location headers are enabled.
 - Do not add response schemas in the first transport commit.
 - Do not enable `ajv` route validation in the first transport commit.
 - If malformed outer JSON behavior differs from Koa, add a Fastify error handler branch that returns the captured baseline status/body.

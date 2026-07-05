@@ -16,6 +16,7 @@ export const getHeader = (request: Pick<AppRequest, 'headers'>, name: string): s
 }
 
 export const getClientIp = (request: Pick<AppRequest, 'headers'>): string =>
+  getHeader(request, 'cf-connecting-ipv6') ||
   getHeader(request, 'cf-connecting-ip') ||
   getHeader(request, 'true-client-ip') ||
   getHeader(request, 'x-real-ip') ||

@@ -35,8 +35,11 @@ export const captureException = (err: Error, request: AppRequest): void => {
       ip_address: getClientIp(request),
     })
     scope.setTags({
+      cf_connecting_ipv6: getHeader(request, 'cf-connecting-ipv6'),
       cf_country: getHeader(request, 'cf-ipcountry'),
+      cf_pseudo_ipv4: getHeader(request, 'cf-pseudo-ipv4'),
       cf_ray: getHeader(request, 'cf-ray'),
+      cf_worker: getHeader(request, 'cf-worker'),
       reporter: getHeader(request, 'x-reporter') || getHeader(request, 'user-agent'),
       url: request.url,
       version: global.latestCommit?.slice(0, 8),
@@ -86,8 +89,11 @@ export const registerSentryHooks = (app: FastifyInstance) => {
         ip_address: getClientIp(appRequest),
       })
       scope.setTags({
+        cf_connecting_ipv6: getHeader(appRequest, 'cf-connecting-ipv6'),
         cf_country: getHeader(appRequest, 'cf-ipcountry'),
+        cf_pseudo_ipv4: getHeader(appRequest, 'cf-pseudo-ipv4'),
         cf_ray: getHeader(appRequest, 'cf-ray'),
+        cf_worker: getHeader(appRequest, 'cf-worker'),
         reporter: getHeader(appRequest, 'x-reporter') || getHeader(appRequest, 'user-agent'),
         url: request.url,
         version: global.latestCommit?.slice(0, 8),
