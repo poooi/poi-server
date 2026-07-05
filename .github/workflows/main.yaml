@@ -17,6 +17,11 @@ jobs:
         image: mongo:4.4
         ports:
           - 27017:27017
+        options: >-
+          --health-cmd "mongo --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +33,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check
-      - run: npm test
+      - run: npm run test:unit
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          POI_E2E_MONGODB_URI: mongodb://127.0.0.1:27017/poi-e2e
       - run: npm run build
       - run: npm run smoke
       - name: Validate deploy hooks

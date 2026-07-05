@@ -1,0 +1,78 @@
+import childProcess from 'child_process'
+import { trim } from 'lodash'
+import mongoose from 'mongoose'
+import { type Server } from 'http'
+
+import { config } from './config'
+import { createApp } from './create-app'
+import { captureException } from './sentry'
+
+interface StartServerOptions {
+  db?: string
+  disableLogger?: boolean
+  host?: string
+  loadLatestCommit?: boolean
+  port?: number
+}
+
+interface StartedServer {
+  server: Server
+  close: () => Promise<void>
+}
+
+export const loadLatestCommit = () => {
+  childProcess.exec('git rev-parse HEAD', (err, stdout) => {
+    if (!err) {
+      global.latestCommit = trim(stdout)
+    } else {
+      console.error(err)
+    }
+  })
+}
+
+export const connectDatabase = async (db = config.db) => {
+  await mongoose.connect(db, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useCreateIndex: true,
+  })
+}
+
+export const startServer = async ({
+  db = config.db,
+  disableLogger,
+  host = '127.0.0.1',
+  loadLatestCommit: shouldLoadLatestCommit = true,
+  port = config.port,
+}: StartServerOptions = {}): Promise<StartedServer> => {
+  await connectDatabase(db)
+
+  mongoose.connection.on('error', () => {
+    throw new Error('Unable to connect to database at ' + db)
+  })
+
+  const app = createApp({ disableLogger })
+  app.on('error', captureException)
+
+  const server = await new Promise<Server>((resolve) => {
+    const listener = app.listen(port, host, () => resolve(listener))
+  })
+
+  if (shouldLoadLatestCommit) {
+    loadLatestCommit()
+  }
+
+  return {
+    server,
+    close: () =>
+      new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err != null) {
+            reject(err)
+            return
+          }
+          resolve()
+        })
+      }),
+  }
+}
