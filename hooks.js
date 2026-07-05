@@ -1,18 +1,10 @@
 const ChildProcess = require('child_process')
-const http = require('http')
+const Fastify = require('fastify')
 
 require('dotenv').config()
 
 const defaultPort = 11280
 const defaultHost = '127.0.0.1'
-
-const send = (res, statusCode, body = '') => {
-  res.writeHead(statusCode, {
-    'content-length': Buffer.byteLength(body),
-    'content-type': 'text/plain; charset=utf-8',
-  })
-  res.end(body)
-}
 
 const runMasterHook = () => {
   console.log(`====================Master hook ${new Date()} ====================`)
@@ -23,34 +15,36 @@ const runMasterHook = () => {
   cp.on('close', (code) => console.log('* Master hook exit code:' + code))
 }
 
-const createHookServer = ({ runHook = runMasterHook } = {}) =>
-  http.createServer((req, res) => {
-    let path
-    try {
-      path = new URL(req.url || '/', `http://${defaultHost}:${defaultPort}`).pathname
-    } catch {
-      send(res, 400, 'bad request')
-      return
-    }
+const createHookApp = ({ runHook = runMasterHook } = {}) => {
+  const app = Fastify({ logger: false })
 
-    if (req.method === 'POST' && path === '/api/github-master-hook') {
-      runHook()
-      send(res, 200, 'ok')
-      return
-    }
-
-    send(res, 404, 'not found')
+  app.post('/api/github-master-hook', async (_request, reply) => {
+    runHook()
+    return reply.type('text/plain; charset=utf-8').send('ok')
   })
+
+  app.setNotFoundHandler(async (_request, reply) =>
+    reply.code(404).type('text/plain; charset=utf-8').send('not found'),
+  )
+
+  return app
+}
 
 if (require.main === module) {
-  const server = createHookServer()
-  server.listen(defaultPort, defaultHost, () => {
-    console.log(`Server is listening at port ${defaultPort}`)
-  })
+  const app = createHookApp()
+  app
+    .listen({ host: defaultHost, port: defaultPort })
+    .then(() => {
+      console.log(`Server is listening at port ${defaultPort}`)
+    })
+    .catch((err) => {
+      console.error(err)
+      process.exit(1)
+    })
 }
 
 module.exports = {
-  createHookServer,
+  createHookApp,
   defaultHost,
   defaultPort,
   runMasterHook,
