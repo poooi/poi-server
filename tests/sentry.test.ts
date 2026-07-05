@@ -1,59 +1,56 @@
-import { describe, expect, test, vi, beforeEach } from 'vitest'
+import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
 
 const sentryMocks = vi.hoisted(() => ({
+  captureException: vi.fn(),
   finish: vi.fn(),
+  parseRequest: vi.fn((event) => event),
   setContext: vi.fn(),
   setHttpStatus: vi.fn(),
   setName: vi.fn(),
   setTags: vi.fn(),
   setUser: vi.fn(),
-  startTransaction: vi.fn(),
+  startInactiveSpan: vi.fn(),
+  continueTrace: vi.fn((_headers, callback) => callback()),
   withScope: vi.fn(),
 }))
 
 vi.mock('@sentry/node', () => ({
-  startTransaction: sentryMocks.startTransaction,
+  startInactiveSpan: sentryMocks.startInactiveSpan,
+  continueTrace: sentryMocks.continueTrace,
+  setHttpStatus: sentryMocks.setHttpStatus,
   withScope: sentryMocks.withScope,
-  captureException: vi.fn(),
-  Handlers: {
-    parseRequest: vi.fn((event) => event),
-  },
+  captureException: sentryMocks.captureException,
 }))
 
-vi.mock('@sentry/tracing', () => ({
-  extractTraceparentData: vi.fn(),
-  stripUrlQueryAndFragment: vi.fn((url: string) => url.split('?')[0]),
-}))
+import Fastify from 'fastify'
 
-import { sentryTracingMiddleware } from '../src/sentry'
+import { registerSentryHooks } from '../src/sentry'
 
-const createContext = (data: unknown) =>
-  ({
-    headers: {},
+const injectSentryRequest = async (data: unknown, headers: Record<string, string> = {}) => {
+  const app = Fastify({ logger: false })
+  registerSentryHooks(app)
+  app.post('/api/report/v3/quest', async () => ({ ok: true }))
+
+  const response = await app.inject({
+    headers,
     method: 'POST',
-    mountPath: '/api/report/v3',
-    path: '/quest',
-    request: {
-      body: {
-        data,
-      },
-      get: () => '',
-      url: '/api/report/v3/quest',
-    },
-    status: 200,
+    payload: { data },
     url: '/api/report/v3/quest?debug=1',
-  }) as never
+  })
+  await app.close()
+  return response
+}
 
-describe('sentry tracing middleware', () => {
+describe('sentry tracing hooks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    sentryMocks.startTransaction.mockReturnValue({
-      finish: sentryMocks.finish,
-      setHttpStatus: sentryMocks.setHttpStatus,
-      setName: sentryMocks.setName,
+    sentryMocks.startInactiveSpan.mockReturnValue({
+      end: sentryMocks.finish,
+      updateName: sentryMocks.setName,
     })
     sentryMocks.withScope.mockImplementation((callback) =>
       callback({
+        addEventProcessor: vi.fn(),
         setContext: sentryMocks.setContext,
         setTags: sentryMocks.setTags,
         setUser: sentryMocks.setUser,
@@ -61,8 +58,12 @@ describe('sentry tracing middleware', () => {
     )
   })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   test('wraps non-object request body data in Sentry context', async () => {
-    await sentryTracingMiddleware(createContext('{"questId":1}'), async () => undefined)
+    await injectSentryRequest('{"questId":1}')
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       data: '{"questId":1}',
@@ -70,7 +71,7 @@ describe('sentry tracing middleware', () => {
   })
 
   test('wraps array request body data in Sentry context', async () => {
-    await sentryTracingMiddleware(createContext([{ questId: 1 }]), async () => undefined)
+    await injectSentryRequest([{ questId: 1 }])
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       data: [{ questId: 1 }],
@@ -78,10 +79,33 @@ describe('sentry tracing middleware', () => {
   })
 
   test('keeps object request body data as Sentry context', async () => {
-    await sentryTracingMiddleware(createContext({ questId: 1 }), async () => undefined)
+    await injectSentryRequest({ questId: 1 })
 
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', {
       questId: 1,
     })
+  })
+
+  test('preserves request metadata on transaction completion', async () => {
+    const response = await injectSentryRequest(
+      { questId: 1 },
+      {
+        'user-agent': 'fallback-agent',
+        'x-forwarded-for': '192.0.2.2',
+        'x-real-ip': '192.0.2.1',
+        'x-reporter': 'Reporter/8.1.0',
+      },
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(sentryMocks.setName).toHaveBeenCalledWith('POST /api/report/v3/quest')
+    expect(sentryMocks.setHttpStatus).toHaveBeenCalledWith(expect.anything(), 200)
+    expect(sentryMocks.setUser).toHaveBeenCalledWith({ ip_address: '192.0.2.1' })
+    expect(sentryMocks.setTags).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reporter: 'Reporter/8.1.0',
+        url: '/api/report/v3/quest?debug=1',
+      }),
+    )
   })
 })

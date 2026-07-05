@@ -1,11 +1,12 @@
-import Router from '@koa/router'
 import mongoose from 'mongoose'
 import crypto from 'crypto'
 import _ from 'lodash'
 import bluebird from 'bluebird'
-import { type ParameterizedContext } from 'koa'
 import { z, ZodError } from 'zod'
 
+import { cached } from '../../../http/cache'
+import { getHeader, type AppRequest } from '../../../http/request'
+import { badRequest, internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
 import {
   ItemImprovementRecipeAvailabilityFact,
@@ -18,61 +19,7 @@ import {
   type QuestDocument,
   type RequiredItem,
 } from '../../../models'
-
-export const router = new Router()
-
-const getRequestData = (ctx: ParameterizedContext) => {
-  const body = ctx.request.body
-  return body != null && typeof body === 'object' && 'data' in body ? body.data : undefined
-}
-
-const getHeaderValue = (value: string | string[] | undefined) =>
-  Array.isArray(value) ? value.join(',') : value
-
-class ReportPayloadValidationError extends Error {}
-
-const parseReportJsonData = (data: unknown) => {
-  if (!_.isString(data)) {
-    return data
-  }
-
-  try {
-    return JSON.parse(data)
-  } catch {
-    throw new ReportPayloadValidationError('data must be valid JSON')
-  }
-}
-
-const parseInfo = (ctx: ParameterizedContext): Record<string, any> => {
-  const data = parseReportJsonData(getRequestData(ctx))
-  if (data == null || typeof data !== 'object' || Array.isArray(data)) {
-    throw new ReportPayloadValidationError('data must be a JSON object')
-  }
-
-  const info = data as Record<string, any>
-  if (info.origin == null) {
-    info.origin =
-      getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent'])
-  }
-  return info
-}
-
-const handleReportError = async (
-  err: Error,
-  ctx: ParameterizedContext,
-  next: () => Promise<unknown>,
-) => {
-  if (err instanceof ReportPayloadValidationError) {
-    ctx.status = 400
-    ctx.body = { error: err.message }
-    await next()
-    return
-  }
-
-  captureException(err, ctx)
-  ctx.status = 500
-  await next()
-}
+import { getRequestData, handleReportError, parseReportInfo } from './shared'
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
 
@@ -427,8 +374,8 @@ const isItemImprovementValidationError = (
 ): err is ItemImprovementRecipeValidationError | ZodError =>
   err instanceof ItemImprovementRecipeValidationError || err instanceof ZodError
 
-const getReporterOrigin = (ctx: ParameterizedContext) => {
-  const origin = ctx.get('x-reporter').trim()
+const getReporterOrigin = (request: AppRequest) => {
+  const origin = getHeader(request, 'x-reporter').trim()
   return REPORTER_ORIGIN_PATTERN.test(origin) ? origin : undefined
 }
 
@@ -443,8 +390,10 @@ const parseJsonData = (data: unknown) => {
   }
 }
 
-const parseItemImprovementRecipeData = (ctx: ParameterizedContext) => {
-  const parsedData = itemImprovementRecipeDataSchema.parse(parseJsonData(getRequestData(ctx)))
+const parseItemImprovementRecipeData = (request: AppRequest) => {
+  const parsedData = itemImprovementRecipeDataSchema.parse(
+    parseJsonData(getRequestData(request.body)),
+  )
   if (parsedData.records != null) {
     return parsedData.records
   }
@@ -636,79 +585,70 @@ const getStringQueryValue = (value: unknown) => {
   return typeof value === 'string' ? value : undefined
 }
 
-const parseExportCursor = (ctx: ParameterizedContext) => {
-  return exportCursorSchema.parse({
-    updatedAfter: getStringQueryValue(ctx.query.updatedAfter),
-    afterId: getStringQueryValue(ctx.query.afterId),
-    limit: getStringQueryValue(ctx.query.limit),
+const parseExportCursor = (request: AppRequest) =>
+  exportCursorSchema.parse({
+    updatedAfter: getStringQueryValue(request.query.updatedAfter),
+    afterId: getStringQueryValue(request.query.afterId),
+    limit: getStringQueryValue(request.query.limit),
   })
-}
 
 const exportItemImprovementFacts = async <TDocument extends ExportableItemImprovementFactDocument>(
-  ctx: ParameterizedContext,
-  next: () => Promise<unknown>,
+  request: AppRequest,
   model: mongoose.Model<TDocument>,
-) => {
-  try {
-    if (await ctx.cashed()) return // Cache control
-
-    const { updatedAfter, afterId, limit } = parseExportCursor(ctx)
-    const query = (
-      afterId == null
-        ? { lastReported: { $gt: updatedAfter } }
-        : {
-            $or: [
-              { lastReported: { $gt: updatedAfter } },
-              {
-                lastReported: updatedAfter,
-                _id: { $gt: new mongoose.Types.ObjectId(afterId) },
-              },
-            ],
-          }
-    ) as mongoose.FilterQuery<TDocument>
-
-    const records = await model
-      .find(query)
-      // Export endpoints intentionally omit reporter origins to avoid exposing client-version
-      // fingerprinting data. Stored fact documents keep origins for internal diagnostics.
-      .select('-__v -origins')
-      .sort({ lastReported: 1, _id: 1 })
-      .limit(limit)
-      .exec()
-    const lastRecord = records[records.length - 1]
-
-    ctx.status = 200
-    ctx.body = {
-      records,
-      next:
-        lastRecord == null
-          ? null
+): Promise<AppResult> =>
+  cached(request, async () => {
+    try {
+      const { updatedAfter, afterId, limit } = parseExportCursor(request)
+      const query = (
+        afterId == null
+          ? { lastReported: { $gt: updatedAfter } }
           : {
-              updatedAfter: lastRecord.lastReported,
-              afterId: lastRecord._id.toString(),
-            },
-    }
-    await next()
-  } catch (err) {
-    if (isItemImprovementValidationError(err)) {
-      ctx.status = 400
-      ctx.body = { error: getItemImprovementRecipeValidationErrorMessage(err) }
-      await next()
-      return
-    }
+              $or: [
+                { lastReported: { $gt: updatedAfter } },
+                {
+                  lastReported: updatedAfter,
+                  _id: { $gt: new mongoose.Types.ObjectId(afterId) },
+                },
+              ],
+            }
+      ) as mongoose.FilterQuery<TDocument>
 
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
-  }
-}
+      const records = await model
+        .find(query)
+        // Export endpoints intentionally omit reporter origins to avoid exposing client-version
+        // fingerprinting data. Stored fact documents keep origins for internal diagnostics.
+        .select('-__v -origins')
+        .sort({ lastReported: 1, _id: 1 })
+        .limit(limit)
+        .exec()
+      const lastRecord = records[records.length - 1]
 
-router.post('/item_improvement_recipe', async (ctx, next) => {
+      return ok({
+        records,
+        next:
+          lastRecord == null
+            ? null
+            : {
+                updatedAfter: lastRecord.lastReported,
+                afterId: lastRecord._id.toString(),
+              },
+      })
+    } catch (err) {
+      if (isItemImprovementValidationError(err)) {
+        return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
+      }
+
+      captureException(err, request)
+      return internalServerError()
+    }
+  })
+
+export const itemImprovementRecipe = async (request: AppRequest): Promise<AppResult> => {
   try {
     const serverReceivedAt = Date.now()
-    const origin = getReporterOrigin(ctx)
+    const origin = getReporterOrigin(request)
     const schema = createItemImprovementRecipeRecordSchema(serverReceivedAt)
-    const records = parseItemImprovementRecipeData(ctx).map((record) =>
+    const records = parseItemImprovementRecipeData(request).map((record) =>
       normalizeItemImprovementRecipeRecord(record, schema, origin),
     )
 
@@ -718,86 +658,67 @@ router.post('/item_improvement_recipe', async (ctx, next) => {
       { concurrency: ITEM_IMPROVEMENT_RECIPE_INGEST_CONCURRENCY },
     )
 
-    ctx.status = 200
-    ctx.body = {
-      records: records.length,
-    }
-    await next()
+    return ok({ records: records.length })
   } catch (err) {
     if (isItemImprovementValidationError(err)) {
-      ctx.status = 400
-      ctx.body = { error: getItemImprovementRecipeValidationErrorMessage(err) }
-      await next()
-      return
+      return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
     }
 
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
+    captureException(err, request)
+    return internalServerError()
   }
-})
+}
 
-router.get('/item_improvement_recipes/availability', async (ctx, next) =>
-  exportItemImprovementFacts(ctx, next, ItemImprovementRecipeAvailabilityFact),
-)
+export const itemImprovementRecipeAvailability = (request: AppRequest) =>
+  exportItemImprovementFacts(request, ItemImprovementRecipeAvailabilityFact)
 
-router.get('/item_improvement_recipes/costs', async (ctx, next) =>
-  exportItemImprovementFacts(ctx, next, ItemImprovementRecipeCostFact),
-)
+export const itemImprovementRecipeCosts = (request: AppRequest) =>
+  exportItemImprovementFacts(request, ItemImprovementRecipeCostFact)
 
-router.get('/item_improvement_recipes/updates', async (ctx, next) =>
-  exportItemImprovementFacts(ctx, next, ItemImprovementRecipeUpdateFact),
-)
+export const itemImprovementRecipeUpdates = (request: AppRequest) =>
+  exportItemImprovementFacts(request, ItemImprovementRecipeUpdateFact)
 
-router.get('/known_quests', async (ctx, next) => {
-  try {
-    if (await ctx.cashed()) return // Cache control
-    const knownQuests: QuestDocument['key'][] = await Quest.distinct('key').exec()
-    const quests = knownQuests.map((key) => key.slice(0, 8))
-    ctx.status = 200
-    ctx.body = {
-      quests,
+export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
+  cached(request, async () => {
+    try {
+      const knownQuestKeys: QuestDocument['key'][] = await Quest.distinct('key').exec()
+      return ok({ quests: knownQuestKeys.map((key) => key.slice(0, 8)) })
+    } catch (err) {
+      captureException(err, request)
+      return internalServerError()
     }
-    await next()
-  } catch (err) {
-    captureException(err, ctx)
-    ctx.status = 500
-    await next()
-  }
-})
+  })
 
-router.post('/quest', async (ctx, next) => {
+export const quest = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseInfo(ctx)
-    const records = _.map(info.quests, (quest) => ({
-      ...quest,
-      key: createQuestHash(quest),
+    const info = parseReportInfo(request)
+    const records = _.map(info.quests, (questItem) => ({
+      ...questItem,
+      key: createQuestHash(questItem),
       origin: info.origin,
     }))
 
-    await bluebird.map(records, (quest) => {
+    await bluebird.map(records, (questItem) => {
       return Quest.updateOne(
         {
-          key: quest.key,
-          questId: quest.questId,
-          category: quest.category,
+          key: questItem.key,
+          questId: questItem.questId,
+          category: questItem.category,
         },
-        { $setOnInsert: quest },
+        { $setOnInsert: questItem },
         { upsert: true },
       )
     })
 
-    ctx.status = 200
-    await next()
+    return ok()
   } catch (err) {
-    await handleReportError(err, ctx, next)
+    return handleReportError(err, request)
   }
-})
+}
 
-router.post('/quest_reward', async (ctx, next) => {
+export const questReward = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseInfo(ctx) as QuestRewardPayload
-
+    const info = parseReportInfo(request) as QuestRewardPayload
     const key = createQuestHash(info)
 
     await QuestReward.updateOne(
@@ -811,9 +732,8 @@ router.post('/quest_reward', async (ctx, next) => {
       { upsert: true },
     )
 
-    ctx.status = 200
-    await next()
+    return ok()
   } catch (err) {
-    await handleReportError(err, ctx, next)
+    return handleReportError(err, request)
   }
-})
+}

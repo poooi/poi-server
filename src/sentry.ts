@@ -1,24 +1,24 @@
 import * as Sentry from '@sentry/node'
-import { type ExpressRequest } from '@sentry/node/dist/handlers'
-import { type Context } from '@sentry/types'
-import { extractTraceparentData, stripUrlQueryAndFragment } from '@sentry/tracing'
-import {
-  type DefaultState,
-  type DefaultContext,
-  type Middleware,
-  type ParameterizedContext,
-} from 'koa'
+import { type FastifyInstance, type FastifyRequest } from 'fastify'
+import { type Context, type Span } from '@sentry/core'
 
-const getHeaderValue = (value: string | string[] | undefined) =>
-  Array.isArray(value) ? value.join(',') : value
+import { getHeader, type AppRequest } from './http/request'
 
-const getRequestBodyData = (ctx: ParameterizedContext) => {
-  const body = ctx.request.body
-  return body != null && typeof body === 'object' && 'data' in body ? body.data : undefined
+declare module 'fastify' {
+  interface FastifyRequest {
+    sentrySpan?: Span
+  }
 }
 
-const getRequestBodyContext = (ctx: ParameterizedContext): Context | null => {
-  const data = getRequestBodyData(ctx)
+const getRequestBodyData = (request: Pick<AppRequest, 'body'>) => {
+  const body = request.body
+  return body != null && typeof body === 'object' && !Array.isArray(body) && 'data' in body
+    ? (body as { data?: unknown }).data
+    : undefined
+}
+
+const getRequestBodyContext = (request: Pick<AppRequest, 'body'>): Context | null => {
+  const data = getRequestBodyData(request)
   if (data == null) {
     return null
   }
@@ -28,64 +28,79 @@ const getRequestBodyContext = (ctx: ParameterizedContext): Context | null => {
   return { data }
 }
 
-export const captureException = (
-  err: Error,
-  ctx: ParameterizedContext<DefaultState, DefaultContext>,
-): void => {
+export const captureException = (err: Error, request: AppRequest): void => {
   Sentry.withScope(function (scope) {
     scope.setUser({
-      ip_address:
-        getHeaderValue(ctx.headers['x-real-ip']) || getHeaderValue(ctx.headers['x-forwarded-for']),
+      ip_address: getHeader(request, 'x-real-ip') || getHeader(request, 'x-forwarded-for'),
     })
     scope.setTags({
-      reporter:
-        getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent']),
+      reporter: getHeader(request, 'x-reporter') || getHeader(request, 'user-agent'),
       version: global.latestCommit?.slice(0, 8),
-    })
-    scope.addEventProcessor(function (event) {
-      return Sentry.Handlers.parseRequest(event, ctx.request as any as ExpressRequest)
     })
     Sentry.captureException(err)
   })
 }
 
-export const sentryTracingMiddleware: Middleware = async (ctx, next) => {
-  const reqMethod = (ctx.method || '').toUpperCase()
-  const reqUrl = ctx.url && stripUrlQueryAndFragment(ctx.url)
+const toAppRequest = (request: FastifyRequest): AppRequest => ({
+  body: request.body,
+  headers: request.headers,
+  method: request.method,
+  params: request.params as Record<string, string | undefined>,
+  path: request.routeOptions.url || request.url.split('?')[0] || request.url,
+  query: request.query as Record<string, unknown>,
+  url: request.url,
+})
 
-  // connect to trace of upstream app
-  let traceparentData
-  if (ctx.request.get('sentry-trace')) {
-    traceparentData = extractTraceparentData(ctx.request.get('sentry-trace'))
-  }
+export const registerSentryHooks = (app: FastifyInstance) => {
+  app.addHook('onRequest', async (request) => {
+    const reqMethod = (request.method || '').toUpperCase()
+    const reqUrl = request.url.split('?')[0]
 
-  const transaction = Sentry.startTransaction({
-    name: `${reqMethod} ${reqUrl}`,
-    op: 'http.server',
-    ...traceparentData,
+    const createSpan = () =>
+      Sentry.startInactiveSpan({
+        forceTransaction: true,
+        name: `${reqMethod} ${reqUrl}`,
+        op: 'http.server',
+      })
+
+    const sentryTraceHeader = request.headers['sentry-trace']
+    const baggageHeader = request.headers.baggage
+    const sentryTrace = Array.isArray(sentryTraceHeader) ? sentryTraceHeader[0] : sentryTraceHeader
+    const baggage = Array.isArray(baggageHeader) ? baggageHeader[0] : baggageHeader
+    if (sentryTrace != null) {
+      request.sentrySpan = Sentry.continueTrace({ baggage, sentryTrace }, createSpan)
+      return
+    }
+
+    request.sentrySpan = createSpan()
   })
 
-  ctx.__sentry_transaction = transaction
-  await next()
+  app.addHook('onResponse', async (request, reply) => {
+    const span = request.sentrySpan
+    if (span == null) {
+      return
+    }
 
-  const mountPath = ctx.mountPath || ''
-  transaction.setName(`${reqMethod} ${mountPath}${ctx.path}`)
+    const appRequest = toAppRequest(request)
+    span.updateName(`${request.method.toUpperCase()} ${appRequest.path}`)
+    Sentry.setHttpStatus(span, reply.statusCode)
+    Sentry.withScope((scope) => {
+      scope.setUser({
+        ip_address: getHeader(appRequest, 'x-real-ip') || getHeader(appRequest, 'x-forwarded-for'),
+      })
+      scope.setTags({
+        reporter: getHeader(appRequest, 'x-reporter') || getHeader(appRequest, 'user-agent'),
+        url: request.url,
+        version: global.latestCommit?.slice(0, 8),
+      })
+      scope.setContext('data', getRequestBodyContext(appRequest))
+      span.end()
+    })
+  })
 
-  transaction.setHttpStatus(ctx.status)
-  Sentry.withScope((scope) => {
-    scope.setUser({
-      ip_address:
-        getHeaderValue(ctx.headers['x-real-ip']) || getHeaderValue(ctx.headers['x-forwarded-for']),
-    })
-    scope.setTags({
-      reporter:
-        getHeaderValue(ctx.headers['x-reporter']) || getHeaderValue(ctx.headers['user-agent']),
-      url: ctx.request.url,
-      version: global.latestCommit?.slice(0, 8),
-    })
-    scope.setContext('data', getRequestBodyContext(ctx))
-    transaction.finish()
+  app.addHook('onError', async (request, _reply, error) => {
+    captureException(error, toAppRequest(request))
   })
 }
 
-export const sentryTracingMiddileaware = sentryTracingMiddleware
+export const sentryTracingMiddileaware = registerSentryHooks

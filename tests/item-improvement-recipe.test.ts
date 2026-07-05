@@ -6,120 +6,77 @@ import {
   ItemImprovementRecipeUpdateFact,
   Quest,
 } from '../src/models'
-import { router as v2Router } from '../src/controllers/api/report/v2'
-import { router as v3Router } from '../src/controllers/api/report/v3'
+import { createShip } from '../src/controllers/api/report/v2.handlers'
+import {
+  itemImprovementRecipe,
+  itemImprovementRecipeAvailability,
+  quest,
+} from '../src/controllers/api/report/v3.handlers'
+import { type AppRequest } from '../src/http/request'
+import { type AppResult } from '../src/http/result'
 
 const reporterOrigin = 'Reporter/8.1.0 poi/10.3.99'
 const observedAt = Date.UTC(2026, 6, 3, 15)
 const receivedAt = observedAt
 
-interface TestContext {
-  request: {
-    body: {
-      data: unknown
-    }
+const v2Router = 'v2'
+const v3Router = 'v3'
+
+type PostHandler = (request: AppRequest) => Promise<AppResult>
+
+const getPostHandler = (router: string, path: string): PostHandler => {
+  const handlers: Record<string, PostHandler> = {
+    'v2:/create_ship': createShip,
+    'v3:/item_improvement_recipe': itemImprovementRecipe,
+    'v3:/quest': quest,
   }
-  status?: number
-  body?: unknown
-  headers: Record<string, string>
-  query: Record<string, unknown>
-  get: (name: string) => string
-  cashed: () => Promise<boolean>
-}
-
-interface RouteLayer {
-  path: string
-  methods: string[]
-  stack: Array<(ctx: TestContext, next: () => Promise<void>) => Promise<void>>
-}
-
-const getItemImprovementRecipePostHandler = () => {
-  const stack = (v3Router as unknown as { stack: RouteLayer[] }).stack
-  const layer = stack.find(
-    (item) => item.path === '/item_improvement_recipe' && item.methods.includes('POST'),
-  )
-  if (layer == null) {
-    throw new Error('item improvement recipe route is not registered')
+  const handler = handlers[`${router}:${path}`]
+  if (handler == null) {
+    throw new Error(`${router} ${path} route is not registered`)
   }
-  return layer.stack[0]
+  return handler
 }
 
-const getAvailabilityExportHandler = () => {
-  const stack = (v3Router as unknown as { stack: RouteLayer[] }).stack
-  const layer = stack.find(
-    (item) =>
-      item.path === '/item_improvement_recipes/availability' && item.methods.includes('GET'),
-  )
-  if (layer == null) {
-    throw new Error('item improvement recipe availability export route is not registered')
-  }
-  return layer.stack[0]
-}
+const createRequest = (
+  body: unknown,
+  headers: Record<string, string>,
+  query: Record<string, unknown> = {},
+): AppRequest => ({
+  body,
+  headers,
+  method: 'POST',
+  params: {},
+  path: '',
+  query,
+  url: '',
+})
 
-const getPostHandler = (router: unknown, path: string) => {
-  const stack = (router as { stack: RouteLayer[] }).stack
-  const layer = stack.find((item) => item.path === path && item.methods.includes('POST'))
-  if (layer == null) {
-    throw new Error(`${path} route is not registered`)
-  }
-  return layer.stack[0]
-}
-
-const invokeReportPost = async (router: unknown, path: string, data: unknown) => {
+const invokeReportPost = async (router: string, path: string, data: unknown) => {
   const headers: Record<string, string> = {
     'x-reporter': reporterOrigin,
   }
-  const ctx: TestContext = {
-    request: {
-      body: {
-        data,
-      },
-    },
-    headers,
-    query: {},
-    get: (name) => headers[name.toLowerCase()] || '',
-    cashed: async () => false,
-  }
 
-  await getPostHandler(router, path)(ctx, async () => undefined)
-  return ctx
+  return getPostHandler(router, path)(createRequest({ data }, headers))
 }
 
 const invokeItemImprovementRecipePost = async (data: unknown) => {
   const headers: Record<string, string> = {
     'x-reporter': reporterOrigin,
   }
-  const ctx: TestContext = {
-    request: {
-      body: {
-        data,
-      },
-    },
-    headers,
-    query: {},
-    get: (name) => headers[name.toLowerCase()] || '',
-    cashed: async () => false,
-  }
 
-  await getItemImprovementRecipePostHandler()(ctx, async () => undefined)
-  return ctx
+  return itemImprovementRecipe(createRequest({ data }, headers))
 }
 
 const invokeAvailabilityExport = async (query: Record<string, unknown>) => {
-  const ctx: TestContext = {
-    request: {
-      body: {
-        data: {},
-      },
-    },
+  return itemImprovementRecipeAvailability({
+    body: { data: {} },
     headers: {},
+    method: 'GET',
+    params: {},
+    path: '/item_improvement_recipes/availability',
     query,
-    get: () => '',
-    cashed: async () => false,
-  }
-
-  await getAvailabilityExportHandler()(ctx, async () => undefined)
-  return ctx
+    url: '/item_improvement_recipes/availability',
+  })
 }
 
 interface FakeFindChain {

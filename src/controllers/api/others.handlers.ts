@@ -1,4 +1,3 @@
-import Router from '@koa/router'
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
@@ -6,8 +5,7 @@ import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
-
-export const router = new Router()
+import { ok, type AppResult } from '../../http/result'
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
 const CreateItemRecord = mongoose.model('CreateItemRecord')
@@ -20,9 +18,9 @@ const BattleAPI = mongoose.model('BattleAPI')
 const AACIRecord = mongoose.model('AACIRecord')
 const NightContactRecord = mongoose.model('NightContactRecord')
 
-router.get('/status', async (ctx, next) => {
+export const getStatus = async (): Promise<AppResult> => {
   const dsk = await df()
-  const ret = {
+  return ok({
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),
     mongo: {
@@ -37,33 +35,22 @@ router.get('/status', async (ctx, next) => {
       AACIRecord: await AACIRecord.count().exec(),
       NightContactRecord: await NightContactRecord.count().exec(),
     },
-  }
-  ctx.status = 200
-  ctx.body = ret
-  await next()
-})
+  })
+}
 
-router.post('/github-master-hook', async (ctx, next) => {
+export const runGithubMasterHook = async (): Promise<AppResult> => {
   const update = childProcess.spawn(path.resolve(config.root, '../github-master-hook'), [])
   update.stdout.on('data', (data) => console.log('GitHub hook out: ' + data))
   update.stderr.on('data', (data) => console.log('GitHub hook err: ' + data))
   update.on('close', (code) => console.log('GitHub hook exit: ' + code))
-  ctx.status = 200
-  ctx.body = {
-    code: 0,
-  }
-  await next()
-})
+  return ok({ code: 0 })
+}
 
-router.get('/latest-commit', async (ctx, next) => {
-  ctx.status = 200
-  ctx.body = global.latestCommit
-  await next()
-})
+export const getLatestCommit = async (): Promise<AppResult> => ok(global.latestCommit)
 
 let serviceUpBadge: string
 
-router.get('/service-status-badge', async (ctx, next) => {
+export const getServiceStatusBadge = async (): Promise<AppResult> => {
   if (!serviceUpBadge) {
     serviceUpBadge = makeBadge({
       label: 'service',
@@ -72,15 +59,13 @@ router.get('/service-status-badge', async (ctx, next) => {
       style: 'flat-square',
     })
   }
-  ctx.status = 200
-  ctx.set('Content-Type', 'image/svg+xml')
-  ctx.body = serviceUpBadge
-  await next()
-})
+
+  return ok(serviceUpBadge)
+}
 
 let serviceVersionBadge: string
 
-router.get('/service-version-badge', async (ctx, next) => {
+export const getServiceVersionBadge = async (): Promise<AppResult> => {
   if (!serviceVersionBadge) {
     serviceVersionBadge = makeBadge({
       label: 'version',
@@ -89,8 +74,10 @@ router.get('/service-version-badge', async (ctx, next) => {
       style: 'flat-square',
     })
   }
-  ctx.status = 200
-  ctx.set('Content-Type', 'image/svg+xml')
-  ctx.body = serviceVersionBadge
-  await next()
-})
+
+  return ok(serviceVersionBadge)
+}
+
+export const svgHeaders = {
+  'Content-Type': 'image/svg+xml',
+}
