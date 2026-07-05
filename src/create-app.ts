@@ -3,7 +3,6 @@ import bodyparser from 'koa-bodyparser'
 import cache from 'koa-cash'
 import logger from 'koa-pino-logger'
 import Cache from 'node-cache'
-import bytes from 'bytes'
 
 import { config } from './config'
 import { captureException, sentryTracingMiddleware } from './sentry'
@@ -14,6 +13,8 @@ import { router } from './controllers'
 interface CreateAppOptions {
   disableLogger?: boolean
 }
+
+const cacheCompressionThreshold = 1024 ** 3
 
 export const createApp = ({
   disableLogger = Boolean(config.disableLogger),
@@ -30,7 +31,6 @@ export const createApp = ({
     stdTTL: 10 * 60,
     checkperiod: 0,
   })
-  const cacheCompressionThreshold = bytes('1GB') ?? 1024 ** 3
   app.use(
     cache({
       threshold: cacheCompressionThreshold,
