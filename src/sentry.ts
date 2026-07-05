@@ -1,7 +1,8 @@
 import * as Sentry from '@sentry/node'
-import { type FastifyInstance, type FastifyRequest } from 'fastify'
+import { type FastifyInstance } from 'fastify'
 import { type Context, type Span } from '@sentry/core'
 
+import { toAppRequest } from './http/fastify'
 import { getHeader, type AppRequest } from './http/request'
 
 declare module 'fastify' {
@@ -40,16 +41,6 @@ export const captureException = (err: Error, request: AppRequest): void => {
     Sentry.captureException(err)
   })
 }
-
-const toAppRequest = (request: FastifyRequest): AppRequest => ({
-  body: request.body,
-  headers: request.headers,
-  method: request.method,
-  params: request.params as Record<string, string | undefined>,
-  path: request.routeOptions.url || request.url.split('?')[0] || request.url,
-  query: request.query as Record<string, unknown>,
-  url: request.url,
-})
 
 export const registerSentryHooks = (app: FastifyInstance) => {
   app.addHook('onRequest', async (request) => {

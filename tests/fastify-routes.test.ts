@@ -81,6 +81,23 @@ describe('Fastify route adapters', () => {
     expect(response.json()).toEqual({ error: 'data must be valid JSON' })
   })
 
+  test('keeps Fastify client parse errors as 4xx responses', async () => {
+    const app = createApp({ disableLogger: true })
+
+    const response = await app.inject({
+      headers: {
+        'content-type': 'application/json',
+      },
+      method: 'POST',
+      payload: '{',
+      url: '/api/report/v2/create_ship',
+    })
+
+    await app.close()
+
+    expect(response.statusCode).toBe(400)
+  })
+
   test('passes repeated query params to cursor parsing', async () => {
     const app = createApp({ disableLogger: true })
 
