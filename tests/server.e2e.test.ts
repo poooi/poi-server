@@ -75,12 +75,26 @@ let baseUrl: string
 let mongo: MongoMemoryServer | undefined
 let closeServer: (() => Promise<void>) | undefined
 
+const localMongoHosts = new Set(['localhost', '127.0.0.1', '::1'])
+
+const getMongoHostName = (host: string) => {
+  if (host.startsWith('[')) {
+    return host.slice(1, host.indexOf(']'))
+  }
+  return host.split(':')[0]
+}
+
 const assertE2eDatabaseUri = (db: string) => {
-  const databaseName = new URL(db).pathname.replace(/^\/+/, '').split('?')[0]
+  const url = new URL(db)
+  const databaseName = url.pathname.replace(/^\/+/, '').split('?')[0]
   if (!databaseName.includes('poi-e2e')) {
     throw new Error(
       `Refusing to run e2e tests against non-e2e database: ${databaseName || '<none>'}`,
     )
+  }
+  const hosts = url.host.split(',').map(getMongoHostName)
+  if (hosts.some((host) => !localMongoHosts.has(host))) {
+    throw new Error('Refusing to run e2e tests against non-local MongoDB host')
   }
 }
 
