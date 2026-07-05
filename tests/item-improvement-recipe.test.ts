@@ -68,14 +68,27 @@ const invokeItemImprovementRecipePost = async (data: unknown) => {
 }
 
 const invokeAvailabilityExport = async (query: Record<string, unknown>) => {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, String(item)))
+      return
+    }
+    if (value != null) {
+      params.set(key, String(value))
+    }
+  })
+  const path = '/item_improvement_recipes/availability'
+  const queryString = params.toString()
+
   return itemImprovementRecipeAvailability({
     body: { data: {} },
     headers: {},
     method: 'GET',
     params: {},
-    path: '/item_improvement_recipes/availability',
+    path,
     query,
-    url: '/item_improvement_recipes/availability',
+    url: queryString === '' ? path : `${path}?${queryString}`,
   })
 }
 
