@@ -152,4 +152,18 @@ describe('sentry tracing hooks', () => {
     expect(sentryMocks.captureException).toHaveBeenCalledTimes(1)
     expect(sentryMocks.finish).toHaveBeenCalledTimes(1)
   })
+
+  test('decorates Fastify requests before assigning Sentry spans', async () => {
+    const app = Fastify({ logger: false })
+    registerSentryHooks(app)
+    app.get('/decorated', async (request) => ({
+      hasSentrySpan: Object.prototype.hasOwnProperty.call(request, 'sentrySpan'),
+    }))
+
+    const response = await app.inject('/decorated')
+
+    await app.close()
+
+    expect(response.json()).toEqual({ hasSentrySpan: true })
+  })
 })

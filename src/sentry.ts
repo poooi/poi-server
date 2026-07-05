@@ -45,6 +45,8 @@ export const captureException = (err: Error, request: AppRequest): void => {
 }
 
 export const registerSentryHooks = (app: FastifyInstance) => {
+  app.decorateRequest('sentrySpan')
+
   app.addHook('onRequest', async (request) => {
     const reqMethod = (request.method || '').toUpperCase()
     const reqUrl = request.url.split('?')[0]
