@@ -19,7 +19,13 @@ const getRequestBodyData = (ctx: ParameterizedContext) => {
 
 const getRequestBodyContext = (ctx: ParameterizedContext): Context | null => {
   const data = getRequestBodyData(ctx)
-  return data != null && typeof data === 'object' && !Array.isArray(data) ? (data as Context) : null
+  if (data == null) {
+    return null
+  }
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    return data as Context
+  }
+  return { data }
 }
 
 export const captureException = (
