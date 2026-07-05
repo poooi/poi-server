@@ -40,7 +40,7 @@ const getPostHandler = (router: string, path: string): PostHandler => {
 const createRequest = (
   body: unknown,
   headers: Record<string, string>,
-  query: Record<string, unknown> = {},
+  query: Record<string, string | undefined> = {},
 ): AppRequest => ({
   body,
   headers,
@@ -67,15 +67,11 @@ const invokeItemImprovementRecipePost = async (data: unknown) => {
   return itemImprovementRecipe(createRequest({ data }, headers))
 }
 
-const invokeAvailabilityExport = async (query: Record<string, unknown>) => {
+const invokeAvailabilityExport = async (query: Record<string, string | undefined>) => {
   const params = new URLSearchParams()
   Object.entries(query).forEach(([key, value]) => {
-    if (Array.isArray(value)) {
-      value.forEach((item) => params.append(key, String(item)))
-      return
-    }
     if (value != null) {
-      params.set(key, String(value))
+      params.set(key, value)
     }
   })
   const path = '/item_improvement_recipes/availability'

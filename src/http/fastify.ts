@@ -9,7 +9,7 @@ export const toAppRequest = (request: FastifyRequest): AppRequest => ({
   method: request.method,
   params: request.params as Record<string, string | undefined>,
   path: request.url.split('?')[0] || request.url,
-  query: request.query as Record<string, unknown>,
+  query: request.query as Record<string, string | undefined>,
   url: request.url,
 })
 

@@ -45,8 +45,9 @@ This migration must be implementation-ready: every phase below has concrete file
   - `GET /api/report/v3/item_improvement_recipes/costs`
   - `GET /api/report/v3/item_improvement_recipes/updates`
 - Current Sentry metadata:
-  - IP from `x-real-ip` or `x-forwarded-for`.
+  - IP from `cf-connecting-ip`, `true-client-ip`, `x-real-ip`, or `x-forwarded-for`.
   - reporter from `x-reporter` or `user-agent`.
+  - Cloudflare metadata from `cf-ray` and `cf-ipcountry`.
   - version from `global.latestCommit?.slice(0, 8)`.
   - body context from outer body `data`.
 
@@ -159,7 +160,7 @@ export interface AppRequest {
   method: string
   params: Record<string, string | undefined>
   path: string
-  query: Record<string, unknown>
+  query: Record<string, string | undefined>
   url: string
 }
 
@@ -200,7 +201,7 @@ export const toAppRequest = (request: FastifyRequest): AppRequest => ({
   method: request.method,
   params: request.params as Record<string, string | undefined>,
   path: request.url.split('?')[0] || request.url,
-  query: request.query as Record<string, unknown>,
+  query: request.query as Record<string, string | undefined>,
   url: request.url,
 })
 
@@ -349,6 +350,8 @@ export const createApp = ({
 Implementation notes:
 
 - `bodyLimit: 1024 * 1024` preserves the effective 1 MiB default.
+- `genReqId` should prefer `x-request-id`, `x-correlation-id`, then Cloudflare `cf-ray`.
+- Request logs should include Cloudflare `cf-ray`, `cf-ipcountry`, and client IP from Cloudflare headers before fallback proxy headers.
 - Do not add response schemas in the first transport commit.
 - Do not enable `ajv` route validation in the first transport commit.
 - If malformed outer JSON behavior differs from Koa, add a Fastify error handler branch that returns the captured baseline status/body.
@@ -512,8 +515,8 @@ Add cases:
    - Fastify must match or add explicit route handling.
 
 5. Repeated query params:
-   - `GET /api/report/v3/item_improvement_recipes/availability?limit=2&limit=3`
-   - Verify current first-value behavior from `getStringQueryValue`.
+   - Drop the old Koa first-value array behavior.
+   - Use Fastify's default parser behavior for duplicate keys.
 
 6. Cache hit/miss:
    - First `GET /api/report/v3/known_quests`.

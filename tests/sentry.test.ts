@@ -90,6 +90,9 @@ describe('sentry tracing hooks', () => {
     const response = await injectSentryRequest(
       { questId: 1 },
       {
+        'cf-connecting-ip': '198.51.100.1',
+        'cf-ipcountry': 'JP',
+        'cf-ray': 'abc123-NRT',
         'user-agent': 'fallback-agent',
         'x-forwarded-for': '192.0.2.2',
         'x-real-ip': '192.0.2.1',
@@ -100,9 +103,11 @@ describe('sentry tracing hooks', () => {
     expect(response.statusCode).toBe(200)
     expect(sentryMocks.setName).toHaveBeenCalledWith('POST /api/report/v3/quest')
     expect(sentryMocks.setHttpStatus).toHaveBeenCalledWith(expect.anything(), 200)
-    expect(sentryMocks.setUser).toHaveBeenCalledWith({ ip_address: '192.0.2.1' })
+    expect(sentryMocks.setUser).toHaveBeenCalledWith({ ip_address: '198.51.100.1' })
     expect(sentryMocks.setTags).toHaveBeenCalledWith(
       expect.objectContaining({
+        cf_country: 'JP',
+        cf_ray: 'abc123-NRT',
         reporter: 'Reporter/8.1.0',
         url: '/api/report/v3/quest?debug=1',
       }),
@@ -117,6 +122,9 @@ describe('sentry tracing hooks', () => {
         data: { questId: 1 },
       },
       headers: {
+        'cf-connecting-ip': '198.51.100.1',
+        'cf-ipcountry': 'JP',
+        'cf-ray': 'abc123-NRT',
         'x-reporter': 'Reporter/8.1.0',
       },
       method: 'POST',
@@ -128,6 +136,8 @@ describe('sentry tracing hooks', () => {
 
     expect(sentryMocks.setTags).toHaveBeenCalledWith(
       expect.objectContaining({
+        cf_country: 'JP',
+        cf_ray: 'abc123-NRT',
         reporter: 'Reporter/8.1.0',
         url: '/api/report/v3/quest?debug=1',
       }),

@@ -43,9 +43,13 @@ const createLoggerOptions = (disableLogger: boolean) =>
             socket?: { remotePort?: number }
             url?: string
           }) => ({
+            cfCountry: getHeaderValue(request.headers['cf-ipcountry']),
+            cfRay: getHeaderValue(request.headers['cf-ray']),
             host: request.hostname,
             id: request.id,
             ip:
+              getHeaderValue(request.headers['cf-connecting-ip']) ||
+              getHeaderValue(request.headers['true-client-ip']) ||
               getHeaderValue(request.headers['x-real-ip']) ||
               getHeaderValue(request.headers['x-forwarded-for']) ||
               request.ip,
@@ -69,6 +73,7 @@ export const createApp = ({
     genReqId: (request) =>
       getHeaderValue(request.headers['x-request-id']) ||
       getHeaderValue(request.headers['x-correlation-id']) ||
+      getHeaderValue(request.headers['cf-ray']) ||
       randomUUID(),
     logger: createLoggerOptions(disableLogger),
   })

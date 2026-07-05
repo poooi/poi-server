@@ -119,19 +119,6 @@ describe('Fastify route adapters', () => {
     })
   })
 
-  test('passes repeated query params to cursor parsing', async () => {
-    const app = createApp({ disableLogger: true })
-
-    const response = await app.inject(
-      '/api/report/v3/item_improvement_recipes/availability?afterId=bad&afterId=ignored',
-    )
-
-    await app.close()
-
-    expect(response.statusCode).toBe(400)
-    expect(response.json()).toEqual({ error: 'afterId: must be a valid ObjectId' })
-  })
-
   test('preserves cached GET responses within the TTL', async () => {
     questDistinctMock
       .mockReturnValueOnce({ exec: vi.fn(async () => ['first']) })
@@ -162,6 +149,22 @@ describe('Fastify route adapters', () => {
     }
 
     expect(toAppRequest(request as never).path).toBe('/api/report/v2/quest/1')
+  })
+
+  test('uses Cloudflare Ray as request id when explicit request ids are absent', async () => {
+    const app = createApp({ disableLogger: true })
+    app.get('/request-id', async (request) => ({ id: request.id }))
+
+    const response = await app.inject({
+      headers: {
+        'cf-ray': 'abc123-NRT',
+      },
+      url: '/request-id',
+    })
+
+    await app.close()
+
+    expect(response.json()).toEqual({ id: 'abc123-NRT' })
   })
 
   test('logs server errors before returning empty 5xx responses', async () => {

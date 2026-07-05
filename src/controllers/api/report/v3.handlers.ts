@@ -578,18 +578,11 @@ const saveItemImprovementRecipeRecord = async (
   )
 }
 
-const getStringQueryValue = (value: unknown) => {
-  if (Array.isArray(value)) {
-    return value[0]
-  }
-  return typeof value === 'string' ? value : undefined
-}
-
 const parseExportCursor = (request: AppRequest) =>
   exportCursorSchema.parse({
-    updatedAfter: getStringQueryValue(request.query.updatedAfter),
-    afterId: getStringQueryValue(request.query.afterId),
-    limit: getStringQueryValue(request.query.limit),
+    updatedAfter: request.query.updatedAfter,
+    afterId: request.query.afterId,
+    limit: request.query.limit,
   })
 
 const exportItemImprovementFacts = async <TDocument extends ExportableItemImprovementFactDocument>(

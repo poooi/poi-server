@@ -3,7 +3,7 @@ import { type FastifyInstance } from 'fastify'
 import { type Context, type Span } from '@sentry/core'
 
 import { toAppRequest } from './http/fastify'
-import { getHeader, type AppRequest } from './http/request'
+import { getClientIp, getHeader, type AppRequest } from './http/request'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -32,9 +32,11 @@ const getRequestBodyContext = (request: Pick<AppRequest, 'body'>): Context | nul
 export const captureException = (err: Error, request: AppRequest): void => {
   Sentry.withScope(function (scope) {
     scope.setUser({
-      ip_address: getHeader(request, 'x-real-ip') || getHeader(request, 'x-forwarded-for'),
+      ip_address: getClientIp(request),
     })
     scope.setTags({
+      cf_country: getHeader(request, 'cf-ipcountry'),
+      cf_ray: getHeader(request, 'cf-ray'),
       reporter: getHeader(request, 'x-reporter') || getHeader(request, 'user-agent'),
       url: request.url,
       version: global.latestCommit?.slice(0, 8),
@@ -81,9 +83,11 @@ export const registerSentryHooks = (app: FastifyInstance) => {
     Sentry.setHttpStatus(span, reply.statusCode)
     Sentry.withScope((scope) => {
       scope.setUser({
-        ip_address: getHeader(appRequest, 'x-real-ip') || getHeader(appRequest, 'x-forwarded-for'),
+        ip_address: getClientIp(appRequest),
       })
       scope.setTags({
+        cf_country: getHeader(appRequest, 'cf-ipcountry'),
+        cf_ray: getHeader(appRequest, 'cf-ray'),
         reporter: getHeader(appRequest, 'x-reporter') || getHeader(appRequest, 'user-agent'),
         url: request.url,
         version: global.latestCommit?.slice(0, 8),
