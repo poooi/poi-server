@@ -35,7 +35,6 @@ vi.mock('@sindresorhus/df', () => ({
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import { type Server as HttpServer } from 'http'
 import { type AddressInfo } from 'net'
 
 import { startServer } from '../src/server'
@@ -73,8 +72,7 @@ interface TestResponse {
 
 let baseUrl: string
 let mongo: MongoMemoryServer | undefined
-let server: HttpServer
-let closeServer: () => Promise<void>
+let closeServer: (() => Promise<void>) | undefined
 
 const setupSentryMocks = () => {
   sentryMocks.startTransaction.mockReturnValue({
@@ -210,12 +208,12 @@ beforeAll(async () => {
   const started = await startServer({
     db,
     disableLogger: true,
+    host: '127.0.0.1',
     loadLatestCommit: false,
     port: 0,
   })
-  server = started.server
   closeServer = started.close
-  const address = server.address() as AddressInfo
+  const address = started.server.address() as AddressInfo
   baseUrl = `http://127.0.0.1:${address.port}`
 })
 
@@ -241,7 +239,7 @@ afterEach(() => {
 })
 
 afterAll(async () => {
-  await closeServer()
+  await closeServer?.()
   await mongoose.disconnect()
   await mongo?.stop()
 })

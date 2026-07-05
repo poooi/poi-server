@@ -14,7 +14,7 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:unit": "vitest run tests/sentry.test.ts tests/item-improvement-recipe.test.ts",
+    "test:unit": "vitest run --exclude tests/server.e2e.test.ts",
     "test:e2e": "vitest run tests/server.e2e.test.ts",
     "smoke": "node scripts/smoke-server.cjs"
   },

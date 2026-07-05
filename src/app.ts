@@ -1,7 +1,13 @@
 import { config } from './config'
 import { startServer } from './server'
 
-void startServer()
+void startServer({
+  db: config.db,
+  disableLogger: Boolean(config.disableLogger),
+  host: '127.0.0.1',
+  loadLatestCommit: true,
+  port: config.port,
+})
   .then(() => {
     console.log(`Koa is listening on port ${config.port}`)
   })

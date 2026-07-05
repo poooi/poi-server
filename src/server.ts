@@ -3,16 +3,15 @@ import { trim } from 'lodash'
 import mongoose from 'mongoose'
 import { type Server } from 'http'
 
-import { config } from './config'
 import { createApp } from './create-app'
 import { captureException } from './sentry'
 
 interface StartServerOptions {
-  db?: string
-  disableLogger?: boolean
-  host?: string
-  loadLatestCommit?: boolean
-  port?: number
+  db: string
+  disableLogger: boolean
+  host: string
+  loadLatestCommit: boolean
+  port: number
 }
 
 interface StartedServer {
@@ -30,7 +29,7 @@ export const loadLatestCommit = () => {
   })
 }
 
-export const connectDatabase = async (db = config.db) => {
+export const connectDatabase = async (db: string) => {
   await mongoose.connect(db, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -39,12 +38,12 @@ export const connectDatabase = async (db = config.db) => {
 }
 
 export const startServer = async ({
-  db = config.db,
+  db,
   disableLogger,
-  host = '127.0.0.1',
-  loadLatestCommit: shouldLoadLatestCommit = true,
-  port = config.port,
-}: StartServerOptions = {}): Promise<StartedServer> => {
+  host,
+  loadLatestCommit: shouldLoadLatestCommit,
+  port,
+}: StartServerOptions): Promise<StartedServer> => {
   await connectDatabase(db)
 
   mongoose.connection.on('error', () => {
