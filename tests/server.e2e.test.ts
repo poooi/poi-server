@@ -493,7 +493,7 @@ describe('v2 report endpoints', () => {
     })
   })
 
-  test('returns sorted known quests and accepts the legacy quest no-op route', async () => {
+  test('returns known quests in current lexicographic sort order and accepts the legacy quest no-op route', async () => {
     await Quest.create([
       { questId: 2, title: 'B' },
       { questId: 10, title: 'C' },
