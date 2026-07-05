@@ -46,8 +46,8 @@ export const startServer = async ({
 }: StartServerOptions): Promise<StartedServer> => {
   await connectDatabase(db)
 
-  mongoose.connection.on('error', () => {
-    throw new Error('Unable to connect to database at ' + db)
+  mongoose.connection.on('error', (err: Error) => {
+    throw new Error(`Unable to connect to database at ${db}: ${err.message}`)
   })
 
   const app = createApp({ disableLogger })

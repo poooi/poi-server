@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const sentryMocks = vi.hoisted(() => ({
+  addEventProcessor: vi.fn(),
   finish: vi.fn(),
   parseRequest: vi.fn((event) => event),
   setContext: vi.fn(),
@@ -82,6 +83,7 @@ const setupSentryMocks = () => {
   })
   sentryMocks.withScope.mockImplementation((callback) =>
     callback({
+      addEventProcessor: sentryMocks.addEventProcessor,
       setContext: sentryMocks.setContext,
       setTags: sentryMocks.setTags,
       setUser: sentryMocks.setUser,
