@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 
 const sentryMocks = vi.hoisted(() => ({
   addEventProcessor: vi.fn(),
+  continueTrace: vi.fn((_headers, callback) => callback()),
   finish: vi.fn(),
   parseRequest: vi.fn((event) => event),
   setContext: vi.fn(),
@@ -9,24 +10,20 @@ const sentryMocks = vi.hoisted(() => ({
   setName: vi.fn(),
   setTags: vi.fn(),
   setUser: vi.fn(),
-  startTransaction: vi.fn(),
+  startInactiveSpan: vi.fn(),
+  withActiveSpan: vi.fn((_span, callback) => callback()),
   withScope: vi.fn(),
 }))
 
 const dfMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@sentry/node', () => ({
-  startTransaction: sentryMocks.startTransaction,
+  startInactiveSpan: sentryMocks.startInactiveSpan,
+  continueTrace: sentryMocks.continueTrace,
+  setHttpStatus: sentryMocks.setHttpStatus,
+  withActiveSpan: sentryMocks.withActiveSpan,
   withScope: sentryMocks.withScope,
   captureException: vi.fn(),
-  Handlers: {
-    parseRequest: sentryMocks.parseRequest,
-  },
-}))
-
-vi.mock('@sentry/tracing', () => ({
-  extractTraceparentData: vi.fn(),
-  stripUrlQueryAndFragment: vi.fn((url: string) => url.split('?')[0]),
 }))
 
 vi.mock('@sindresorhus/df', () => ({
@@ -99,10 +96,9 @@ const assertE2eDatabaseUri = (db: string) => {
 }
 
 const setupSentryMocks = () => {
-  sentryMocks.startTransaction.mockReturnValue({
-    finish: sentryMocks.finish,
-    setHttpStatus: sentryMocks.setHttpStatus,
-    setName: sentryMocks.setName,
+  sentryMocks.startInactiveSpan.mockReturnValue({
+    end: sentryMocks.finish,
+    updateName: sentryMocks.setName,
   })
   sentryMocks.withScope.mockImplementation((callback) =>
     callback({

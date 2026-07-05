@@ -4,7 +4,6 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
-import { captureException } from './sentry'
 
 interface StartServerOptions {
   db: string
@@ -64,29 +63,8 @@ export const startServer = async ({
   })
 
   const app = createApp({ disableLogger })
-  app.on('error', captureException)
-
-  const server = await new Promise<Server>((resolve, reject) => {
-    const listener = app.listen(port, host)
-
-    function cleanup() {
-      listener.off('error', onError)
-      listener.off('listening', onListening)
-    }
-
-    function onError(err: Error) {
-      cleanup()
-      reject(err)
-    }
-
-    function onListening() {
-      cleanup()
-      resolve(listener)
-    }
-
-    listener.once('error', onError)
-    listener.once('listening', onListening)
-  })
+  await app.listen({ host, port })
+  const server: Server = app.server
 
   if (shouldLoadLatestCommit) {
     loadLatestCommit()
@@ -94,15 +72,6 @@ export const startServer = async ({
 
   return {
     server,
-    close: () =>
-      new Promise((resolve, reject) => {
-        server.close((err) => {
-          if (err != null) {
-            reject(err)
-            return
-          }
-          resolve()
-        })
-      }),
+    close: () => app.close(),
   }
 }

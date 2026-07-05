@@ -9,7 +9,7 @@ void startServer({
   port: config.port,
 })
   .then(() => {
-    console.log(`Koa is listening on port ${config.port}`)
+    console.log(`Fastify is listening on port ${config.port}`)
   })
   .catch((err) => {
     console.error(err)

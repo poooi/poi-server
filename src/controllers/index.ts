@@ -1,13 +1,11 @@
-import Router from '@koa/router'
+import { type FastifyPluginAsync } from 'fastify'
 
-import { router as othersRouter } from './api/others'
-import { router as reportV2Router } from './api/report/v2'
-import { router as reportV3Router } from './api/report/v3'
+import { registerOtherApiRoutes } from './api/others.fastify'
+import { registerReportV2Routes } from './api/report/v2.fastify'
+import { registerReportV3Routes } from './api/report/v3.fastify'
 
-export const router = new Router()
-
-router.use('/api', othersRouter.routes(), othersRouter.allowedMethods())
-
-router.use('/api/report/v2', reportV2Router.routes(), reportV2Router.allowedMethods())
-
-router.use('/api/report/v3', reportV3Router.routes(), reportV3Router.allowedMethods())
+export const registerRoutes: FastifyPluginAsync = async (app) => {
+  await app.register(registerOtherApiRoutes, { prefix: '/api' })
+  await app.register(registerReportV2Routes, { prefix: '/api/report/v2' })
+  await app.register(registerReportV3Routes, { prefix: '/api/report/v3' })
+}
