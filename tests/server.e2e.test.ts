@@ -75,6 +75,15 @@ let baseUrl: string
 let mongo: MongoMemoryServer | undefined
 let closeServer: (() => Promise<void>) | undefined
 
+const assertE2eDatabaseUri = (db: string) => {
+  const databaseName = new URL(db).pathname.replace(/^\/+/, '').split('?')[0]
+  if (!databaseName.includes('poi-e2e')) {
+    throw new Error(
+      `Refusing to run e2e tests against non-e2e database: ${databaseName || '<none>'}`,
+    )
+  }
+}
+
 const setupSentryMocks = () => {
   sentryMocks.startTransaction.mockReturnValue({
     finish: sentryMocks.finish,
@@ -205,6 +214,8 @@ beforeAll(async () => {
   if (db == null || db === '') {
     mongo = await MongoMemoryServer.create()
     db = mongo.getUri()
+  } else {
+    assertE2eDatabaseUri(db)
   }
 
   const started = await startServer({

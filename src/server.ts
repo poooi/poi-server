@@ -22,6 +22,8 @@ interface StartedServer {
 const redactMongoCredentials = (message: string) =>
   message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
 
+const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err))
+
 export const loadLatestCommit = () => {
   childProcess.exec('git rev-parse HEAD', (err, stdout) => {
     if (!err) {
@@ -33,11 +35,17 @@ export const loadLatestCommit = () => {
 }
 
 export const connectDatabase = async (db: string) => {
-  await mongoose.connect(db, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  })
+  try {
+    await mongoose.connect(db, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      useCreateIndex: true,
+    })
+  } catch (err) {
+    throw new Error(
+      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+    )
+  }
 }
 
 export const startServer = async ({
@@ -50,7 +58,9 @@ export const startServer = async ({
   await connectDatabase(db)
 
   mongoose.connection.on('error', (err: Error) => {
-    throw new Error(`Unable to connect to database: ${redactMongoCredentials(err.message)}`)
+    throw new Error(
+      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+    )
   })
 
   const app = createApp({ disableLogger })
