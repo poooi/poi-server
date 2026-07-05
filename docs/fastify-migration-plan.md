@@ -193,7 +193,6 @@ Add `src/http/fastify.ts`:
 import { type FastifyReply, type FastifyRequest } from 'fastify'
 
 import { type AppRequest } from './request'
-import { type AppRequest } from './request'
 import { type AppResult } from './result'
 
 export const toAppRequest = (request: FastifyRequest): AppRequest => ({
