@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/node'
 import { type FastifyInstance } from 'fastify'
-import { type Context, type Span } from '@sentry/core'
+import { type Context, type Event, type Span } from '@sentry/core'
 
 import { toAppRequest } from './http/fastify'
 import { getClientIp, getHeader, type AppRequest } from './http/request'
@@ -29,6 +29,33 @@ const getRequestBodyContext = (request: Pick<AppRequest, 'body'>): Context | nul
   return { data }
 }
 
+const getRequestQueryString = (request: Pick<AppRequest, 'query'>) =>
+  new URLSearchParams(
+    Object.entries(request.query).flatMap(([key, value]) => (value == null ? [] : [[key, value]])),
+  ).toString()
+
+const createRequestEventProcessor =
+  (request: AppRequest) =>
+  (event: Event): Event => ({
+    ...event,
+    request: {
+      ...event.request,
+      data: getRequestBodyData(request),
+      headers: {
+        ...event.request?.headers,
+        ...Object.fromEntries(
+          Object.entries(request.headers).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value.join(',') : value || '',
+          ]),
+        ),
+      },
+      method: request.method,
+      query_string: getRequestQueryString(request),
+      url: request.url,
+    },
+  })
+
 export const captureException = (err: Error, request: AppRequest): void => {
   Sentry.withScope(function (scope) {
     scope.setUser({
@@ -45,6 +72,7 @@ export const captureException = (err: Error, request: AppRequest): void => {
       version: global.latestCommit?.slice(0, 8),
     })
     scope.setContext('data', getRequestBodyContext(request))
+    scope.addEventProcessor(createRequestEventProcessor(request))
     Sentry.captureException(err)
   })
 }

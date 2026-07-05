@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
 
 const sentryMocks = vi.hoisted(() => ({
+  addEventProcessor: vi.fn(),
   captureException: vi.fn(),
   finish: vi.fn(),
   parseRequest: vi.fn((event) => event),
@@ -50,7 +51,7 @@ describe('sentry tracing hooks', () => {
     })
     sentryMocks.withScope.mockImplementation((callback) =>
       callback({
-        addEventProcessor: vi.fn(),
+        addEventProcessor: sentryMocks.addEventProcessor,
         setContext: sentryMocks.setContext,
         setTags: sentryMocks.setTags,
         setUser: sentryMocks.setUser,
@@ -155,6 +156,28 @@ describe('sentry tracing hooks', () => {
       }),
     )
     expect(sentryMocks.setContext).toHaveBeenCalledWith('data', { questId: 1 })
+    const processor = sentryMocks.addEventProcessor.mock.calls[0][0]
+    expect(
+      processor({
+        request: {
+          headers: {
+            existing: 'header',
+          },
+        },
+      }),
+    ).toEqual({
+      request: {
+        data: { questId: 1 },
+        headers: expect.objectContaining({
+          existing: 'header',
+          'cf-ray': 'abc123-NRT',
+          'x-reporter': 'Reporter/8.1.0',
+        }),
+        method: 'POST',
+        query_string: '',
+        url: '/api/report/v3/quest?debug=1',
+      },
+    })
     expect(sentryMocks.captureException).toHaveBeenCalledWith(err)
   })
 
