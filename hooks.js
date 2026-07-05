@@ -1,22 +1,53 @@
-const Koa = require('koa')
-const Router = require('@koa/router')
 const ChildProcess = require('child_process')
+const http = require('http')
+
 require('dotenv').config()
 
-const app = new Koa()
-const router = new Router()
+const defaultPort = 11280
+const defaultHost = '127.0.0.1'
 
-router.post('/api/github-master-hook', async (ctx, next) => {
+const send = (res, statusCode, body = '') => {
+  res.writeHead(statusCode, {
+    'content-length': Buffer.byteLength(body),
+    'content-type': 'text/plain; charset=utf-8',
+  })
+  res.end(body)
+}
+
+const runMasterHook = () => {
   console.log(`====================Master hook ${new Date()} ====================`)
-  const cp = ChildProcess.spawn('./github-master-hook', { stdio: 'inherit' })
+  const cp = ChildProcess.spawn('./github-master-hook', [], {
+    stdio: 'inherit',
+  })
+  cp.on('error', (err) => console.error('* Master hook spawn error:', err))
   cp.on('close', (code) => console.log('* Master hook exit code:' + code))
-  ctx.status = 200
-  await next()
-})
+}
 
-// Start server
-const Port = 11280
-app.use(router.routes())
-app.listen(Port, '127.0.0.1', () => {
-  console.log(`Server is listening at port ${Port}`)
-})
+const createHookServer = ({ runHook = runMasterHook } = {}) =>
+  http.createServer((req, res) => {
+    const path = new URL(
+      req.url || '/',
+      `http://${req.headers.host || `${defaultHost}:${defaultPort}`}`,
+    ).pathname
+    if (req.method === 'POST' && path === '/api/github-master-hook') {
+      runHook()
+      send(res, 200, 'ok')
+      return
+    }
+
+    send(res, 404, 'not found')
+  })
+
+if (require.main === module) {
+  const server = createHookServer()
+  server.listen(defaultPort, defaultHost, () => {
+    console.log(`Server is listening at port ${defaultPort}`)
+  })
+}
+
+module.exports = {
+  createHookServer,
+  defaultHost,
+  defaultPort,
+  runMasterHook,
+}
