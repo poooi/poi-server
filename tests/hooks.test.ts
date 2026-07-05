@@ -26,7 +26,7 @@ describe('poi hook server', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.body).toBe('ok')
+    expect(response.body).toBe('')
     expect(runHook).toHaveBeenCalledTimes(1)
   })
 

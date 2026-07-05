@@ -20,7 +20,7 @@ const createHookApp = ({ runHook = runMasterHook } = {}) => {
 
   app.post('/api/github-master-hook', async (_request, reply) => {
     runHook()
-    return reply.type('text/plain; charset=utf-8').send('ok')
+    return reply.code(200).send()
   })
 
   app.setNotFoundHandler(async (_request, reply) =>
