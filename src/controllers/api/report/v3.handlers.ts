@@ -4,7 +4,7 @@ import _ from 'lodash'
 import bluebird from 'bluebird'
 import { z, ZodError } from 'zod'
 
-import { cached } from '../../../http/cache'
+import { withCloudflareCache } from '../../../http/cache-control'
 import { getHeader, type AppRequest } from '../../../http/request'
 import { badRequest, internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
@@ -588,35 +588,35 @@ const parseExportCursor = (request: AppRequest) =>
 const exportItemImprovementFacts = async <TDocument extends ExportableItemImprovementFactDocument>(
   request: AppRequest,
   model: mongoose.Model<TDocument>,
-): Promise<AppResult> =>
-  cached(request, async () => {
-    try {
-      const { updatedAfter, afterId, limit } = parseExportCursor(request)
-      const query = (
-        afterId == null
-          ? { lastReported: { $gt: updatedAfter } }
-          : {
-              $or: [
-                { lastReported: { $gt: updatedAfter } },
-                {
-                  lastReported: updatedAfter,
-                  _id: { $gt: new mongoose.Types.ObjectId(afterId) },
-                },
-              ],
-            }
-      ) as mongoose.FilterQuery<TDocument>
+): Promise<AppResult> => {
+  try {
+    const { updatedAfter, afterId, limit } = parseExportCursor(request)
+    const query = (
+      afterId == null
+        ? { lastReported: { $gt: updatedAfter } }
+        : {
+            $or: [
+              { lastReported: { $gt: updatedAfter } },
+              {
+                lastReported: updatedAfter,
+                _id: { $gt: new mongoose.Types.ObjectId(afterId) },
+              },
+            ],
+          }
+    ) as mongoose.FilterQuery<TDocument>
 
-      const records = await model
-        .find(query)
-        // Export endpoints intentionally omit reporter origins to avoid exposing client-version
-        // fingerprinting data. Stored fact documents keep origins for internal diagnostics.
-        .select('-__v -origins')
-        .sort({ lastReported: 1, _id: 1 })
-        .limit(limit)
-        .exec()
-      const lastRecord = records[records.length - 1]
+    const records = await model
+      .find(query)
+      // Export endpoints intentionally omit reporter origins to avoid exposing client-version
+      // fingerprinting data. Stored fact documents keep origins for internal diagnostics.
+      .select('-__v -origins')
+      .sort({ lastReported: 1, _id: 1 })
+      .limit(limit)
+      .exec()
+    const lastRecord = records[records.length - 1]
 
-      return ok({
+    return withCloudflareCache(
+      ok({
         records,
         next:
           lastRecord == null
@@ -625,16 +625,17 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
                 updatedAfter: lastRecord.lastReported,
                 afterId: lastRecord._id.toString(),
               },
-      })
-    } catch (err) {
-      if (isItemImprovementValidationError(err)) {
-        return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
-      }
-
-      captureException(err, request)
-      return internalServerError()
+      }),
+    )
+  } catch (err) {
+    if (isItemImprovementValidationError(err)) {
+      return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
     }
-  })
+
+    captureException(err, request)
+    return internalServerError()
+  }
+}
 
 export const itemImprovementRecipe = async (request: AppRequest): Promise<AppResult> => {
   try {
@@ -671,16 +672,15 @@ export const itemImprovementRecipeCosts = (request: AppRequest) =>
 export const itemImprovementRecipeUpdates = (request: AppRequest) =>
   exportItemImprovementFacts(request, ItemImprovementRecipeUpdateFact)
 
-export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
-  cached(request, async () => {
-    try {
-      const knownQuestKeys: QuestDocument['key'][] = await Quest.distinct('key').exec()
-      return ok({ quests: knownQuestKeys.map((key) => key.slice(0, 8)) })
-    } catch (err) {
-      captureException(err, request)
-      return internalServerError()
-    }
-  })
+export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
+  try {
+    const knownQuestKeys: QuestDocument['key'][] = await Quest.distinct('key').exec()
+    return withCloudflareCache(ok({ quests: knownQuestKeys.map((key) => key.slice(0, 8)) }))
+  } catch (err) {
+    captureException(err, request)
+    return internalServerError()
+  }
+}
 
 export const quest = async (request: AppRequest): Promise<AppResult> => {
   try {

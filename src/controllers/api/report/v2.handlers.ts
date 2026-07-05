@@ -2,7 +2,7 @@ import mongoose from 'mongoose'
 import semver from 'semver'
 import { flatMap, drop } from 'lodash'
 
-import { cached } from '../../../http/cache'
+import { withCloudflareCache } from '../../../http/cache-control'
 import { type AppRequest } from '../../../http/request'
 import { internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
@@ -82,17 +82,16 @@ export const selectRank = async (request: AppRequest): Promise<AppResult> => {
 export const passEvent = (request: AppRequest) =>
   saveReportRecord(request, (info) => new PassEventRecord(info))
 
-export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
-  cached(request, async () => {
-    try {
-      const knownQuestIds = await Quest.find().distinct('questId').exec()
-      knownQuestIds.sort()
-      return ok({ quests: knownQuestIds })
-    } catch (err) {
-      captureException(err, request)
-      return internalServerError()
-    }
-  })
+export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
+  try {
+    const knownQuestIds = await Quest.find().distinct('questId').exec()
+    knownQuestIds.sort()
+    return withCloudflareCache(ok({ quests: knownQuestIds }))
+  } catch (err) {
+    captureException(err, request)
+    return internalServerError()
+  }
+}
 
 export const questNoop = async (): Promise<AppResult> => ok()
 

@@ -37,7 +37,7 @@ vi.mock('../src/models', async () => {
 })
 
 import { createApp } from '../src/create-app'
-import { clearResponseCacheForTests } from '../src/http/cache'
+import { cloudflareCacheHeaders } from '../src/http/cache-control'
 import { toAppRequest } from '../src/http/fastify'
 
 describe('Fastify route adapters', () => {
@@ -58,7 +58,6 @@ describe('Fastify route adapters', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     questDistinctMock.mockReset()
-    clearResponseCacheForTests()
   })
 
   test('registers common routes with preserved status and headers', async () => {
@@ -121,7 +120,7 @@ describe('Fastify route adapters', () => {
     })
   })
 
-  test('preserves cached GET responses within the TTL', async () => {
+  test('sets Cloudflare cache headers without serving stale in-process responses', async () => {
     questDistinctMock
       .mockReturnValueOnce({ exec: vi.fn(async () => ['first']) })
       .mockReturnValueOnce({ exec: vi.fn(async () => ['second']) })
@@ -135,8 +134,12 @@ describe('Fastify route adapters', () => {
     expect(firstResponse.statusCode).toBe(200)
     expect(secondResponse.statusCode).toBe(200)
     expect(firstResponse.json()).toEqual({ quests: ['first'] })
-    expect(secondResponse.json()).toEqual({ quests: ['first'] })
-    expect(questDistinctMock).toHaveBeenCalledTimes(1)
+    expect(secondResponse.json()).toEqual({ quests: ['second'] })
+    expect(firstResponse.headers['cache-control']).toBe(cloudflareCacheHeaders['Cache-Control'])
+    expect(firstResponse.headers['cloudflare-cdn-cache-control']).toBe(
+      cloudflareCacheHeaders['Cloudflare-CDN-Cache-Control'],
+    )
+    expect(questDistinctMock).toHaveBeenCalledTimes(2)
   })
 
   test('maps AppRequest path from the concrete URL path', () => {

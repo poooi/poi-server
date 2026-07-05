@@ -111,7 +111,7 @@ If npm resolves newer compatible versions during implementation, update this fil
 Create these files:
 
 ```text
-src/http/cache.ts
+src/http/cache-control.ts
 src/http/result.ts
 src/http/request.ts
 src/http/fastify.ts
@@ -256,60 +256,35 @@ export const parseReportInfo = (request: AppRequest): Record<string, any> => {
 
 Use this in both v2 and v3 handlers. Delete the duplicate Koa-specific parser code.
 
-## Exact cache replacement
+## Exact Cloudflare cache headers
 
-Add `src/http/cache.ts`:
+Add `src/http/cache-control.ts`:
 
 ```ts
-import Cache from 'node-cache'
-
-import { type AppRequest } from './request'
 import { type AppResult } from './result'
 
-interface CacheEntry {
-  body: unknown
-  headers?: Record<string, string>
-  status: number
+export const cloudflareCacheHeaders = {
+  'Cache-Control': 'public, max-age=60',
+  'Cloudflare-CDN-Cache-Control':
+    'public, max-age=600, stale-while-revalidate=60, stale-if-error=300',
 }
 
-const cache = new Cache({
-  checkperiod: 0,
-  stdTTL: 10 * 60,
-})
-
-export const createCacheKey = (request: AppRequest) => `${request.method} ${request.url}`
-
-export const getCachedResult = (request: AppRequest): AppResult | undefined => {
-  const entry = cache.get<CacheEntry>(createCacheKey(request))
-  return entry == null ? undefined : { ...entry }
-}
-
-export const setCachedResult = (request: AppRequest, result: AppResult): AppResult => {
-  if (request.method === 'GET' && result.status === 200) {
-    cache.set(createCacheKey(request), {
-      body: result.body,
-      headers: result.headers,
-      status: result.status,
-    })
+export const withCloudflareCache = (result: AppResult): AppResult => {
+  if (result.status !== 200) {
+    return result
   }
-  return result
-}
 
-export const cached = async (
-  request: AppRequest,
-  resolve: () => Promise<AppResult>,
-): Promise<AppResult> => {
-  const hit = getCachedResult(request)
-  if (hit != null) return hit
-  return setCachedResult(request, await resolve())
-}
-
-export const clearResponseCacheForTests = () => {
-  cache.flushAll()
+  return {
+    ...result,
+    headers: {
+      ...result.headers,
+      ...cloudflareCacheHeaders,
+    },
+  }
 }
 ```
 
-Use this only at the five current `ctx.cashed()` call sites. Do not globally cache all GET routes.
+Use this only at the former `ctx.cashed()` GET call sites. Do not reintroduce in-process server caching; Cloudflare should cache successful GET responses based on the origin headers.
 
 ## Fastify app construction
 
@@ -519,11 +494,11 @@ Add cases:
    - Drop the old Koa first-value array behavior.
    - Use Fastify's default parser behavior for duplicate keys.
 
-6. Cache hit/miss:
+6. Cloudflare cache headers:
    - First `GET /api/report/v3/known_quests`.
    - Insert a quest directly.
-   - Second `GET` returns cached first response within TTL.
-   - This preserves current no-invalidation behavior.
+   - Second `GET` returns fresh origin data, proving no in-process cache remains.
+   - Both successful responses include `Cache-Control` and `Cloudflare-CDN-Cache-Control`.
 
 ### `tests/sentry.test.ts`
 
@@ -674,7 +649,7 @@ Files:
 package.json
 package-lock.json
 src/http/fastify.ts
-src/http/cache.ts
+src/http/cache-control.ts
 src/create-app.ts
 src/server.ts
 src/app.ts
@@ -787,11 +762,11 @@ Rejected. It would preserve the worst part of the current design and hide Fastif
 
 ### Question: Why not use `@fastify/caching`?
 
-Rejected for the first transport commit. Current code uses `ctx.cashed()` only in five specific GET handlers. A tiny explicit cache helper is easier to test and less likely to alter response headers or cache eligibility.
+Rejected. The service is deployed behind Cloudflare, so origin responses should set explicit Cloudflare cache headers instead of maintaining duplicate in-process cache state.
 
 ### Question: Should report POST writes invalidate cached GETs?
 
-No, not in this migration. Existing code does not explicitly invalidate `koa-cash`. Preserve current TTL staleness first; add invalidation later only as an intentional behavior change.
+No server-side invalidation is needed after removing the in-process cache. Cloudflare controls edge TTL through response headers and any zone cache rules.
 
 ### Question: Should Sentry and Fastify migrate in one step?
 
