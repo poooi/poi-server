@@ -1,15 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { type FastifyInstance } from 'fastify'
 
-interface HookModule {
-  createHookApp: (options?: { runHook?: () => void }) => FastifyInstance
-}
-
-const loadHookModule = async (): Promise<HookModule> => {
-  const hookPath = '../hooks.js'
-  const mod = (await import(hookPath)) as { default?: HookModule } & Partial<HookModule>
-  return mod.default ?? (mod as HookModule)
-}
+import { createHookApp } from '../hooks'
 
 let app: FastifyInstance | undefined
 
@@ -20,7 +12,6 @@ afterEach(async () => {
 
 describe('poi hook server', () => {
   test('runs the deploy hook for GitHub master hook POSTs', async () => {
-    const { createHookApp } = await loadHookModule()
     const runHook = vi.fn()
     app = createHookApp({ runHook })
 
@@ -35,7 +26,6 @@ describe('poi hook server', () => {
   })
 
   test('returns 404 without running the deploy hook for other requests', async () => {
-    const { createHookApp } = await loadHookModule()
     const runHook = vi.fn()
     app = createHookApp({ runHook })
 

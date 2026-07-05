@@ -1,12 +1,16 @@
-const ChildProcess = require('child_process')
-const Fastify = require('fastify')
+import ChildProcess from 'child_process'
+import Fastify, { type FastifyInstance } from 'fastify'
 
-require('dotenv').config()
+import 'dotenv/config'
 
-const defaultPort = 11280
-const defaultHost = '127.0.0.1'
+export const defaultPort = 11280
+export const defaultHost = '127.0.0.1'
 
-const runMasterHook = () => {
+interface CreateHookAppOptions {
+  runHook?: () => void
+}
+
+export const runMasterHook = () => {
   console.log(`====================Master hook ${new Date()} ====================`)
   const cp = ChildProcess.spawn('./github-master-hook', [], {
     stdio: 'inherit',
@@ -15,7 +19,9 @@ const runMasterHook = () => {
   cp.on('close', (code) => console.log('* Master hook exit code:' + code))
 }
 
-const createHookApp = ({ runHook = runMasterHook } = {}) => {
+export const createHookApp = ({
+  runHook = runMasterHook,
+}: CreateHookAppOptions = {}): FastifyInstance => {
   const app = Fastify({ logger: false })
 
   app.post('/api/github-master-hook', async (_request, reply) => {
@@ -41,11 +47,4 @@ if (require.main === module) {
       console.error(err)
       process.exit(1)
     })
-}
-
-module.exports = {
-  createHookApp,
-  defaultHost,
-  defaultPort,
-  runMasterHook,
 }
