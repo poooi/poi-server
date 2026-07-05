@@ -24,7 +24,7 @@ vi.mock('@sentry/node', () => ({
 
 import Fastify from 'fastify'
 
-import { registerSentryHooks } from '../src/sentry'
+import { captureException, registerSentryHooks } from '../src/sentry'
 
 const injectSentryRequest = async (data: unknown, headers: Record<string, string> = {}) => {
   const app = Fastify({ logger: false })
@@ -107,5 +107,32 @@ describe('sentry tracing hooks', () => {
         url: '/api/report/v3/quest?debug=1',
       }),
     )
+  })
+
+  test('adds request url and body data context when capturing exceptions', () => {
+    const err = new Error('boom')
+
+    captureException(err, {
+      body: {
+        data: { questId: 1 },
+      },
+      headers: {
+        'x-reporter': 'Reporter/8.1.0',
+      },
+      method: 'POST',
+      params: {},
+      path: '/api/report/v3/quest',
+      query: {},
+      url: '/api/report/v3/quest?debug=1',
+    })
+
+    expect(sentryMocks.setTags).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reporter: 'Reporter/8.1.0',
+        url: '/api/report/v3/quest?debug=1',
+      }),
+    )
+    expect(sentryMocks.setContext).toHaveBeenCalledWith('data', { questId: 1 })
+    expect(sentryMocks.captureException).toHaveBeenCalledWith(err)
   })
 })

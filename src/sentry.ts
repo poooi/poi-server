@@ -36,8 +36,10 @@ export const captureException = (err: Error, request: AppRequest): void => {
     })
     scope.setTags({
       reporter: getHeader(request, 'x-reporter') || getHeader(request, 'user-agent'),
+      url: request.url,
       version: global.latestCommit?.slice(0, 8),
     })
+    scope.setContext('data', getRequestBodyContext(request))
     Sentry.captureException(err)
   })
 }
@@ -93,5 +95,3 @@ export const registerSentryHooks = (app: FastifyInstance) => {
     captureException(error, toAppRequest(request))
   })
 }
-
-export const sentryTracingMiddileaware = registerSentryHooks

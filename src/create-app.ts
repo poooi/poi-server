@@ -35,7 +35,8 @@ export const createApp = ({
 
   app.setErrorHandler((err, _request, reply) => {
     const statusCode = getErrorStatusCode(err)
-    return reply.code(statusCode).send(statusCode >= 500 ? undefined : err)
+    const message = err instanceof Error && err.message !== '' ? err.message : 'Invalid request'
+    return reply.code(statusCode).send(statusCode >= 500 ? undefined : { error: message })
   })
 
   void app.register(registerRoutes)

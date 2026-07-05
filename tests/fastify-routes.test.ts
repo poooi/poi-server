@@ -96,6 +96,9 @@ describe('Fastify route adapters', () => {
     await app.close()
 
     expect(response.statusCode).toBe(400)
+    expect(response.json()).toEqual({
+      error: "Body is not valid JSON but content-type is set to 'application/json'",
+    })
   })
 
   test('passes repeated query params to cursor parsing', async () => {
