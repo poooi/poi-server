@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose'
+import mongoose, { type Document } from 'mongoose'
 
 interface BattleAPIDocument extends Document {
   origin: string

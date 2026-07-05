@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-
 const Koa = require('koa')
 const Router = require('@koa/router')
 const ChildProcess = require('child_process')

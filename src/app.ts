@@ -9,7 +9,7 @@ import { trim } from 'lodash'
 import bytes from 'bytes'
 
 import { config } from './config'
-import { captureException, sentryTracingMiddileaware } from './sentry'
+import { captureException, sentryTracingMiddleware } from './sentry'
 
 import './models'
 import { router } from './controllers'
@@ -26,7 +26,7 @@ mongoose.connection.on('error', () => {
   throw new Error('Unable to connect to database at ' + config.db)
 })
 
-app.use(sentryTracingMiddileaware)
+app.use(sentryTracingMiddleware)
 
 // Logger
 if (!config.disableLogger) {
@@ -38,12 +38,13 @@ const _cache = new Cache({
   stdTTL: 10 * 60,
   checkperiod: 0,
 })
+const cacheCompressionThreshold = bytes('1GB') ?? 1024 ** 3
 app.use(
   cache({
-    threshold: bytes('1GB'), // Compression is handled by nginx.
+    threshold: cacheCompressionThreshold, // Compression is handled by nginx.
     get: async (key) => _cache.get(key),
     set: async (key, value, maxAge) => {
-      _cache.set(key, value, maxAge > 0 ? maxAge : 0)
+      _cache.set(key, value, maxAge != null && maxAge > 0 ? maxAge : 0)
     },
   }),
 )

@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose'
+import mongoose, { type Document } from 'mongoose'
 
 export interface RequiredItem {
   id: number
@@ -74,16 +74,13 @@ export interface ItemImprovementRecipeUpdateFactPayload {
 }
 
 export interface ItemImprovementRecipeAvailabilityFactDocument
-  extends Document,
-    ItemImprovementRecipeAvailabilityFactPayload {}
+  extends Document, ItemImprovementRecipeAvailabilityFactPayload {}
 
 export interface ItemImprovementRecipeCostFactDocument
-  extends Document,
-    ItemImprovementRecipeCostFactPayload {}
+  extends Document, ItemImprovementRecipeCostFactPayload {}
 
 export interface ItemImprovementRecipeUpdateFactDocument
-  extends Document,
-    ItemImprovementRecipeUpdateFactPayload {}
+  extends Document, ItemImprovementRecipeUpdateFactPayload {}
 
 const RequiredItemSchema = new mongoose.Schema<RequiredItem>(
   {
@@ -93,8 +90,8 @@ const RequiredItemSchema = new mongoose.Schema<RequiredItem>(
   { _id: false },
 )
 
-const ItemImprovementRecipeAvailabilityFactSchema = new mongoose.Schema<ItemImprovementRecipeAvailabilityFactDocument>(
-  {
+const ItemImprovementRecipeAvailabilityFactSchema =
+  new mongoose.Schema<ItemImprovementRecipeAvailabilityFactDocument>({
     key: String,
     schemaVersion: Number,
     recipeId: Number,
@@ -109,8 +106,7 @@ const ItemImprovementRecipeAvailabilityFactSchema = new mongoose.Schema<ItemImpr
     firstReported: Number,
     lastReported: Number,
     count: Number,
-  },
-)
+  })
 
 ItemImprovementRecipeAvailabilityFactSchema.index({ key: 1 }, { unique: true })
 ItemImprovementRecipeAvailabilityFactSchema.index({ lastReported: 1, _id: 1 })
@@ -121,8 +117,8 @@ ItemImprovementRecipeAvailabilityFactSchema.index({
 })
 ItemImprovementRecipeAvailabilityFactSchema.index({ recipeId: 1 })
 
-const ItemImprovementRecipeCostFactSchema = new mongoose.Schema<ItemImprovementRecipeCostFactDocument>(
-  {
+const ItemImprovementRecipeCostFactSchema =
+  new mongoose.Schema<ItemImprovementRecipeCostFactDocument>({
     key: String,
     schemaVersion: Number,
     recipeId: Number,
@@ -150,8 +146,7 @@ const ItemImprovementRecipeCostFactSchema = new mongoose.Schema<ItemImprovementR
     firstReported: Number,
     lastReported: Number,
     count: Number,
-  },
-)
+  })
 
 ItemImprovementRecipeCostFactSchema.index({ key: 1 }, { unique: true })
 ItemImprovementRecipeCostFactSchema.index({ lastReported: 1, _id: 1 })
@@ -163,8 +158,8 @@ ItemImprovementRecipeCostFactSchema.index({
 })
 ItemImprovementRecipeCostFactSchema.index({ recipeId: 1 })
 
-const ItemImprovementRecipeUpdateFactSchema = new mongoose.Schema<ItemImprovementRecipeUpdateFactDocument>(
-  {
+const ItemImprovementRecipeUpdateFactSchema =
+  new mongoose.Schema<ItemImprovementRecipeUpdateFactDocument>({
     key: String,
     schemaVersion: Number,
     recipeId: Number,
@@ -183,8 +178,7 @@ const ItemImprovementRecipeUpdateFactSchema = new mongoose.Schema<ItemImprovemen
     firstReported: Number,
     lastReported: Number,
     count: Number,
-  },
-)
+  })
 
 ItemImprovementRecipeUpdateFactSchema.index({ key: 1 }, { unique: true })
 ItemImprovementRecipeUpdateFactSchema.index({ lastReported: 1, _id: 1 })
@@ -197,17 +191,19 @@ ItemImprovementRecipeUpdateFactSchema.index({
 ItemImprovementRecipeUpdateFactSchema.index({ recipeId: 1 })
 ItemImprovementRecipeUpdateFactSchema.index({ upgradeToItemId: 1 })
 
-export const ItemImprovementRecipeAvailabilityFact = mongoose.model<ItemImprovementRecipeAvailabilityFactDocument>(
-  'ItemImprovementRecipeAvailabilityFact',
-  ItemImprovementRecipeAvailabilityFactSchema,
-)
+export const ItemImprovementRecipeAvailabilityFact =
+  mongoose.model<ItemImprovementRecipeAvailabilityFactDocument>(
+    'ItemImprovementRecipeAvailabilityFact',
+    ItemImprovementRecipeAvailabilityFactSchema,
+  )
 
 export const ItemImprovementRecipeCostFact = mongoose.model<ItemImprovementRecipeCostFactDocument>(
   'ItemImprovementRecipeCostFact',
   ItemImprovementRecipeCostFactSchema,
 )
 
-export const ItemImprovementRecipeUpdateFact = mongoose.model<ItemImprovementRecipeUpdateFactDocument>(
-  'ItemImprovementRecipeUpdateFact',
-  ItemImprovementRecipeUpdateFactSchema,
-)
+export const ItemImprovementRecipeUpdateFact =
+  mongoose.model<ItemImprovementRecipeUpdateFactDocument>(
+    'ItemImprovementRecipeUpdateFact',
+    ItemImprovementRecipeUpdateFactSchema,
+  )

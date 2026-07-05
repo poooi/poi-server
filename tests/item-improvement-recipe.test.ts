@@ -4,8 +4,10 @@ import {
   ItemImprovementRecipeAvailabilityFact,
   ItemImprovementRecipeCostFact,
   ItemImprovementRecipeUpdateFact,
+  Quest,
 } from '../src/models'
-import { router } from '../src/controllers/api/report/v3'
+import { router as v2Router } from '../src/controllers/api/report/v2'
+import { router as v3Router } from '../src/controllers/api/report/v3'
 
 const reporterOrigin = 'Reporter/8.1.0 poi/10.3.99'
 const observedAt = Date.UTC(2026, 6, 3, 15)
@@ -32,7 +34,7 @@ interface RouteLayer {
 }
 
 const getItemImprovementRecipePostHandler = () => {
-  const stack = ((router as unknown) as { stack: RouteLayer[] }).stack
+  const stack = (v3Router as unknown as { stack: RouteLayer[] }).stack
   const layer = stack.find(
     (item) => item.path === '/item_improvement_recipe' && item.methods.includes('POST'),
   )
@@ -43,7 +45,7 @@ const getItemImprovementRecipePostHandler = () => {
 }
 
 const getAvailabilityExportHandler = () => {
-  const stack = ((router as unknown) as { stack: RouteLayer[] }).stack
+  const stack = (v3Router as unknown as { stack: RouteLayer[] }).stack
   const layer = stack.find(
     (item) =>
       item.path === '/item_improvement_recipes/availability' && item.methods.includes('GET'),
@@ -52,6 +54,35 @@ const getAvailabilityExportHandler = () => {
     throw new Error('item improvement recipe availability export route is not registered')
   }
   return layer.stack[0]
+}
+
+const getPostHandler = (router: unknown, path: string) => {
+  const stack = (router as { stack: RouteLayer[] }).stack
+  const layer = stack.find((item) => item.path === path && item.methods.includes('POST'))
+  if (layer == null) {
+    throw new Error(`${path} route is not registered`)
+  }
+  return layer.stack[0]
+}
+
+const invokeReportPost = async (router: unknown, path: string, data: unknown) => {
+  const headers: Record<string, string> = {
+    'x-reporter': reporterOrigin,
+  }
+  const ctx: TestContext = {
+    request: {
+      body: {
+        data,
+      },
+    },
+    headers,
+    query: {},
+    get: (name) => headers[name.toLowerCase()] || '',
+    cashed: async () => false,
+  }
+
+  await getPostHandler(router, path)(ctx, async () => undefined)
+  return ctx
 }
 
 const invokeItemImprovementRecipePost = async (data: unknown) => {
@@ -430,5 +461,73 @@ describe('item improvement recipe v3 facts', () => {
         afterId: secondId.toString(),
       },
     })
+  })
+})
+
+describe('report payload parsing', () => {
+  test('returns 400 for malformed v2 JSON payloads', async () => {
+    const ctx = await invokeReportPost(v2Router, '/create_ship', '{')
+
+    expect(ctx.status).toBe(400)
+    expect(ctx.body).toEqual({ error: 'data must be valid JSON' })
+  })
+
+  test.each([undefined, 1, [], '1'])(
+    'returns 400 for missing/non-object v2 payloads: %s',
+    async (data) => {
+      const ctx = await invokeReportPost(v2Router, '/create_ship', data)
+
+      expect(ctx.status).toBe(400)
+      expect(ctx.body).toEqual({ error: 'data must be a JSON object' })
+    },
+  )
+
+  test('returns 400 for missing v3 payload objects', async () => {
+    const updateOne = vi.spyOn(Quest, 'updateOne')
+
+    const ctx = await invokeReportPost(v3Router, '/quest', undefined)
+
+    expect(ctx.status).toBe(400)
+    expect(ctx.body).toEqual({ error: 'data must be a JSON object' })
+    expect(updateOne).not.toHaveBeenCalled()
+  })
+
+  test('parses v3 JSON string payloads before saving quest records', async () => {
+    const updateOne = vi.spyOn(Quest, 'updateOne').mockResolvedValue({} as never)
+
+    const ctx = await invokeReportPost(
+      v3Router,
+      '/quest',
+      JSON.stringify({
+        quests: [
+          {
+            questId: 1,
+            category: 2,
+            title: 'Test quest',
+            detail: 'Test details',
+          },
+        ],
+      }),
+    )
+
+    expect(ctx.status).toBe(200)
+    expect(updateOne).toHaveBeenCalledWith(
+      {
+        key: '8b6799d18daec4c67b34b883f9cfc2d0',
+        questId: 1,
+        category: 2,
+      },
+      {
+        $setOnInsert: {
+          questId: 1,
+          category: 2,
+          title: 'Test quest',
+          detail: 'Test details',
+          key: '8b6799d18daec4c67b34b883f9cfc2d0',
+          origin: reporterOrigin,
+        },
+      },
+      { upsert: true },
+    )
   })
 })
