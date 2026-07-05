@@ -21,6 +21,7 @@ vi.mock('@sentry/node', () => ({
 }))
 
 import { createApp } from '../src/create-app'
+import { toAppRequest } from '../src/http/fastify'
 
 describe('Fastify route adapters', () => {
   beforeEach(() => {
@@ -112,5 +113,35 @@ describe('Fastify route adapters', () => {
 
     expect(response.statusCode).toBe(400)
     expect(response.json()).toEqual({ error: 'afterId: must be a valid ObjectId' })
+  })
+
+  test('maps AppRequest path from the concrete URL path', () => {
+    const request = {
+      body: undefined,
+      headers: {},
+      method: 'POST',
+      params: { id: '1' },
+      query: {},
+      routeOptions: { url: '/api/report/v2/quest/:id' },
+      url: '/api/report/v2/quest/1?debug=1',
+    }
+
+    expect(toAppRequest(request as never).path).toBe('/api/report/v2/quest/1')
+  })
+
+  test('logs server errors before returning empty 5xx responses', async () => {
+    const app = createApp({ disableLogger: true })
+    const errorSpy = vi.spyOn(app.log, 'error')
+    app.get('/boom', async () => {
+      throw new Error('boom')
+    })
+
+    const response = await app.inject('/boom')
+
+    await app.close()
+
+    expect(response.statusCode).toBe(500)
+    expect(response.body).toBe('')
+    expect(errorSpy).toHaveBeenCalledWith({ err: expect.any(Error) }, 'Unhandled request error')
   })
 })

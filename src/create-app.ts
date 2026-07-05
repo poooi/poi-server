@@ -75,9 +75,12 @@ export const createApp = ({
 
   registerSentryHooks(app)
 
-  app.setErrorHandler((err, _request, reply) => {
+  app.setErrorHandler((err, request, reply) => {
     const statusCode = getErrorStatusCode(err)
     const message = err instanceof Error && err.message !== '' ? err.message : 'Invalid request'
+    if (statusCode >= 500) {
+      request.log.error({ err }, 'Unhandled request error')
+    }
     return reply.code(statusCode).send(statusCode >= 500 ? undefined : { error: message })
   })
 
