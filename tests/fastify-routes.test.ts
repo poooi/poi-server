@@ -10,6 +10,7 @@ const sentryMocks = vi.hoisted(() => ({
   setUser: vi.fn(),
   startInactiveSpan: vi.fn(),
   continueTrace: vi.fn((_headers, callback) => callback()),
+  withActiveSpan: vi.fn((_span, callback) => callback()),
   withScope: vi.fn(),
 }))
 
@@ -17,6 +18,7 @@ vi.mock('@sentry/node', () => ({
   startInactiveSpan: sentryMocks.startInactiveSpan,
   continueTrace: sentryMocks.continueTrace,
   setHttpStatus: sentryMocks.setHttpStatus,
+  withActiveSpan: sentryMocks.withActiveSpan,
   withScope: sentryMocks.withScope,
   captureException: vi.fn(),
 }))
@@ -149,6 +151,24 @@ describe('Fastify route adapters', () => {
     }
 
     expect(toAppRequest(request as never).path).toBe('/api/report/v2/quest/1')
+  })
+
+  test('normalizes repeated query params to Fastify default last-value behavior', () => {
+    const request = {
+      body: undefined,
+      headers: {},
+      method: 'GET',
+      params: {},
+      query: {
+        afterId: ['bad', '000000000000000000000000'],
+      },
+      routeOptions: { url: '/api/report/v3/item_improvement_recipes/availability' },
+      url: '/api/report/v3/item_improvement_recipes/availability?afterId=bad&afterId=000000000000000000000000',
+    }
+
+    expect(toAppRequest(request as never).query).toEqual({
+      afterId: '000000000000000000000000',
+    })
   })
 
   test('uses Cloudflare Ray as request id when explicit request ids are absent', async () => {

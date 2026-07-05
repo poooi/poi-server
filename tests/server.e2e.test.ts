@@ -11,6 +11,7 @@ const sentryMocks = vi.hoisted(() => ({
   setTags: vi.fn(),
   setUser: vi.fn(),
   startInactiveSpan: vi.fn(),
+  withActiveSpan: vi.fn((_span, callback) => callback()),
   withScope: vi.fn(),
 }))
 
@@ -20,6 +21,7 @@ vi.mock('@sentry/node', () => ({
   startInactiveSpan: sentryMocks.startInactiveSpan,
   continueTrace: sentryMocks.continueTrace,
   setHttpStatus: sentryMocks.setHttpStatus,
+  withActiveSpan: sentryMocks.withActiveSpan,
   withScope: sentryMocks.withScope,
   captureException: vi.fn(),
 }))

@@ -138,12 +138,14 @@ describe('sentry tracing hooks', () => {
         data: { questId: 1 },
       },
       headers: {
+        authorization: 'Bearer secret',
         'cf-connecting-ipv6': '2001:db8::1',
         'cf-connecting-ip': '198.51.100.1',
         'cf-ipcountry': 'JP',
         'cf-pseudo-ipv4': '240.0.2.1',
         'cf-ray': 'abc123-NRT',
         'cf-worker': 'example.com',
+        cookie: 'session=secret',
         'x-reporter': 'Reporter/8.1.0',
       },
       method: 'POST',
@@ -187,6 +189,8 @@ describe('sentry tracing hooks', () => {
         url: '/api/report/v3/quest?debug=1',
       },
     })
+    expect(processor({}).request.headers).not.toHaveProperty('authorization')
+    expect(processor({}).request.headers).not.toHaveProperty('cookie')
     expect(sentryMocks.captureException).toHaveBeenCalledWith(err)
   })
 

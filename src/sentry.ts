@@ -34,6 +34,20 @@ const getRequestQueryString = (request: Pick<AppRequest, 'query'>) =>
     Object.entries(request.query).flatMap(([key, value]) => (value == null ? [] : [[key, value]])),
   ).toString()
 
+const sensitiveRequestHeaders = new Set([
+  'authorization',
+  'cookie',
+  'proxy-authorization',
+  'set-cookie',
+])
+
+const getSafeRequestHeaders = (headers: AppRequest['headers']): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(headers)
+      .filter(([key]) => !sensitiveRequestHeaders.has(key.toLowerCase()))
+      .map(([key, value]) => [key, Array.isArray(value) ? value.join(',') : value || '']),
+  )
+
 const createRequestEventProcessor =
   (request: AppRequest) =>
   (event: Event): Event => ({
@@ -43,12 +57,7 @@ const createRequestEventProcessor =
       data: getRequestBodyData(request),
       headers: {
         ...event.request?.headers,
-        ...Object.fromEntries(
-          Object.entries(request.headers).map(([key, value]) => [
-            key,
-            Array.isArray(value) ? value.join(',') : value || '',
-          ]),
-        ),
+        ...getSafeRequestHeaders(request.headers),
       },
       method: request.method,
       query_string: getRequestQueryString(request),
