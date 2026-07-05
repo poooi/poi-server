@@ -261,6 +261,7 @@ Use this in both v2 and v3 handlers. Delete the duplicate Koa-specific parser co
 Add `src/http/cache-control.ts`:
 
 ```ts
+import { type AppRequest } from './request'
 import { type AppResult } from './result'
 
 export const cloudflareCacheHeaders = {
