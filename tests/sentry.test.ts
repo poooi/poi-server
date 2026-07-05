@@ -12,6 +12,7 @@ const sentryMocks = vi.hoisted(() => ({
   setUser: vi.fn(),
   startInactiveSpan: vi.fn(),
   continueTrace: vi.fn((_headers, callback) => callback()),
+  withActiveSpan: vi.fn((_span, callback) => callback()),
   withScope: vi.fn(),
 }))
 
@@ -19,6 +20,7 @@ vi.mock('@sentry/node', () => ({
   startInactiveSpan: sentryMocks.startInactiveSpan,
   continueTrace: sentryMocks.continueTrace,
   setHttpStatus: sentryMocks.setHttpStatus,
+  withActiveSpan: sentryMocks.withActiveSpan,
   withScope: sentryMocks.withScope,
   captureException: sentryMocks.captureException,
 }))
@@ -107,6 +109,13 @@ describe('sentry tracing hooks', () => {
     expect(response.statusCode).toBe(200)
     expect(sentryMocks.setName).toHaveBeenCalledWith('POST /api/report/v3/quest')
     expect(sentryMocks.setHttpStatus).toHaveBeenCalledWith(expect.anything(), 200)
+    expect(sentryMocks.withActiveSpan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        end: sentryMocks.finish,
+        updateName: sentryMocks.setName,
+      }),
+      expect.any(Function),
+    )
     expect(sentryMocks.setUser).toHaveBeenCalledWith({ ip_address: '2001:db8::1' })
     expect(sentryMocks.setTags).toHaveBeenCalledWith(
       expect.objectContaining({

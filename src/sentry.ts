@@ -112,22 +112,24 @@ export const registerSentryHooks = (app: FastifyInstance) => {
     const appRequest = toAppRequest(request)
     span.updateName(`${request.method.toUpperCase()} ${appRequest.path}`)
     Sentry.setHttpStatus(span, reply.statusCode)
-    Sentry.withScope((scope) => {
-      scope.setUser({
-        ip_address: getClientIp(appRequest),
+    Sentry.withActiveSpan(span, () => {
+      Sentry.withScope((scope) => {
+        scope.setUser({
+          ip_address: getClientIp(appRequest),
+        })
+        scope.setTags({
+          cf_connecting_ipv6: getHeader(appRequest, 'cf-connecting-ipv6'),
+          cf_country: getHeader(appRequest, 'cf-ipcountry'),
+          cf_pseudo_ipv4: getHeader(appRequest, 'cf-pseudo-ipv4'),
+          cf_ray: getHeader(appRequest, 'cf-ray'),
+          cf_worker: getHeader(appRequest, 'cf-worker'),
+          reporter: getHeader(appRequest, 'x-reporter') || getHeader(appRequest, 'user-agent'),
+          url: request.url,
+          version: global.latestCommit?.slice(0, 8),
+        })
+        scope.setContext('data', getRequestBodyContext(appRequest))
+        span.end()
       })
-      scope.setTags({
-        cf_connecting_ipv6: getHeader(appRequest, 'cf-connecting-ipv6'),
-        cf_country: getHeader(appRequest, 'cf-ipcountry'),
-        cf_pseudo_ipv4: getHeader(appRequest, 'cf-pseudo-ipv4'),
-        cf_ray: getHeader(appRequest, 'cf-ray'),
-        cf_worker: getHeader(appRequest, 'cf-worker'),
-        reporter: getHeader(appRequest, 'x-reporter') || getHeader(appRequest, 'user-agent'),
-        url: request.url,
-        version: global.latestCommit?.slice(0, 8),
-      })
-      scope.setContext('data', getRequestBodyContext(appRequest))
-      span.end()
     })
   })
 
