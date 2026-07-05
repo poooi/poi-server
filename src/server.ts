@@ -19,6 +19,9 @@ interface StartedServer {
   close: () => Promise<void>
 }
 
+const redactMongoCredentials = (message: string) =>
+  message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
+
 export const loadLatestCommit = () => {
   childProcess.exec('git rev-parse HEAD', (err, stdout) => {
     if (!err) {
@@ -47,7 +50,7 @@ export const startServer = async ({
   await connectDatabase(db)
 
   mongoose.connection.on('error', (err: Error) => {
-    throw new Error(`Unable to connect to database at ${db}: ${err.message}`)
+    throw new Error(`Unable to connect to database: ${redactMongoCredentials(err.message)}`)
   })
 
   const app = createApp({ disableLogger })
