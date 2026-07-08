@@ -71,9 +71,8 @@ let baseUrl: string
 let closeServer: (() => Promise<void>) | undefined
 
 const localMongoHosts = new Set(['localhost', '127.0.0.1', '::1'])
-const configuredMongoDatabaseUrl = process.env.POI_SERVER_DATABASE_URL || process.env.POI_SERVER_DB
-const runMongoE2e =
-  configuredMongoDatabaseUrl != null && configuredMongoDatabaseUrl.startsWith('mongodb')
+const configuredDatabaseUrl = process.env.POI_SERVER_DATABASE_URL || process.env.POI_SERVER_DB
+const runMongoE2e = configuredDatabaseUrl != null && configuredDatabaseUrl.startsWith('mongodb')
 const describeMongoE2e = runMongoE2e ? describe : describe.skip
 
 const getMongoHostName = (host: string) => {
@@ -222,14 +221,14 @@ const itemImprovementRecords = [
 ]
 
 beforeAll(async () => {
-  if (configuredMongoDatabaseUrl == null || configuredMongoDatabaseUrl === '') {
+  if (configuredDatabaseUrl == null || configuredDatabaseUrl === '') {
     throw new Error('Mongo e2e tests require POI_SERVER_DATABASE_URL or POI_SERVER_DB')
   }
 
-  assertE2eDatabaseUri(configuredMongoDatabaseUrl)
+  assertE2eDatabaseUri(configuredDatabaseUrl)
 
   const started = await startServer({
-    db: configuredMongoDatabaseUrl,
+    db: configuredDatabaseUrl,
     disableLogger: true,
     host: '127.0.0.1',
     loadLatestCommit: false,

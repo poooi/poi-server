@@ -6,7 +6,7 @@ export interface DatabaseEnv {
   POI_SERVER_DB?: string
 }
 
-const databaseProtocolPattern = /^([a-z0-9+.-]+):/i
+const databaseSchemePattern = /^([a-z0-9+.-]+):/i
 
 export const redactDatabaseCredentials = (message: string) =>
   message.replace(/(([a-z0-9+.-]+):\/\/)([^:@/?#]+):([^@/?#]+)@/gi, '$1<redacted>@')
@@ -15,9 +15,9 @@ export const resolveDatabaseUrl = (env: DatabaseEnv = process.env) =>
   env.POI_SERVER_DATABASE_URL || env.POI_SERVER_DB || defaultDatabaseUrl
 
 export const resolveDatabaseBackend = (databaseUrl: string): DatabaseBackend => {
-  const protocol = databaseUrl.match(databaseProtocolPattern)?.[1]?.toLowerCase()
+  const scheme = databaseUrl.match(databaseSchemePattern)?.[1]?.toLowerCase()
 
-  switch (protocol) {
+  switch (scheme) {
     case 'mongodb':
     case 'mongodb+srv':
       return 'mongo'
