@@ -78,25 +78,11 @@ src/controllers/api/report/
 The backend is resolved once at startup and passed into app/route creation so route registration can
 select the matching action set.
 
-## Implementation readiness
+## Implementation contract
 
-The design direction is ready for review, but the implementation contract is not yet strict enough to
-delegate directly to an implementation agent. Before implementation starts, extend this plan or add a
-follow-up implementation contract with:
-
-- An exact Mongo model to PostgreSQL table matrix for every persisted record.
-- Column names, Drizzle types, nullability, defaults, arrays, JSONB fields, generated columns, indexes,
-  and unique keys for every PostgreSQL table.
-- Dump classification for every table: write-only dumpable table, stateful aggregate table, or
-  item-improvement fact table.
-- Retention behavior for every dumpable table, including partitioning, dump verification, and cleanup
-  rules.
-- Per-endpoint parity tests that must pass against both MongoDB and PostgreSQL.
-- Acceptance criteria stating that the implementation is incomplete until the same HTTP behavior suite
-  passes against MongoDB and a real PostgreSQL service.
-
-Implementation should not infer table shape from examples or from the high-level outline alone.
-Schema details and parity tests are part of the contract, not implementation guesswork.
+This section completes the implementation handoff contract. An implementation agent should not infer
+table shape from examples or from the high-level outline alone; the matrix below is the required
+starting point for Drizzle tables, migrations, and parity tests.
 
 Validation should be split by responsibility:
 
@@ -104,6 +90,82 @@ Validation should be split by responsibility:
 - Use Drizzle schema definitions as the source of truth for PostgreSQL table shape.
 - Use `drizzle-zod` or equivalent schema derivation where it improves maintainability, but do not
   replace endpoint-specific validation rules that are stricter than table constraints.
+
+### Table classification matrix
+
+| Mongo model | PostgreSQL table | Class | Primary write pattern | Required key/index | Retention |
+| --- | --- | --- | --- | --- | --- |
+| `CreateShipRecord` | `create_ship_records` | write-only append | insert | `ingested_at` month partition + optional `(ship_id)` helper index | dump monthly, then clean |
+| `CreateItemRecord` | `create_item_records` | write-only append | insert | `ingested_at` month partition + optional `(item_id)` helper index | dump monthly, then clean |
+| `RemodelItemRecord` | `remodel_item_records` | write-only append | insert | `ingested_at` month partition + optional `(item_id)` helper index | dump monthly, then clean |
+| `DropShipRecord` | `drop_ship_records` | write-only append | insert | `ingested_at` month partition + optional `(map_id, ship_id)` helper index | dump monthly, then clean |
+| `PassEventRecord` | `pass_event_records` | write-only append | insert | `ingested_at` month partition + optional `(map_id)` helper index | dump monthly, then clean |
+| `BattleAPI` | `battle_apis` | write-only append | insert | `ingested_at` month partition + optional `(path)` helper index | dump monthly, then clean |
+| `NightContactRecord` | `night_contacts` | write-only append | insert | `ingested_at` month partition + optional `(ship_id, item_id)` helper index | dump monthly, then clean |
+| `AACIRecord` | `aaci_records` | write-only append | insert | `ingested_at` month partition + optional `(triggered)` helper index | dump monthly, then clean |
+| `NightBattleCI` | `night_battle_cis` | write-only append | insert | `ingested_at` month partition + optional `(ship_id, time)` helper index | dump monthly, then clean |
+| `SelectRankRecord` | `select_rank_records` | stateful aggregate | upsert | unique `(teitoku_id, maparea_id)` | never truncate in dump cleanup |
+| `RecipeRecord` | `recipe_records` | stateful aggregate | upsert + deduplicate compat endpoint | unique `(recipe_id, item_id, stage, day, secretary)` | never truncate in dump cleanup |
+| `ShipStat` | `ship_stats` | stateful aggregate | upsert + increment | unique `(ship_id, lv, los, los_max, asw, asw_max, evasion, evasion_max)` | never truncate in dump cleanup |
+| `EnemyInfo` | `enemy_infos` | stateful aggregate | upsert + increment + min/max merge | unique `(canonical_hash)` plus `(bombers_min, bombers_max)` merge logic | never truncate in dump cleanup |
+| `Quest` | `quests` | stateful aggregate | upsert | unique `(key, quest_id, category)` | never truncate in dump cleanup |
+| `QuestReward` | `quest_rewards` | stateful aggregate | upsert | unique `(key, quest_id, selections, bonus_count)` | never truncate in dump cleanup |
+| `ItemImprovementRecipeAvailabilityFact` | `item_improvement_availability_facts` | item-improvement fact | upsert | unique `(key)`, unique `(export_id)`, index `(last_reported, export_id)` | never truncate in dump cleanup |
+| `ItemImprovementRecipeCostFact` | `item_improvement_cost_facts` | item-improvement fact | upsert | unique `(key)`, unique `(export_id)`, index `(last_reported, export_id)` | never truncate in dump cleanup |
+| `ItemImprovementRecipeUpdateFact` | `item_improvement_update_facts` | item-improvement fact | upsert | unique `(key)`, unique `(export_id)`, index `(last_reported, export_id)` | never truncate in dump cleanup |
+
+### Shared physical conventions
+
+- Append-only write-only tables use `id bigserial primary key`, `ingested_at timestamptz not null
+  default now()`, and `raw_payload jsonb not null default '{}'::jsonb`.
+- Stateful aggregate tables use `id bigserial primary key`; only tables fed directly from flexible
+  client payloads keep `raw_payload jsonb not null default '{}'::jsonb`.
+- Item-improvement fact tables use `id bigserial primary key`, `export_id char(24) not null unique`,
+  `ingested_at timestamptz not null default now()`, and the explicit `(last_reported, export_id)`
+  export index.
+- Use `bigint({ mode: 'number' })` for every millisecond timestamp column so API JSON keeps numeric
+  timestamps.
+- Use PostgreSQL primitive arrays only for flat number/string arrays. Use JSONB for nested arrays or
+  object arrays such as `bonus`, `rewards`, `req_slot_items`, `req_use_items`, `stats1`, and
+  `equips1`.
+
+### Exact PostgreSQL table contract
+
+| Table | Required typed columns in addition to shared columns |
+| --- | --- |
+| `create_ship_records` | `items integer[] not null`, `kdock_id integer not null`, `secretary integer not null`, `ship_id integer not null`, `highspeed integer not null`, `teitoku_lv integer not null`, `large_flag boolean not null`, `origin text not null` |
+| `create_item_records` | `items integer[] not null`, `secretary integer not null`, `item_id integer not null`, `teitoku_lv integer not null`, `successful boolean not null`, `origin text not null` |
+| `remodel_item_records` | `successful boolean not null`, `item_id integer not null`, `item_level integer not null`, `flagship_id integer not null`, `flagship_level integer not null`, `flagship_cond integer not null`, `consort_id integer not null`, `consort_level integer not null`, `consort_cond integer not null`, `teitoku_lv integer not null`, `certain boolean not null` |
+| `drop_ship_records` | `ship_id integer not null`, `item_id integer not null`, `map_id integer not null`, `quest text not null`, `cell_id integer not null`, `enemy text not null`, `rank text not null`, `is_boss boolean not null`, `teitoku_lv integer not null`, `map_lv integer not null`, `enemy_ships1 integer[] not null`, `enemy_ships2 integer[] not null`, `enemy_formation integer not null`, `base_exp integer not null`, `teitoku_id text not null`, `owned_ship_snapshot jsonb not null`, `origin text not null` |
+| `pass_event_records` | `teitoku_id text not null`, `teitoku_lv integer not null`, `map_id integer not null`, `map_lv integer not null`, `rewards jsonb not null`, `origin text not null` |
+| `battle_apis` | `path text not null`, `data jsonb not null`, `origin text not null` |
+| `night_contacts` | `fleet_type integer not null`, `ship_id integer not null`, `ship_lv integer not null`, `item_id integer not null`, `item_lv integer not null`, `contact boolean not null` |
+| `aaci_records` | `poi_version text not null`, `available integer[] not null`, `triggered integer not null`, `items integer[] not null`, `improvement integer[] not null`, `raw_luck integer not null`, `raw_taiku integer not null`, `lv integer not null`, `hp_percent integer not null`, `pos integer not null`, `origin text not null` |
+| `night_battle_cis` | `ship_id integer not null`, `ci text not null`, `type text not null`, `lv integer not null`, `raw_luck integer not null`, `pos integer not null`, `status text not null`, `items integer[] not null`, `improvement integer[] not null`, `search_light boolean not null`, `flare integer not null`, `defense_id integer not null`, `defense_type_id integer not null`, `ci_type integer not null`, `display integer[] not null`, `hit_type integer[] not null`, `damage integer[] not null`, `damage_total integer not null`, `time bigint not null`, `origin text not null` |
+| `select_rank_records` | `teitoku_id text not null`, `teitoku_lv integer not null`, `maparea_id integer not null`, `rank integer not null`, `origin text not null` |
+| `recipe_records` | `recipe_id integer not null`, `item_id integer not null`, `stage integer not null`, `day integer not null`, `secretary integer not null`, `fuel integer not null`, `ammo integer not null`, `steel integer not null`, `bauxite integer not null`, `req_item_id integer not null`, `req_item_count integer not null`, `buildkit integer not null`, `remodelkit integer not null`, `certain_buildkit integer not null`, `certain_remodelkit integer not null`, `upgrade_to_item_id integer not null`, `upgrade_to_item_level integer not null`, `last_reported bigint not null`, `count integer not null default 1`, `key text not null`, `origin text not null`, `raw_payload jsonb not null default '{}'::jsonb` |
+| `ship_stats` | `ship_id integer not null`, `lv integer not null`, `los integer not null`, `los_max integer not null`, `asw integer not null`, `asw_max integer not null`, `evasion integer not null`, `evasion_max integer not null`, `last_timestamp bigint not null`, `count integer not null default 1` |
+| `enemy_infos` | `canonical_hash text not null`, `ships1 integer[] not null`, `levels1 integer[] not null`, `hp1 integer[] not null`, `stats1 jsonb not null`, `equips1 jsonb not null`, `ships2 integer[] not null`, `levels2 integer[] not null`, `hp2 integer[] not null`, `stats2 jsonb not null`, `equips2 jsonb not null`, `planes integer not null`, `bombers_min integer not null`, `bombers_max integer not null`, `count integer not null default 1`, `raw_payload jsonb not null default '{}'::jsonb` |
+| `quests` | `quest_id integer not null`, `title text not null`, `detail text not null`, `category integer not null`, `type integer not null`, `origin text not null`, `key text not null`, `raw_payload jsonb not null default '{}'::jsonb` |
+| `quest_rewards` | `quest_id integer not null`, `title text not null`, `detail text not null`, `category integer not null`, `type integer not null`, `origin text not null`, `key text not null`, `selections integer[] not null`, `material integer[] not null`, `bonus jsonb not null`, `bonus_count integer not null`, `raw_payload jsonb not null default '{}'::jsonb` |
+| `item_improvement_availability_facts` | `key text not null`, `schema_version integer not null`, `recipe_id integer not null`, `item_id integer not null`, `day integer not null`, `first_client_observed_at bigint not null`, `last_client_observed_at bigint not null`, `observed_second_ship_id integer not null`, `observed_flagship_ids integer[] not null default '{}'::integer[]`, `sources text[] not null default '{}'::text[]`, `origins text[] not null default '{}'::text[]`, `first_reported bigint not null`, `last_reported bigint not null`, `count integer not null default 1` |
+| `item_improvement_cost_facts` | `key text not null`, `schema_version integer not null`, `recipe_id integer not null`, `item_id integer not null`, `item_level integer not null`, `stage integer not null`, `day integer not null`, `first_client_observed_at bigint not null`, `last_client_observed_at bigint not null`, `observed_second_ship_id integer not null`, `observed_flagship_ids integer[] not null default '{}'::integer[]`, `fuel integer not null`, `ammo integer not null`, `steel integer not null`, `bauxite integer not null`, `buildkit integer not null`, `remodelkit integer not null`, `certain_buildkit integer not null`, `certain_remodelkit integer not null`, `req_slot_items jsonb not null`, `req_use_items jsonb not null`, `change_flag integer not null`, `sources text[] not null default '{}'::text[]`, `origins text[] not null default '{}'::text[]`, `first_reported bigint not null`, `last_reported bigint not null`, `count integer not null default 1` |
+| `item_improvement_update_facts` | `key text not null`, `schema_version integer not null`, `recipe_id integer not null`, `item_id integer not null`, `item_level integer not null`, `day integer not null`, `first_client_observed_at bigint not null`, `last_client_observed_at bigint not null`, `observed_second_ship_id integer not null`, `observed_flagship_ids integer[] not null default '{}'::integer[]`, `upgrade_to_item_id integer not null`, `upgrade_to_item_level integer not null`, `upgrade_observed boolean not null`, `sources text[] not null default '{}'::text[]`, `origins text[] not null default '{}'::text[]`, `first_reported bigint not null`, `last_reported bigint not null`, `count integer not null default 1` |
+
+### Acceptance criteria
+
+The PostgreSQL migration implementation is not complete until all of the following are true:
+
+- MongoDB and PostgreSQL start from the same route registration surface and the backend is selected only
+  from `POI_SERVER_DATABASE_URL ?? POI_SERVER_DB`.
+- The shared HTTP behavior suite passes against MongoDB and a real PostgreSQL service in CI.
+- Every table above exists in Drizzle schema/migrations with the stated columns, keys, defaults, and
+  retention class.
+- `/api/status` exposes both the generic `database` object and the legacy `mongo` object.
+- Unknown future client fields are preserved in PostgreSQL JSONB payload columns for representative
+  append-only and upsert endpoints.
+- Item-improvement export parity proves numeric timestamps, public `_id` compatibility, stable ordering,
+  and no-drop pagination inside the chosen settled export window.
 
 ## PostgreSQL ORM choice
 

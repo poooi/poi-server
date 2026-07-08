@@ -32,7 +32,6 @@ vi.mock('@sindresorhus/df', () => ({
 
 import childProcess from 'child_process'
 import mongoose from 'mongoose'
-import { MongoMemoryServer } from 'mongodb-memory-server'
 import { type AddressInfo } from 'net'
 
 import { startServer } from '../src/server'
@@ -69,10 +68,14 @@ interface TestResponse {
 }
 
 let baseUrl: string
-let mongo: MongoMemoryServer | undefined
 let closeServer: (() => Promise<void>) | undefined
 
 const localMongoHosts = new Set(['localhost', '127.0.0.1', '::1'])
+const configuredMongoDatabaseUrl =
+  process.env.POI_SERVER_DATABASE_URL || process.env.POI_SERVER_DB || undefined
+const runMongoE2e =
+  configuredMongoDatabaseUrl != null && configuredMongoDatabaseUrl.startsWith('mongodb')
+const describeMongoE2e = runMongoE2e ? describe : describe.skip
 
 const getMongoHostName = (host: string) => {
   if (host.startsWith('[')) {
@@ -220,16 +223,14 @@ const itemImprovementRecords = [
 ]
 
 beforeAll(async () => {
-  let db = process.env.POI_SERVER_DB
-  if (db == null || db === '') {
-    mongo = await MongoMemoryServer.create()
-    db = mongo.getUri()
-  } else {
-    assertE2eDatabaseUri(db)
+  if (configuredMongoDatabaseUrl == null || configuredMongoDatabaseUrl === '') {
+    return
   }
 
+  assertE2eDatabaseUri(configuredMongoDatabaseUrl)
+
   const started = await startServer({
-    db,
+    db: configuredMongoDatabaseUrl,
     disableLogger: true,
     host: '127.0.0.1',
     loadLatestCommit: false,
@@ -264,10 +265,9 @@ afterEach(() => {
 afterAll(async () => {
   await closeServer?.()
   await mongoose.disconnect()
-  await mongo?.stop()
 })
 
-describe('server common endpoints', () => {
+describeMongoE2e('server common endpoints', () => {
   test('reports service status using the live database', async () => {
     await CreateShipRecord.create({ ...createShipPayload, origin: reporterOrigin })
 
@@ -329,7 +329,7 @@ describe('server common endpoints', () => {
   })
 })
 
-describe('v2 report endpoints', () => {
+describeMongoE2e('v2 report endpoints', () => {
   test('persists simple report records through HTTP requests', async () => {
     const cases = [
       {
@@ -712,7 +712,7 @@ describe('v2 report endpoints', () => {
   })
 })
 
-describe('v3 report endpoints', () => {
+describeMongoE2e('v3 report endpoints', () => {
   test('ingests item improvement facts and exports every fact type', async () => {
     const ingestResponse = await postReport('/api/report/v3/item_improvement_recipe', {
       records: itemImprovementRecords,

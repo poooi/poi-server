@@ -4,6 +4,11 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
+import {
+  redactDatabaseCredentials,
+  resolveDatabaseBackend,
+  type DatabaseBackend,
+} from './db/backend'
 
 interface StartServerOptions {
   db: string
@@ -18,9 +23,6 @@ interface StartedServer {
   close: () => Promise<void>
 }
 
-const redactMongoCredentials = (message: string) =>
-  message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
-
 const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export const loadLatestCommit = () => {
@@ -33,7 +35,7 @@ export const loadLatestCommit = () => {
   })
 }
 
-export const connectDatabase = async (db: string) => {
+const connectMongoDatabase = async (db: string) => {
   try {
     await mongoose.connect(db, {
       useNewUrlParser: true,
@@ -42,9 +44,25 @@ export const connectDatabase = async (db: string) => {
     })
   } catch (err) {
     throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      `Unable to connect to database: ${redactDatabaseCredentials(getErrorMessage(err))}`,
     )
   }
+}
+
+const connectPostgresDatabase = async (db: string) => {
+  throw new Error(
+    `Unable to connect to database: PostgreSQL backend is not implemented yet for ${redactDatabaseCredentials(db)}`,
+  )
+}
+
+export const connectDatabase = async (db: string) => {
+  const backend: DatabaseBackend = resolveDatabaseBackend(db)
+  if (backend === 'mongo') {
+    await connectMongoDatabase(db)
+    return
+  }
+
+  await connectPostgresDatabase(db)
 }
 
 export const startServer = async ({
@@ -58,7 +76,7 @@ export const startServer = async ({
 
   mongoose.connection.on('error', (err: Error) => {
     throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      `Unable to connect to database: ${redactDatabaseCredentials(getErrorMessage(err))}`,
     )
   })
 

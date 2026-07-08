@@ -13,7 +13,7 @@ See the [wiki](https://github.com/poooi/poi-server/wiki).
 
 ### Prerequists:
 
-- Node.js 14.x
+- Node.js 24+
 - MongoDB v4.2
 
 Other versions are not tested
@@ -22,5 +22,9 @@ Other versions are not tested
 
 - Install dependencies with npm install
 - copy `.env.example` to create `.env`, this contains config file for the server
-- start mongodb, if the db path or port is different, specify them in the `.env` file
+- set `POI_SERVER_DATABASE_URL` to the active database connection string; `POI_SERVER_DB` remains as a
+  backward-compatible fallback
+- start MongoDB, if the db path or port is different, specify it in the `.env` file
 - start the server by `node index.js`
+- `npm run test:e2e` expects a local MongoDB e2e database URI from `POI_SERVER_DATABASE_URL` or
+  `POI_SERVER_DB`; CI provides `mongodb://127.0.0.1:27017/poi-e2e`
