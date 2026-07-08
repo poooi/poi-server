@@ -144,7 +144,8 @@ Current MongoDB-specific behavior to preserve:
 - `remodel_recipe` upsert and count increment, while ignoring `stage === -1`.
 - `remodel_recipe_deduplicate` duplicate cleanup by recipe key.
 - `ship_stat` count increments by stat tuple.
-- `enemy_info` count increments plus bomber range min/max merging.
+- `enemy_info` count increments plus current bomber range intersection behavior:
+  `bombersMin` uses max/`greatest`, and `bombersMax` uses min/`least`.
 - `aaci` persists only when the POI version is greater than `7.9.1`, the reporter origin starts with
   `Reporter `, and the reporter version is at least `3.6.0`.
 - Legacy no-op routes remain no-ops, including `quest/:id` and `night_battle_ss_ci`.
@@ -326,6 +327,7 @@ MongoDB duplicate cleanup remains Mongo-specific.
 | `.select('-__v -origins')` | Explicit selected column list that excludes `origins`; merge any public JSONB payload fields back into the flat response shape before returning |
 | `.sort({ lastReported: 1, _id: 1 })` | `orderBy(last_reported asc, export_id asc)` |
 | Flexible nested Mongo fields | JSONB fields for payloads or snapshots that are not queried structurally |
+| `EnemyInfo` `$max: { bombersMin }`, `$min: { bombersMax }` | `bombers_min = greatest(existing.bombers_min, excluded.bombers_min)` and `bombers_max = least(existing.bombers_max, excluded.bombers_max)` |
 
 ## v3 item-improvement compatibility
 
@@ -339,6 +341,9 @@ PostgreSQL must preserve:
 - Export limit clamping.
 - Export filtering by `updatedAfter` and `afterId`.
 - Export ordering by `(lastReported, _id)` semantics, implemented as `(last_reported, export_id)`.
+- Public exported records must keep the current MongoDB `_id` field. PostgreSQL should derive `_id`
+  from `export_id` as a 24-character lowercase hex string in response objects; `export_id` must remain
+  an internal column and must not replace `_id` in the API response.
 - `next.updatedAfter` and `next.afterId` response fields.
 - Omission of `origins` from export responses.
 
@@ -389,11 +394,11 @@ and PostgreSQL assertions:
 | Backend config | URI scheme selects MongoDB or PostgreSQL; unsupported schemes fail with redacted errors. |
 | `/api/status` | Both backends return generic `database` counts and legacy `mongo` counts. |
 | v2 append-only reports | Each report endpoint persists typed fields and preserves unknown future fields in JSONB on PostgreSQL. |
-| v2 upserts | `select_rank`, `remodel_recipe`, `ship_stat`, and `enemy_info` match current count/min/max/update behavior. |
+| v2 upserts | `select_rank`, `remodel_recipe`, `ship_stat`, and `enemy_info` match current count/min/max/update behavior, including `enemy_info` bomber range intersection (`bombersMin` grows upward, `bombersMax` shrinks downward). |
 | v2 compatibility routes | `known_quests`, `known_recipes`, `quest/:id`, `remodel_recipe_deduplicate`, and `night_battle_ss_ci` keep current response behavior. |
 | v3 quests | Quest and reward keys, uniqueness, known quest prefixes, and legacy `bounsCount` payload handling match MongoDB behavior. |
 | v3 item-improvement ingest | Keys, normalization, `$setOnInsert` equivalents, min/max timestamps, set-union arrays, origins, and counts match MongoDB behavior. |
-| v3 item-improvement export | Limit clamping, origin omission, numeric timestamps, cursor shape, ordering, settled-window pagination, and empty-page behavior match the API contract. |
+| v3 item-improvement export | Limit clamping, origin omission, numeric timestamps, public `_id` shape, cursor shape, ordering, settled-window pagination, and empty-page behavior match the API contract. |
 | Monthly dumps and retention | Write-only tables can be dumped, verified, and cleaned up; stateful aggregate/fact tables are not emptied by the dump cleanup path. |
 | Error handling | Malformed JSON, invalid payloads, invalid cursors, and database errors preserve current status/body behavior. |
 
