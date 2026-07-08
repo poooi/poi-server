@@ -71,8 +71,7 @@ let baseUrl: string
 let closeServer: (() => Promise<void>) | undefined
 
 const localMongoHosts = new Set(['localhost', '127.0.0.1', '::1'])
-const configuredMongoDatabaseUrl =
-  process.env.POI_SERVER_DATABASE_URL || process.env.POI_SERVER_DB || undefined
+const configuredMongoDatabaseUrl = process.env.POI_SERVER_DATABASE_URL || process.env.POI_SERVER_DB
 const runMongoE2e =
   configuredMongoDatabaseUrl != null && configuredMongoDatabaseUrl.startsWith('mongodb')
 const describeMongoE2e = runMongoE2e ? describe : describe.skip
