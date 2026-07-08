@@ -2,9 +2,9 @@
 
 ## Goals
 
-Add PostgreSQL as a supported persistence backend while keeping MongoDB available. The active
-backend must be configurable and auto-detectable from the database URI. Existing MongoDB data will
-not be migrated; a PostgreSQL deployment starts with empty reporting tables.
+Add PostgreSQL as a supported persistence backend while keeping MongoDB available. The active backend
+is selected from the configured database URI scheme. Existing MongoDB data will not be migrated; a
+PostgreSQL deployment starts with empty reporting tables.
 
 ## Non-goals
 
@@ -14,22 +14,21 @@ not be migrated; a PostgreSQL deployment starts with empty reporting tables.
 
 ## Backend selection
 
-Add a database backend setting:
+Select the active backend from the configured database URI. Do not add a separate driver environment
+variable; the URI scheme is already enough to distinguish MongoDB from PostgreSQL.
 
 ```dotenv
-POI_SERVER_DB_DRIVER=auto
-POI_SERVER_DB=mongodb://localhost:27017/poi-development
+POI_SERVER_DATABASE_URL=mongodb://localhost:27017/poi-development
 ```
 
-Supported driver values:
+`POI_SERVER_DATABASE_URL` should be the preferred configuration name. Existing deployments can keep
+using `POI_SERVER_DB` as a backward-compatible fallback:
 
-| Value | Behavior |
-| --- | --- |
-| `auto` | Detects the backend from `POI_SERVER_DB`. |
-| `mongo` | Requires a `mongodb:` or `mongodb+srv:` URI. |
-| `postgres` | Requires a `postgres:` or `postgresql:` URI. |
+```ts
+databaseUrl = process.env.POI_SERVER_DATABASE_URL ?? process.env.POI_SERVER_DB
+```
 
-Auto-detection maps URI schemes as follows:
+Backend selection maps URI schemes as follows:
 
 | URI scheme | Backend |
 | --- | --- |
@@ -38,8 +37,8 @@ Auto-detection maps URI schemes as follows:
 | `postgres:` | PostgreSQL |
 | `postgresql:` | PostgreSQL |
 
-An explicit driver/URI mismatch should fail startup with a redacted connection string. The default
-development configuration should remain MongoDB for backward compatibility.
+Unsupported schemes should fail startup with a redacted connection string. The default development
+configuration should remain MongoDB for backward compatibility.
 
 ## Architecture
 
@@ -279,8 +278,8 @@ The same HTTP behavior suite should run against both backends where possible.
 ## Implementation phases
 
 1. **Backend resolver and config**
-   - Add `POI_SERVER_DB_DRIVER`.
-   - Implement URI backend auto-detection.
+   - Add `POI_SERVER_DATABASE_URL` while keeping `POI_SERVER_DB` as a backward-compatible fallback.
+   - Select the backend solely from the resolved database URI scheme.
    - Redact MongoDB and PostgreSQL credentials in startup errors.
    - Update Sentry initialization so MongoDB integration is only used for the MongoDB backend, and
      PostgreSQL instrumentation is enabled only if the installed Sentry SDK supports the selected
@@ -313,8 +312,7 @@ The same HTTP behavior suite should run against both backends where possible.
    - Update `.env.example`, README, and deployment notes.
    - Deploy with MongoDB default unchanged.
    - Provision an empty PostgreSQL database.
-   - Switch production by setting `POI_SERVER_DB` to a PostgreSQL URI and
-     `POI_SERVER_DB_DRIVER=postgres` or `auto`.
+   - Switch production by setting `POI_SERVER_DATABASE_URL` or `POI_SERVER_DB` to a PostgreSQL URI.
 
 ## Adversarial review findings to guard against
 
@@ -345,7 +343,7 @@ Rollout:
 
 Rollback:
 
-1. Switch configuration back to the MongoDB URI and driver.
+1. Switch the configured database URI back to MongoDB.
 2. Restart the service.
 
 Because there is no data migration or dual-write requirement, rollback is a backend switch rather
