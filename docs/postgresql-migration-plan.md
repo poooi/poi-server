@@ -86,6 +86,10 @@ follow-up implementation contract with:
 - An exact Mongo model to PostgreSQL table matrix for every persisted record.
 - Column names, Drizzle types, nullability, defaults, arrays, JSONB fields, generated columns, indexes,
   and unique keys for every PostgreSQL table.
+- Dump classification for every table: write-only dumpable table, stateful aggregate table, or
+  item-improvement fact table.
+- Retention behavior for every dumpable table, including partitioning, dump verification, and cleanup
+  rules.
 - Per-endpoint parity tests that must pass against both MongoDB and PostgreSQL.
 - Acceptance criteria stating that the implementation is incomplete until the same HTTP behavior suite
   passes against MongoDB and a real PostgreSQL service.
@@ -218,6 +222,10 @@ Append-heavy report tables:
 - `aaci_records`
 - `night_battle_cis`
 
+These append-heavy tables are write-only reporting records. They should be designed as dumpable
+retention tables: the service writes them, monthly jobs publish their data to the community, and old
+dumped data can be removed from PostgreSQL to control disk usage.
+
 Upsert/aggregate report tables:
 
 - `select_rank_records`
@@ -232,6 +240,48 @@ Item-improvement fact tables:
 - `item_improvement_availability_facts`
 - `item_improvement_cost_facts`
 - `item_improvement_update_facts`
+
+Upsert/aggregate tables and item-improvement fact tables are stateful service data, not write-only
+dump buffers. They may be included in community dumps as snapshots if useful, but they must not be
+emptied as part of the write-only record cleanup path.
+
+## Community data dumps and retention
+
+PostgreSQL design must support monthly community data dumps and disk-space reclamation.
+
+Dump policy:
+
+- Dump write-only append-heavy report tables monthly after the month has closed.
+- After a dump is successfully published and verified, remove the dumped write-only records from
+  PostgreSQL.
+- Do not empty stateful aggregate tables such as `select_rank_records`, `recipe_records`,
+  `ship_stats`, `enemy_infos`, `quests`, `quest_rewards`, or item-improvement fact tables as part of
+  write-only retention cleanup.
+
+Schema requirements for dumpable write-only tables:
+
+- Add an internal ingestion timestamp such as `ingested_at` to every write-only report table, even if
+  the current MongoDB schema did not record one. This timestamp is for dump partitioning and retention,
+  not part of the public API contract.
+- Prefer monthly range partitioning by `ingested_at` for high-volume write-only tables so cleanup can
+  detach/drop or truncate whole dumped partitions instead of issuing large row-by-row deletes.
+- Keep typed columns for commonly useful community-analysis fields and preserve the full normalized
+  report payload in JSONB so future fields are included in dumps.
+- Keep dump metadata in a small control table, for example `data_dump_runs`, recording dump month,
+  table or partition name, row count, checksum or manifest hash, output location, completion time, and
+  cleanup time.
+
+Dump workflow:
+
+1. Select closed monthly partitions or rows for write-only tables.
+2. Export them to the chosen community dump format.
+3. Verify row counts and checksums against `data_dump_runs`.
+4. Publish the dump.
+5. Only after successful verification and publication, detach/drop or truncate the dumped write-only
+   partitions.
+
+The implementation contract must define the exact dump format, storage location, metadata columns,
+and cleanup command before enabling automated cleanup.
 
 Important indexes and constraints:
 
@@ -263,7 +313,7 @@ MongoDB duplicate cleanup remains Mongo-specific.
 
 | Current MongoDB semantic | PostgreSQL/Drizzle design |
 | --- | --- |
-| `new Model(info).save()` | Split `info` into declared typed columns and JSONB extension payload, then `db.insert(table).values({ ...typedColumns, rawPayload })` |
+| `new Model(info).save()` | Split `info` into declared typed columns and JSONB extension payload, then insert values including the `raw_payload` column |
 | `count()` / `countDocuments()` | Drizzle `count()` helper or `select count(*)` expression |
 | `distinct('questId')` | A Drizzle distinct projection such as `selectDistinct({ questId: table.questId }).from(table)`; preserve current endpoint sort behavior |
 | `findOne` then mutate/save for select rank | Unique key on `(teitoku_id, maparea_id)` with conflict update |
@@ -344,6 +394,7 @@ and PostgreSQL assertions:
 | v3 quests | Quest and reward keys, uniqueness, known quest prefixes, and legacy `bounsCount` payload handling match MongoDB behavior. |
 | v3 item-improvement ingest | Keys, normalization, `$setOnInsert` equivalents, min/max timestamps, set-union arrays, origins, and counts match MongoDB behavior. |
 | v3 item-improvement export | Limit clamping, origin omission, numeric timestamps, cursor shape, ordering, settled-window pagination, and empty-page behavior match the API contract. |
+| Monthly dumps and retention | Write-only tables can be dumped, verified, and cleaned up; stateful aggregate/fact tables are not emptied by the dump cleanup path. |
 | Error handling | Malformed JSON, invalid payloads, invalid cursors, and database errors preserve current status/body behavior. |
 
 Implementation is not complete until the parity matrix passes against MongoDB and a real PostgreSQL
@@ -370,6 +421,8 @@ service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL
    - Define PostgreSQL tables, indexes, constraints, and migration scripts.
    - Define generated/canonical keys for `enemy_infos` and item-improvement export cursors before
      writing actions.
+   - Define dumpable write-only tables, ingestion timestamps, partitioning strategy, and dump metadata
+     tables before implementing monthly cleanup.
 
 4. **PostgreSQL actions**
    - Implement PostgreSQL v2 actions.
@@ -381,6 +434,7 @@ service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL
    - Add CI PostgreSQL service.
    - Run MongoDB and PostgreSQL behavior suites.
    - Assert `/api/status` returns both generic `database` counts and legacy `mongo` counts.
+   - Add retention tests proving only write-only dumped data is removed and stateful tables remain.
 
 6. **Documentation and rollout**
    - Update `.env.example`, README, and deployment notes.
@@ -408,6 +462,9 @@ service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL
   machine.
 - Do not implement PostgreSQL as a loose raw SQL side path. Keep Drizzle schema, migrations, and typed
   actions as the maintainability boundary.
+- Do not implement monthly cleanup as broad table truncation without classification. Only dumpable
+  write-only tables may be emptied after a verified community dump; stateful aggregate/fact tables must
+  remain available.
 
 ## Rollout and fallback
 
