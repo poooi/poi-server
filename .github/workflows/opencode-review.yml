@@ -58,7 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode-go/hy3-preview-free
+          model: opencode-go/hy3-preview
           use_github_token: true
           prompt: |
             Review this pull request as a senior maintainer.
