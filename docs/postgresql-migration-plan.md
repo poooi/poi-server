@@ -197,7 +197,7 @@ Concrete PostgreSQL upsert keys:
 | `ship_stats` | `(ship_id, lv, los, los_max, asw, asw_max, evasion, evasion_max)` |
 | `enemy_infos` | Stable hash of the canonical enemy fleet fields plus `planes`; nested arrays are stored in JSONB and are not used directly as a multi-column unique key. |
 | `quests` | `(key, quest_id, category)` |
-| `quest_rewards` | `(key, quest_id, selections, bouns_count)` using PostgreSQL's native equality support for primitive array columns. |
+| `quest_rewards` | `(key, quest_id, selections, bonus_count)` using PostgreSQL's native equality support for primitive array columns. The PostgreSQL column should use the corrected `bonus_count` name while the HTTP payload parser continues accepting the legacy `bounsCount` field. |
 | item-improvement facts | `key` |
 
 The legacy `remodel_recipe_deduplicate` endpoint should remain available. For PostgreSQL it should
