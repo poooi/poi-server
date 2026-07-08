@@ -51,16 +51,32 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cache OpenCode
+        if: ${{ steps['trigger-permission'].outputs.can_review == 'true' }}
+        id: opencode-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.opencode/bin
+          key: opencode-${{ runner.os }}-${{ runner.arch }}-v1.17.13
+
+      - name: Install OpenCode
+        if: ${{ steps['trigger-permission'].outputs.can_review == 'true' && steps.opencode-cache.outputs.cache-hit != 'true' }}
+        env:
+          OPENCODE_CLI_VERSION: 1.17.13
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version "$OPENCODE_CLI_VERSION" --no-modify-path
+
+      - name: Add OpenCode to PATH
+        if: ${{ steps['trigger-permission'].outputs.can_review == 'true' }}
+        run: echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+
       - name: Run OpenCode review
         if: ${{ steps['trigger-permission'].outputs.can_review == 'true' }}
-        uses: anomalyco/opencode/github@ed75ce9eccb6d97a4ee0f79d3db8cb33b47b0661
         env:
           GITHUB_TOKEN: ${{ github.token }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        with:
-          model: opencode-go/glm-5.2
-          use_github_token: true
-          prompt: |
+          MODEL: opencode-go/glm-5.2
+          USE_GITHUB_TOKEN: true
+          PROMPT: |
             Review this pull request as a senior maintainer.
 
             During analysis, be adversarial: try to find ways this change could break correctness,
@@ -83,3 +99,4 @@ jobs:
 
             Do not comment on style, formatting, naming, or preferences unless they create a concrete bug, security issue, or clearly explainable maintenance risk.
             Do not modify files, commit changes, or push to the pull request branch.
+        run: opencode github run
