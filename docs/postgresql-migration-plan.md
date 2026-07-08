@@ -78,6 +78,13 @@ src/controllers/api/report/
 The backend is resolved once at startup and passed into app/route creation so route registration can
 select the matching action set.
 
+Validation should be split by responsibility:
+
+- Keep Zod schemas for public HTTP payload contracts and shared parsing behavior.
+- Use Drizzle schema definitions as the source of truth for PostgreSQL table shape.
+- Use `drizzle-zod` or equivalent schema derivation where it improves maintainability, but do not
+  replace endpoint-specific validation rules that are stricter than table constraints.
+
 ## PostgreSQL ORM choice
 
 Use Drizzle ORM with the node-postgres driver.
@@ -88,6 +95,7 @@ Drizzle is the preferred fit because it provides:
 - Readable query construction.
 - PostgreSQL-native arrays, JSONB, indexes, and conflict handling.
 - Migration tooling.
+- Schema-driven validation support through companion tooling such as `drizzle-zod`.
 - Raw SQL escape hatches for small PostgreSQL expressions while keeping most queries structured.
 
 Other options considered:
@@ -122,11 +130,26 @@ Current MongoDB-specific behavior to preserve:
 - v3 item-improvement ingestion, export filtering, export ordering, cursor behavior, and omission of
   reporter origins.
 
+## Status endpoint compatibility
+
+`GET /api/status` currently returns a `mongo` object containing model counts. The storage migration
+should not silently break clients that consume that response shape.
+
+During the compatibility phase, return both:
+
+- `database`: generic backend metadata and table/model counts.
+- `mongo`: legacy count object, populated from the active backend even when PostgreSQL is selected.
+
+A later API cleanup can deprecate or remove `mongo`, but that should be separate from the PostgreSQL
+storage migration.
+
 ## PostgreSQL schema outline
 
 Use typed scalar columns for fields used in queries, uniqueness, and exports. Use PostgreSQL arrays
 for primitive arrays and JSONB for flexible nested report payloads that are not queried structurally.
-Use BIGINT for millisecond timestamps.
+Use BIGINT for millisecond timestamps, but define Drizzle columns with number-mode parsing so JSON
+responses keep the current numeric timestamp contract instead of returning node-postgres `int8`
+strings.
 
 Append-heavy report tables:
 
@@ -165,6 +188,22 @@ Important indexes and constraints:
   - updates: `(item_id, observed_second_ship_id, day, item_level)`, `recipe_id`, `upgrade_to_item_id`
 - Unique upsert keys for tables that currently emulate uniqueness through query/update patterns.
 
+Concrete PostgreSQL upsert keys:
+
+| Table | Upsert/uniqueness key |
+| --- | --- |
+| `select_rank_records` | `(teitoku_id, maparea_id)` |
+| `recipe_records` | `(recipe_id, item_id, stage, day, secretary)` |
+| `ship_stats` | `(ship_id, lv, los, los_max, asw, asw_max, evasion, evasion_max)` |
+| `enemy_infos` | Stable hash of the canonical enemy fleet fields plus `planes`; nested arrays are stored in JSONB and are not used directly as a multi-column unique key. |
+| `quests` | `(key, quest_id, category)` |
+| `quest_rewards` | `(key, quest_id, selections, bouns_count)` using PostgreSQL's native equality support for primitive array columns. |
+| item-improvement facts | `key` |
+
+The legacy `remodel_recipe_deduplicate` endpoint should remain available. For PostgreSQL it should
+normally return an empty deletion list because the unique key prevents new duplicates; existing
+MongoDB duplicate cleanup remains Mongo-specific.
+
 ## Semantic mapping
 
 | Current MongoDB semantic | PostgreSQL/Drizzle design |
@@ -178,7 +217,7 @@ Important indexes and constraints:
 | `$min` | `first_client_observed_at = least(existing, excluded)` |
 | `$max` | `last_reported = greatest(existing, excluded)` and same for client observed timestamp |
 | `$addToSet` scalar or `$each` arrays | PostgreSQL array set-union expression with deterministic output where exported |
-| Mongoose ObjectId export cursor | PostgreSQL `export_id char(24)` generated as ObjectId-compatible lowercase hex |
+| Mongoose ObjectId export cursor | PostgreSQL `export_id char(24)` generated as ObjectId-compatible lowercase hex from a monotonic source such as a sequence-backed value |
 | `.select('-__v -origins')` | Explicit selected column list that excludes `origins` |
 | `.sort({ lastReported: 1, _id: 1 })` | `orderBy(last_reported asc, export_id asc)` |
 | Flexible nested Mongo fields | JSONB fields for payloads or snapshots that are not queried structurally |
@@ -198,6 +237,20 @@ PostgreSQL must preserve:
 - `next.updatedAfter` and `next.afterId` response fields.
 - Omission of `origins` from export responses.
 
+`export_id` must be unique and monotonic enough for cursor pagination. A random 24-character hex value
+is not sufficient because rows inserted with the same `last_reported` timestamp and a lexicographically
+lower ID could be skipped by `afterId`. Use a sequence-backed 24-character lowercase hex value, or an
+equivalent deterministic monotonic generator, so `(last_reported, export_id)` pagination remains safe.
+
+PostgreSQL exports must also account for MVCC commit visibility. Sequence-backed IDs can be allocated
+in one order and commit in another, so a client can advance past an uncommitted row with the same
+`last_reported` timestamp. Keep item-improvement writes as short single-statement transactions and
+paginate only over a settled window, for example by excluding rows with `last_reported` newer than a
+small cutoff captured once per request. The response cursor must be derived only from rows inside that
+settled window. If implementation introduces longer export-affecting transactions, add a stricter
+watermark strategy such as serialized export writes or database commit-timestamp tracking before
+claiming no-drop export pagination.
+
 ## Testing strategy
 
 Do not use PGlite as the only PostgreSQL validation layer.
@@ -212,10 +265,12 @@ PostgreSQL e2e tests must validate the production-like path:
 
 - node-postgres driver and pooling.
 - Drizzle schema and migrations.
-- Arrays and nested arrays.
+- PostgreSQL arrays, plus JSONB fields used for nested array payloads.
 - JSONB fields.
+- BIGINT timestamp columns returning JSON numbers, not node-postgres `int8` strings.
 - Conflict upserts.
 - Export ordering and cursor behavior.
+- Export pagination under concurrent inserts/upserts with same-millisecond timestamps.
 - Startup/shutdown behavior.
 - Connection/configuration errors.
 
@@ -227,7 +282,10 @@ The same HTTP behavior suite should run against both backends where possible.
    - Add `POI_SERVER_DB_DRIVER`.
    - Implement URI backend auto-detection.
    - Redact MongoDB and PostgreSQL credentials in startup errors.
-   - Update Sentry initialization so MongoDB integration is only used for the MongoDB backend.
+   - Update Sentry initialization so MongoDB integration is only used for the MongoDB backend, and
+     PostgreSQL instrumentation is enabled only if the installed Sentry SDK supports the selected
+     PostgreSQL driver. Request spans and captured database errors should still identify the active
+     backend even without a PostgreSQL-specific integration.
 
 2. **Mongo action split**
    - Move current Mongoose handler logic into Mongo-specific action modules.
@@ -237,6 +295,8 @@ The same HTTP behavior suite should run against both backends where possible.
 3. **PostgreSQL dependency and schema**
    - Add Drizzle ORM, node-postgres, and migration tooling.
    - Define PostgreSQL tables, indexes, constraints, and migration scripts.
+   - Define generated/canonical keys for `enemy_infos` and item-improvement export cursors before
+     writing actions.
 
 4. **PostgreSQL actions**
    - Implement PostgreSQL v2 actions.
@@ -247,6 +307,7 @@ The same HTTP behavior suite should run against both backends where possible.
    - Parameterize e2e setup by backend.
    - Add CI PostgreSQL service.
    - Run MongoDB and PostgreSQL behavior suites.
+   - Assert `/api/status` returns both generic `database` counts and legacy `mongo` counts.
 
 6. **Documentation and rollout**
    - Update `.env.example`, README, and deployment notes.
@@ -254,6 +315,23 @@ The same HTTP behavior suite should run against both backends where possible.
    - Provision an empty PostgreSQL database.
    - Switch production by setting `POI_SERVER_DB` to a PostgreSQL URI and
      `POI_SERVER_DB_DRIVER=postgres` or `auto`.
+
+## Adversarial review findings to guard against
+
+- Do not rename `/api/status.mongo` as part of this migration; add a generic field but preserve the
+  legacy one.
+- Do not use random PostgreSQL export IDs for v3 item-improvement pagination; use monotonic IDs.
+- Do not ignore PostgreSQL MVCC commit-order races in export pagination; use a settled export window
+  before advancing cursors.
+- Do not let node-postgres serialize millisecond BIGINT timestamps as strings in API responses; use
+  Drizzle number mode or an explicit parser for `int8` fields that are safe JavaScript integers.
+- Do not rely on PostgreSQL nested arrays for enemy fleet uniqueness. Store nested structures as JSONB
+  and use a canonical hash for uniqueness.
+- Do not assume rollback preserves data written while PostgreSQL was active. With no migration,
+  rollback restores service availability on MongoDB but reports accepted only by PostgreSQL will not
+  appear in MongoDB.
+- Do not implement PostgreSQL as a loose raw SQL side path. Keep Drizzle schema, migrations, and typed
+  actions as the maintainability boundary.
 
 ## Rollout and rollback
 
