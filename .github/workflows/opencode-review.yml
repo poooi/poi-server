@@ -83,7 +83,7 @@ jobs:
               }
             }
         with:
-          model: opencode/hy3-free
+          model: opencode-go/glm-5.2
           use_github_token: true
           prompt: |
             Review this pull request as a senior maintainer.
