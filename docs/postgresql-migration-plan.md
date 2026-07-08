@@ -10,7 +10,8 @@ PostgreSQL deployment starts with empty reporting tables.
 
 - Migrating existing MongoDB records into PostgreSQL.
 - Removing MongoDB support.
-- Reworking the public HTTP API shape during the storage migration.
+- Making breaking public HTTP API shape changes during the storage migration. Additive compatibility
+  fields, such as a generic status field alongside the legacy `mongo` status field, are allowed.
 
 ## Backend selection
 
