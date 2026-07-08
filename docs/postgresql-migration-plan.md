@@ -25,7 +25,7 @@ POI_SERVER_DATABASE_URL=mongodb://localhost:27017/poi-development
 using `POI_SERVER_DB` as a backward-compatible fallback:
 
 ```ts
-databaseUrl = process.env.POI_SERVER_DATABASE_URL ?? process.env.POI_SERVER_DB
+const databaseUrl = process.env.POI_SERVER_DATABASE_URL ?? process.env.POI_SERVER_DB
 ```
 
 Backend selection maps URI schemes as follows:
@@ -76,6 +76,22 @@ src/controllers/api/report/
 
 The backend is resolved once at startup and passed into app/route creation so route registration can
 select the matching action set.
+
+## Implementation readiness
+
+The design direction is ready for review, but the implementation contract is not yet strict enough to
+delegate directly to an implementation agent. Before implementation starts, extend this plan or add a
+follow-up implementation contract with:
+
+- An exact Mongo model to PostgreSQL table matrix for every persisted record.
+- Column names, Drizzle types, nullability, defaults, arrays, JSONB fields, generated columns, indexes,
+  and unique keys for every PostgreSQL table.
+- Per-endpoint parity tests that must pass against both MongoDB and PostgreSQL.
+- Acceptance criteria stating that the implementation is incomplete until the same HTTP behavior suite
+  passes against MongoDB and a real PostgreSQL service.
+
+Implementation should not infer table shape from examples or from the high-level outline alone.
+Schema details and parity tests are part of the contract, not implementation guesswork.
 
 Validation should be split by responsibility:
 
@@ -150,6 +166,25 @@ Use BIGINT for millisecond timestamps, but define Drizzle columns with number-mo
 responses keep the current numeric timestamp contract instead of returning node-postgres `int8`
 strings.
 
+Use a hybrid schema so PostgreSQL keeps MongoDB's extensibility where the API depends on flexible
+report payloads:
+
+- Typed columns are required for fields used in lookups, uniqueness, ordering, aggregation, public
+  exports, and status counts.
+- Every report table that corresponds to a client-submitted record should include a JSONB field such
+  as `raw_payload` or `extra` to preserve flexible and newly reported fields that are not yet part of
+  query semantics.
+- Field extension is expected, not exceptional. If a future client adds fields to a certain data
+  record, PostgreSQL ingestion should retain those fields in JSONB without requiring an immediate
+  schema migration, as long as those fields are not needed for filtering, uniqueness, aggregation, or
+  exported stable API shape.
+- When a JSONB field becomes behavior-driving, promote it to a typed column through a Drizzle
+  migration, optionally backfill from JSONB, and write future records to the typed column.
+- Do not force every report field into rigid columns on day one; do not leave behavior-driving fields
+  only in JSONB.
+- Tests should include at least one representative report with an unknown future field and assert the
+  PostgreSQL backend stores it without rejecting the payload or losing the field.
+
 Append-heavy report tables:
 
 - `create_ship_records`
@@ -209,7 +244,7 @@ MongoDB duplicate cleanup remains Mongo-specific.
 | --- | --- |
 | `new Model(info).save()` | `db.insert(table).values(info)` |
 | `count()` / `countDocuments()` | Drizzle `count()` helper or `select count(*)` expression |
-| `distinct('questId')` | `selectDistinct(table.questId)` and preserve current endpoint sort behavior |
+| `distinct('questId')` | A Drizzle distinct projection such as `selectDistinct({ questId: table.questId }).from(table)`; preserve current endpoint sort behavior |
 | `findOne` then mutate/save for select rank | Unique key on `(teitoku_id, maparea_id)` with conflict update |
 | `$setOnInsert` | Conflict update with immutable insert-only fields omitted from the update set |
 | `$inc` | `count = table.count + 1` |
@@ -274,6 +309,24 @@ PostgreSQL e2e tests must validate the production-like path:
 - Connection/configuration errors.
 
 The same HTTP behavior suite should run against both backends where possible.
+
+Before implementation, define a test contract matrix that maps each endpoint to its required MongoDB
+and PostgreSQL assertions:
+
+| Area | Required parity coverage |
+| --- | --- |
+| Backend config | URI scheme selects MongoDB or PostgreSQL; unsupported schemes fail with redacted errors. |
+| `/api/status` | Both backends return generic `database` counts and legacy `mongo` counts. |
+| v2 append-only reports | Each report endpoint persists typed fields and preserves unknown future fields in JSONB on PostgreSQL. |
+| v2 upserts | `select_rank`, `remodel_recipe`, `ship_stat`, and `enemy_info` match current count/min/max/update behavior. |
+| v2 compatibility routes | `known_quests`, `known_recipes`, `quest/:id`, `remodel_recipe_deduplicate`, and `night_battle_ss_ci` keep current response behavior. |
+| v3 quests | Quest and reward keys, uniqueness, known quest prefixes, and legacy `bounsCount` payload handling match MongoDB behavior. |
+| v3 item-improvement ingest | Keys, normalization, `$setOnInsert` equivalents, min/max timestamps, set-union arrays, origins, and counts match MongoDB behavior. |
+| v3 item-improvement export | Limit clamping, origin omission, numeric timestamps, cursor shape, ordering, settled-window pagination, and empty-page behavior match the API contract. |
+| Error handling | Malformed JSON, invalid payloads, invalid cursors, and database errors preserve current status/body behavior. |
+
+Implementation is not complete until the parity matrix passes against MongoDB and a real PostgreSQL
+service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL backend.
 
 ## Implementation phases
 
