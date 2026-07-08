@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:unit": "vitest run --exclude tests/server.e2e.test.ts",
     "test:e2e": "vitest run tests/server.e2e.test.ts",
-    "smoke": "node scripts/smoke-server.cjs"
+    "smoke": "node scripts/smoke-server.cjs",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts"
   },
   "repository": {
     "type": "git",
@@ -38,10 +40,12 @@
     "badge-maker": "^3.3.0",
     "bluebird": "^3.7.2",
     "dotenv": "^8.2.0",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.9.0",
     "lodash": "^4.17.20",
     "mongoose": "^5.11.13",
     "node-fetch": "^2.6.1",
+    "pg": "^8.22.0",
     "semver": "^7.3.4",
     "tsx": "^4.23.0",
     "zod": "^4.4.3"
@@ -52,7 +56,9 @@
     "@types/bytes": "^3.1.5",
     "@types/lodash": "^4.17.24",
     "@types/node": "^26.1.0",
+    "@types/pg": "^8.20.0",
     "@types/semver": "^7.7.1",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

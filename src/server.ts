@@ -5,6 +5,7 @@ import { type Server } from 'http'
 
 import { createApp } from './create-app'
 import { redactConnectionCredentials, resolveBackend } from './db/backend'
+import { closePostgresDb, runPostgresMigrations, verifyPostgresConnection } from './db/postgres'
 
 interface StartServerOptions {
   db: string
@@ -53,19 +54,19 @@ export const startServer = async ({
   port,
 }: StartServerOptions): Promise<StartedServer> => {
   const backend = resolveBackend(db)
+
   if (backend === 'postgres') {
-    throw new Error(
-      `PostgreSQL database backend is not yet implemented: ${redactConnectionCredentials(db)}`,
-    )
+    await verifyPostgresConnection(db)
+    await runPostgresMigrations(db)
+  } else {
+    await connectDatabase(db)
+
+    mongoose.connection.on('error', (err: Error) => {
+      throw new Error(
+        `Unable to connect to database: ${redactConnectionCredentials(getErrorMessage(err))}`,
+      )
+    })
   }
-
-  await connectDatabase(db)
-
-  mongoose.connection.on('error', (err: Error) => {
-    throw new Error(
-      `Unable to connect to database: ${redactConnectionCredentials(getErrorMessage(err))}`,
-    )
-  })
 
   const app = createApp({ disableLogger })
   await app.listen({ host, port })
@@ -77,6 +78,13 @@ export const startServer = async ({
 
   return {
     server,
-    close: () => app.close(),
+    close: async () => {
+      await app.close()
+      if (backend === 'postgres') {
+        await closePostgresDb()
+      } else {
+        await mongoose.disconnect()
+      }
+    },
   }
 }

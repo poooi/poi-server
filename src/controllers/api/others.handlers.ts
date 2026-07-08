@@ -4,19 +4,33 @@ import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
-import { resolveBackend } from '../../db/backend'
+import { resolveBackend, type DatabaseBackend } from '../../db/backend'
 import { ok, type AppResult } from '../../http/result'
-import { getOtherActions } from './others.actions'
+import { getOtherActions, type OtherActions } from './others.actions'
 
-// TODO(postgres): inject backend selection through route registration once multiple backends are wired.
-const actions = getOtherActions(resolveBackend(config.db))
+const resolveStatusContext = (
+  backend: DatabaseBackend = resolveBackend(config.db),
+  actions: OtherActions = getOtherActions(backend),
+) => ({ backend, actions })
 
-export const getStatus = async (): Promise<AppResult> => {
+export const getStatus = async (
+  overrides: Partial<ReturnType<typeof resolveStatusContext>> = {},
+): Promise<AppResult> => {
   const dsk = await df()
+  const { backend, actions } = {
+    ...resolveStatusContext(),
+    ...overrides,
+  }
+  const counts = await actions.getStatus()
+
   return ok({
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),
-    mongo: await actions.getStatus(),
+    mongo: counts,
+    database: {
+      backend,
+      counts,
+    },
   })
 }
 
