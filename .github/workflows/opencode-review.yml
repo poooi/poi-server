@@ -57,6 +57,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_CONFIG_CONTENT: |
+            {
+              "$schema": "https://opencode.ai/config.json",
+              "default_agent": "review",
+              "agent": {
+                "review": {
+                  "description": "Read-only pull request reviewer",
+                  "mode": "primary",
+                  "permission": {
+                    "read": "allow",
+                    "glob": "allow",
+                    "grep": "allow",
+                    "list": "allow",
+                    "webfetch": "allow",
+                    "websearch": "allow",
+                    "edit": "deny",
+                    "bash": "deny",
+                    "task": "deny",
+                    "todowrite": "deny",
+                    "question": "deny"
+                  },
+                  "prompt": "Review code only. Do not modify files, create commits, push branches, or make changes. Return review findings as text; the GitHub Action will post your response as a PR comment."
+                }
+              }
+            }
         with:
           model: opencode/hy3-free
           use_github_token: true
