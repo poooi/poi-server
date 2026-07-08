@@ -135,11 +135,16 @@ to review independently.
 Current MongoDB-specific behavior to preserve:
 
 - Append-only report inserts for simple report endpoints.
+- `drop_ship` clears `ownedShipSnapshot` for `mapId < 73` before persistence.
 - `select_rank` upsert by admiral and map area.
 - `remodel_recipe` upsert and count increment, while ignoring `stage === -1`.
 - `remodel_recipe_deduplicate` duplicate cleanup by recipe key.
 - `ship_stat` count increments by stat tuple.
 - `enemy_info` count increments plus bomber range min/max merging.
+- `aaci` persists only when the POI version is greater than `7.9.1`, the reporter origin starts with
+  `Reporter `, and the reporter version is at least `3.6.0`.
+- Legacy no-op routes remain no-ops, including `quest/:id` and `night_battle_ss_ci`.
+- Preserve legacy route spelling, including `/api/report/v2/night_contcat`.
 - v2 `known_quests` sort behavior.
 - v3 quest and quest reward upserts by stable quest hash fields.
 - v3 item-improvement ingestion, export filtering, export ordering, cursor behavior, and omission of
@@ -184,6 +189,22 @@ report payloads:
   only in JSONB.
 - Tests should include at least one representative report with an unknown future field and assert the
   PostgreSQL backend stores it without rejecting the payload or losing the field.
+
+Flexible-field write behavior must be explicit:
+
+- Do not pass parsed report objects directly to Drizzle and assume unknown keys are preserved. Drizzle
+  only writes declared columns.
+- Each PostgreSQL action must split a parsed report into typed column values plus JSONB payload values
+  before insert/upsert.
+- For append-only records, store at least the unknown extension fields in JSONB. Prefer storing the
+  normalized full report payload in `raw_payload` when that makes future field promotion and debugging
+  safer.
+- For upsert records, conflict updates must merge JSONB instead of overwriting it. Use an explicit
+  JSONB merge expression such as `raw_payload = existing.raw_payload || excluded.raw_payload`, unless a
+  table-specific contract chooses insert-only payload preservation.
+- If a stored record is returned by an API, flatten the JSONB payload back into the response shape and
+  then apply typed columns over it, omitting internal columns such as `raw_payload`, generated hashes,
+  and private fields like `origins` where the current API omits them.
 
 Append-heavy report tables:
 
@@ -242,7 +263,7 @@ MongoDB duplicate cleanup remains Mongo-specific.
 
 | Current MongoDB semantic | PostgreSQL/Drizzle design |
 | --- | --- |
-| `new Model(info).save()` | `db.insert(table).values(info)` |
+| `new Model(info).save()` | Split `info` into declared typed columns and JSONB extension payload, then `db.insert(table).values({ ...typedColumns, rawPayload })` |
 | `count()` / `countDocuments()` | Drizzle `count()` helper or `select count(*)` expression |
 | `distinct('questId')` | A Drizzle distinct projection such as `selectDistinct({ questId: table.questId }).from(table)`; preserve current endpoint sort behavior |
 | `findOne` then mutate/save for select rank | Unique key on `(teitoku_id, maparea_id)` with conflict update |
@@ -252,7 +273,7 @@ MongoDB duplicate cleanup remains Mongo-specific.
 | `$max` | `last_reported = greatest(existing, excluded)` and same for client observed timestamp |
 | `$addToSet` scalar or `$each` arrays | PostgreSQL array set-union expression with deterministic output where exported |
 | Mongoose ObjectId export cursor | PostgreSQL `export_id char(24)` generated as ObjectId-compatible lowercase hex from a monotonic source such as a sequence-backed value |
-| `.select('-__v -origins')` | Explicit selected column list that excludes `origins` |
+| `.select('-__v -origins')` | Explicit selected column list that excludes `origins`; merge any public JSONB payload fields back into the flat response shape before returning |
 | `.sort({ lastReported: 1, _id: 1 })` | `orderBy(last_reported asc, export_id asc)` |
 | Flexible nested Mongo fields | JSONB fields for payloads or snapshots that are not queried structurally |
 
@@ -363,9 +384,13 @@ service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL
 
 6. **Documentation and rollout**
    - Update `.env.example`, README, and deployment notes.
-   - Deploy with MongoDB default unchanged.
-   - Provision an empty PostgreSQL database.
-   - Switch production by setting `POI_SERVER_DATABASE_URL` or `POI_SERVER_DB` to a PostgreSQL URI.
+   - Document that the same codebase can run in MongoDB mode or PostgreSQL mode based on the
+     configured database URI.
+   - Deploy one machine in MongoDB mode and one machine in PostgreSQL mode.
+   - Provision an empty PostgreSQL database and run migrations before sending production traffic to
+     the PostgreSQL-mode server.
+   - Switch production by changing traffic routing, not by mutating a single machine's database
+     configuration in place.
 
 ## Adversarial review findings to guard against
 
@@ -378,26 +403,31 @@ service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL
   Drizzle number mode or an explicit parser for `int8` fields that are safe JavaScript integers.
 - Do not rely on PostgreSQL nested arrays for enemy fleet uniqueness. Store nested structures as JSONB
   and use a canonical hash for uniqueness.
-- Do not assume rollback preserves data written while PostgreSQL was active. With no migration,
-  rollback restores service availability on MongoDB but reports accepted only by PostgreSQL will not
-  appear in MongoDB.
+- Do not model fallback as a single-machine database URI flip. Rollout uses two machines running the
+  same server code in different database modes, and fallback is a traffic switch back to the MongoDB
+  machine.
 - Do not implement PostgreSQL as a loose raw SQL side path. Keep Drizzle schema, migrations, and typed
   actions as the maintainability boundary.
 
-## Rollout and rollback
+## Rollout and fallback
 
 Rollout:
 
-1. Release the code with the MongoDB backend still selected.
-2. Provision an empty PostgreSQL database.
-3. Run migrations.
-4. Switch configuration to PostgreSQL.
-5. Monitor status counts, ingestion errors, and Sentry database spans.
+1. Release the same code to two machines.
+2. Keep the existing production machine in MongoDB mode by configuring a MongoDB URI.
+3. Configure the second machine with a PostgreSQL URI, provision an empty PostgreSQL database, and run
+   migrations.
+4. Validate the PostgreSQL-mode machine's health, status counts, migrations, and write/read behavior
+   before routing production traffic to it.
+5. Switch production traffic to the PostgreSQL-mode machine.
+6. Monitor status counts, ingestion errors, and Sentry database spans after the traffic switch.
 
-Rollback:
+Fallback:
 
-1. Switch the configured database URI back to MongoDB.
-2. Restart the service.
+1. Switch traffic back to the MongoDB-mode machine.
+2. Keep both machines' database configuration unchanged during fallback.
 
-Because there is no data migration or dual-write requirement, rollback is a backend switch rather
-than a data reconciliation process.
+Because there is no data migration or dual-write requirement, fallback is an operational traffic
+switch rather than a single-machine configuration rollback or data reconciliation process. Reports
+accepted only by the PostgreSQL-mode machine after traffic is switched there are not expected to appear
+in MongoDB after fallback.
