@@ -223,7 +223,7 @@ const itemImprovementRecords = [
 
 beforeAll(async () => {
   if (configuredMongoDatabaseUrl == null || configuredMongoDatabaseUrl === '') {
-    return
+    throw new Error('Mongo e2e tests require POI_SERVER_DATABASE_URL or POI_SERVER_DB')
   }
 
   assertE2eDatabaseUri(configuredMongoDatabaseUrl)
