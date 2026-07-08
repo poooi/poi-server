@@ -112,3 +112,9 @@ export const itemImprovementUpdateFacts = pgTable(
     index('item_improvement_update_facts_upgrade_to_item_id_idx').on(table.upgradeToItemId),
   ],
 )
+
+export const statefulFactTables = {
+  itemImprovementAvailabilityFacts,
+  itemImprovementCostFacts,
+  itemImprovementUpdateFacts,
+} as const

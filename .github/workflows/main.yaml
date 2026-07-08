@@ -22,6 +22,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: poi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d poi_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +50,16 @@ jobs:
         run: npm run test:e2e
         env:
           POI_SERVER_DB: mongodb://127.0.0.1:27017/poi-e2e
+      - name: Run PostgreSQL migrations
+        run: npm run db:migrate
+        env:
+          POI_SERVER_DATABASE_URL: postgres://postgres@127.0.0.1:5432/poi_test
+          POI_TEST_POSTGRES_URL: postgres://postgres@127.0.0.1:5432/poi_test
+      - name: Run PostgreSQL e2e tests
+        run: npm run test:e2e:postgres
+        env:
+          POI_SERVER_DATABASE_URL: postgres://postgres@127.0.0.1:5432/poi_test
+          POI_TEST_POSTGRES_URL: postgres://postgres@127.0.0.1:5432/poi_test
       - run: npm run build
       - run: npm run smoke
       - name: Validate deploy hooks

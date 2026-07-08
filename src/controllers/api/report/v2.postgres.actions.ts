@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 
-import { asc, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import semver from 'semver'
 
 import { getPostgresDb } from '../../../db/postgres'
@@ -152,11 +152,10 @@ export const passEvent = async (info: ReportInfo): Promise<void> => {
 }
 
 export const knownQuests = async (): Promise<number[]> => {
-  const records = await getDb()
-    .selectDistinct({ questId: quests.questId })
-    .from(quests)
-    .orderBy(asc(quests.questId))
-  return records.map((record) => record.questId)
+  const records = await getDb().selectDistinct({ questId: quests.questId }).from(quests)
+  const questIds = records.map((record) => record.questId)
+  questIds.sort()
+  return questIds
 }
 
 export const questNoop = async (): Promise<void> => {}

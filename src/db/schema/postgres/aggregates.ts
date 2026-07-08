@@ -150,3 +150,12 @@ export const questRewards = pgTable(
     ),
   ],
 )
+
+export const statefulAggregateTables = {
+  selectRankRecords,
+  recipeRecords,
+  shipStats,
+  enemyInfos,
+  quests,
+  questRewards,
+} as const

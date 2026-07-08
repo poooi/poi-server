@@ -156,3 +156,16 @@ export const nightBattleCis = pgTable('night_battle_cis', {
   ingestedAt: ingestedAtColumn,
   rawPayload: rawPayloadColumn,
 })
+
+// Future dump/cleanup automation should only target these write-only append-heavy report tables.
+export const dumpableAppendHeavyTables = {
+  createShipRecords,
+  createItemRecords,
+  remodelItemRecords,
+  dropShipRecords,
+  passEventRecords,
+  battleApis,
+  nightContacts,
+  aaciRecords,
+  nightBattleCis,
+} as const

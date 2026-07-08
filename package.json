@@ -14,8 +14,9 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:unit": "vitest run --exclude tests/server.e2e.test.ts",
+    "test:unit": "vitest run --exclude tests/server.e2e.test.ts --exclude tests/server-postgres.e2e.test.ts",
     "test:e2e": "vitest run tests/server.e2e.test.ts",
+    "test:e2e:postgres": "vitest run tests/db-postgres-schema.test.ts && vitest run tests/server-postgres.e2e.test.ts",
     "smoke": "node scripts/smoke-server.cjs",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts"
