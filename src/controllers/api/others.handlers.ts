@@ -1,40 +1,22 @@
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
-import mongoose from 'mongoose'
 import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
+import { resolveBackend } from '../../db/backend'
 import { ok, type AppResult } from '../../http/result'
+import { getOtherActions } from './others.actions'
 
-const CreateShipRecord = mongoose.model('CreateShipRecord')
-const CreateItemRecord = mongoose.model('CreateItemRecord')
-const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord = mongoose.model('DropShipRecord')
-const SelectRankRecord = mongoose.model('SelectRankRecord')
-const PassEventRecord = mongoose.model('PassEventRecord')
-const Quest = mongoose.model('Quest')
-const BattleAPI = mongoose.model('BattleAPI')
-const AACIRecord = mongoose.model('AACIRecord')
-const NightContactRecord = mongoose.model('NightContactRecord')
+// TODO(postgres): inject backend selection through route registration once multiple backends are wired.
+const actions = getOtherActions(resolveBackend(config.db))
 
 export const getStatus = async (): Promise<AppResult> => {
   const dsk = await df()
   return ok({
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),
-    mongo: {
-      CreateShipRecord: await CreateShipRecord.count().exec(),
-      CreateItemRecord: await CreateItemRecord.count().exec(),
-      RemodelItemRecord: await RemodelItemRecord.count().exec(),
-      DropShipRecord: await DropShipRecord.count().exec(),
-      SelectRankRecord: await SelectRankRecord.count().exec(),
-      PassEventRecord: await PassEventRecord.count().exec(),
-      Quest: await Quest.count().exec(),
-      BattleAPI: await BattleAPI.count().exec(),
-      AACIRecord: await AACIRecord.count().exec(),
-      NightContactRecord: await NightContactRecord.count().exec(),
-    },
+    mongo: await actions.getStatus(),
   })
 }
 

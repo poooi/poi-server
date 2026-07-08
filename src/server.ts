@@ -4,6 +4,7 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
+import { redactConnectionCredentials, resolveBackend } from './db/backend'
 
 interface StartServerOptions {
   db: string
@@ -17,9 +18,6 @@ interface StartedServer {
   server: Server
   close: () => Promise<void>
 }
-
-const redactMongoCredentials = (message: string) =>
-  message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
 
 const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
@@ -42,7 +40,7 @@ export const connectDatabase = async (db: string) => {
     })
   } catch (err) {
     throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      `Unable to connect to database: ${redactConnectionCredentials(getErrorMessage(err))}`,
     )
   }
 }
@@ -54,11 +52,18 @@ export const startServer = async ({
   loadLatestCommit: shouldLoadLatestCommit,
   port,
 }: StartServerOptions): Promise<StartedServer> => {
+  const backend = resolveBackend(db)
+  if (backend === 'postgres') {
+    throw new Error(
+      `PostgreSQL database backend is not yet implemented: ${redactConnectionCredentials(db)}`,
+    )
+  }
+
   await connectDatabase(db)
 
   mongoose.connection.on('error', (err: Error) => {
     throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      `Unable to connect to database: ${redactConnectionCredentials(getErrorMessage(err))}`,
     )
   })
 

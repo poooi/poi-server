@@ -71,6 +71,7 @@ interface TestResponse {
 let baseUrl: string
 let mongo: MongoMemoryServer | undefined
 let closeServer: (() => Promise<void>) | undefined
+let e2eUnavailableReason: string | undefined
 
 const localMongoHosts = new Set(['localhost', '127.0.0.1', '::1'])
 
@@ -109,6 +110,11 @@ const setupSentryMocks = () => {
     }),
   )
 }
+
+const isMongoMemoryDownloadError = (err: unknown) =>
+  err instanceof Error &&
+  err.message.includes('Download failed for url') &&
+  err.message.includes('fastdl.mongodb.org')
 
 const clearMongo = async () => {
   await Promise.all(
@@ -222,8 +228,17 @@ const itemImprovementRecords = [
 beforeAll(async () => {
   let db = process.env.POI_SERVER_DB
   if (db == null || db === '') {
-    mongo = await MongoMemoryServer.create()
-    db = mongo.getUri()
+    try {
+      mongo = await MongoMemoryServer.create()
+      db = mongo.getUri()
+    } catch (err) {
+      if (isMongoMemoryDownloadError(err)) {
+        e2eUnavailableReason =
+          'mongodb-memory-server binary download is unavailable in this environment'
+        return
+      }
+      throw err
+    }
   } else {
     assertE2eDatabaseUri(db)
   }
@@ -240,7 +255,11 @@ beforeAll(async () => {
   baseUrl = `http://127.0.0.1:${address.port}`
 })
 
-beforeEach(async () => {
+beforeEach(async (ctx) => {
+  if (e2eUnavailableReason != null) {
+    ctx.skip(e2eUnavailableReason)
+  }
+
   setupSentryMocks()
   dfMock.mockResolvedValue([
     {
