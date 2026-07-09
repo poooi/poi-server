@@ -6,6 +6,7 @@ interface EnvConfig {
   root: string
   port: number
   db: string
+  dumpDir: string
   disableLogger?: number
   env: string
   logLevel: string
@@ -15,6 +16,7 @@ const defaultConfig: EnvConfig = {
   root: rootPath,
   port: 17027,
   db: 'mongodb://localhost:27017/poi-development',
+  dumpDir: path.resolve(rootPath, '../dumps'),
   env: 'development',
   disableLogger: 0,
   logLevel: 'info',
@@ -29,6 +31,7 @@ export const config: Readonly<EnvConfig> = defaults<Partial<EnvConfig>, EnvConfi
   {
     port: parseEnvInt(process.env.POI_SERVER_PORT),
     db: process.env.POI_SERVER_DATABASE_URL ?? process.env.POI_SERVER_DB,
+    dumpDir: process.env.POI_SERVER_DUMP_DIR,
     env: process.env.NODE_ENV,
     disableLogger: parseEnvInt(process.env.POI_SERVER_DISABLE_LOGGER),
     logLevel: process.env.POI_SERVER_LOG_LEVEL,
