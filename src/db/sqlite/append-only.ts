@@ -123,7 +123,24 @@ const getAppendOnlyDatabase = (month: string) => {
   const db = new Database(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
   ensureAppendOnlySchema(db)
   state.handles.set(month, db)
+  closeExcessAppendOnlyHandles(month)
   return db
+}
+
+const closeExcessAppendOnlyHandles = (currentMonth: string) => {
+  if (state.handles.size <= 3) {
+    return
+  }
+
+  const closeableMonths = Array.from(state.handles.keys())
+    .filter((month) => month !== currentMonth)
+    .sort()
+  while (state.handles.size > 3 && closeableMonths.length > 0) {
+    const month = closeableMonths.shift() as string
+    const db = state.handles.get(month)
+    db?.close()
+    state.handles.delete(month)
+  }
 }
 
 const countTable = (db: Database.Database, table: string) =>

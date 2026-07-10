@@ -86,7 +86,15 @@ export const startServer = async ({
   }
 
   const app = createApp({ backend, disableLogger })
-  await app.listen({ host, port })
+  try {
+    await app.listen({ host, port })
+  } catch (err) {
+    if (backend === 'sqlite') {
+      closeSqliteAppendOnlyStorage()
+      closeSqliteOperationalStorage()
+    }
+    throw err
+  }
   const server: Server = app.server
 
   if (shouldLoadLatestCommit) {
