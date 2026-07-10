@@ -52,14 +52,15 @@ then removed from live storage. In the current implementation this scope is limi
 
 | Current Mongo collection | Current write path | SQLite lifecycle |
 | --- | --- | --- |
-| `dropshiprecords` | `DropShipRecord.save()` | Monthly SQLite file |
-| `createitemrecords` | `CreateItemRecord.save()` | Monthly SQLite file |
-| `createshiprecords` | `CreateShipRecord.save()` | Monthly SQLite file |
-| `nightcontactrecords` | `NightContactRecord.save()` | Monthly SQLite file |
-| `aacirecords` | `AACIRecord.save()` when accepted | Monthly SQLite file |
+| `dropshiprecords` | `new DropShipRecord(info).save()`, with `ownedShipSnapshot` cleared for `mapId < 73` | Monthly SQLite file |
+| `createitemrecords` | `new CreateItemRecord(info).save()` through `saveReportRecord` | Monthly SQLite file |
+| `createshiprecords` | `new CreateShipRecord(info).save()` through `saveReportRecord` | Monthly SQLite file |
+| `nightcontactrecords` | `new NightContactRecord(info).save()` through `saveReportRecord` | Monthly SQLite file |
+| `aacirecords` | Conditional `new AACIRecord(info).save()` for accepted reporter versions | Monthly SQLite file |
 
-These collections currently have no explicit secondary indexes and are not queried by application
-handlers after insert.
+These collections currently have no explicit secondary indexes and are not queried by report handlers
+after insert. `GET /api/status` is the current exception: it calls `count()` on all Mongoose models to
+report record counts.
 
 ### Operational data
 
@@ -115,7 +116,7 @@ Suggested schemes:
 Example:
 
 ```dotenv
-POI_SERVER_DATABASE_URL=sqlite:///var/lib/poi-server/sqlite/operational.sqlite
+POI_SERVER_DB=sqlite:///var/lib/poi-server/sqlite/operational.sqlite
 POI_SERVER_SQLITE_APPEND_ONLY_DIR=/var/lib/poi-server/sqlite/append-only
 ```
 
@@ -187,7 +188,8 @@ as the `_id` value in published dumps so retries produce consistent dump rows.
 
 Do not add secondary indexes to append-only tables unless a real query requirement appears. The
 `public_id` uniqueness constraint is the intended exception so published `_id` values cannot collide.
-The current implementation does not query these records after insert.
+The current report handlers do not query these records after insert; status/metrics counts are the
+known exception.
 
 ## Write concurrency and backpressure
 
@@ -309,6 +311,7 @@ Add structured logs and metrics for:
   - `drop_ship`
   - `night_contcat`
   - `aaci`
+- Preserve the `night_contcat` route/action spelling for API compatibility.
 - Add parity tests against current Mongo behavior.
 - Add queue-full tests that return retryable `503`.
 
