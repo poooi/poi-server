@@ -87,6 +87,8 @@ const ensureOperationalSchema = (db: Database.Database) => {
       created_at_ms INTEGER NOT NULL
     );
 
+    CREATE INDEX IF NOT EXISTS operational_records_kind_idx ON operational_records (kind);
+
     CREATE TABLE IF NOT EXISTS item_improvement_availability_facts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT NOT NULL UNIQUE,
@@ -722,9 +724,12 @@ export const getItemImprovementUpdateFacts = (cursor: ExportFactCursor) =>
       cursor.limit,
     ) as Array<Record<string, any>>
 
-const countRows = (table: string) =>
-  (getOperationalDb().prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number })
-    .count
+const estimateRows = (table: string) =>
+  (
+    getOperationalDb().prepare(`SELECT COALESCE(MAX(id), 0) AS count FROM ${table}`).get() as {
+      count: number
+    }
+  ).count
 
 const countOperationalRecords = (kind: string) =>
   (
@@ -735,12 +740,12 @@ const countOperationalRecords = (kind: string) =>
 
 export const getOperationalSqliteCounts = (): Record<string, number> => ({
   BattleAPI: countOperationalRecords('battle_api'),
-  EnemyInfo: countRows('enemy_infos'),
+  EnemyInfo: estimateRows('enemy_infos'),
   PassEventRecord: countOperationalRecords('pass_event'),
-  Quest: countRows('quests'),
-  QuestReward: countRows('quest_rewards'),
-  RecipeRecord: countRows('recipe_records'),
+  Quest: estimateRows('quests'),
+  QuestReward: estimateRows('quest_rewards'),
+  RecipeRecord: estimateRows('recipe_records'),
   RemodelItemRecord: countOperationalRecords('remodel_item'),
-  SelectRankRecord: countRows('select_rank_records'),
-  ShipStat: countRows('ship_stats'),
+  SelectRankRecord: estimateRows('select_rank_records'),
+  ShipStat: estimateRows('ship_stats'),
 })

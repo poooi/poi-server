@@ -143,7 +143,8 @@ const closeExcessAppendOnlyHandles = (currentMonth: string) => {
 }
 
 const countTable = (db: Database.Database, table: string) =>
-  (db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count
+  (db.prepare(`SELECT COALESCE(MAX(id), 0) AS count FROM ${table}`).get() as { count: number })
+    .count
 
 export const initializeSqliteAppendOnlyStorage = (operationalDb: string) => {
   closeSqliteAppendOnlyStorage()

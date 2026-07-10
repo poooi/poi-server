@@ -5,6 +5,11 @@ export const isMongoDatabaseUrl = (db: string) =>
 
 export const isSqliteDatabaseUrl = (db: string) => db.startsWith('sqlite:')
 
+export const getDatabaseUrlScheme = (db: string) => {
+  const match = /^([a-z][a-z0-9+.-]*):/i.exec(db)
+  return match == null ? '<none>' : `${match[1]}:`
+}
+
 export const stripSqliteDatabaseUrl = (db: string) => {
   if (!isSqliteDatabaseUrl(db)) {
     return db
@@ -22,5 +27,5 @@ export const resolveDatabaseBackend = (db: string): DatabaseBackend => {
   if (isSqliteDatabaseUrl(db)) {
     return 'sqlite'
   }
-  throw new Error(`Unsupported database URL scheme: ${db}`)
+  throw new Error(`Unsupported database URL scheme: ${getDatabaseUrlScheme(db)}`)
 }

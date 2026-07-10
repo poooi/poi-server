@@ -4,7 +4,12 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
-import { isMongoDatabaseUrl, isSqliteDatabaseUrl, resolveDatabaseBackend } from './db/backend'
+import {
+  getDatabaseUrlScheme,
+  isMongoDatabaseUrl,
+  isSqliteDatabaseUrl,
+  resolveDatabaseBackend,
+} from './db/backend'
 import {
   closeSqliteAppendOnlyStorage,
   initializeSqliteAppendOnlyStorage,
@@ -49,7 +54,7 @@ export const connectDatabase = async (db: string) => {
     return
   }
   if (!isMongoDatabaseUrl(db)) {
-    throw new Error(`Unsupported database URL scheme: ${db}`)
+    throw new Error(`Unsupported database URL scheme: ${getDatabaseUrlScheme(db)}`)
   }
 
   try {
