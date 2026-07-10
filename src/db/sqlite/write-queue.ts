@@ -52,7 +52,3 @@ export const runSqliteWrite = async <T>(
     release!()
   }
 }
-
-export const resetSqliteWriteQueue = () => {
-  queues.clear()
-}

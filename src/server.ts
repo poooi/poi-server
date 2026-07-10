@@ -13,7 +13,6 @@ import {
   closeSqliteOperationalStorage,
   initializeSqliteOperationalStorage,
 } from './db/sqlite/operational'
-import { resetSqliteWriteQueue } from './db/sqlite/write-queue'
 
 interface StartServerOptions {
   db: string
@@ -45,7 +44,6 @@ export const loadLatestCommit = () => {
 
 export const connectDatabase = async (db: string) => {
   if (isSqliteDatabaseUrl(db)) {
-    resetSqliteWriteQueue()
     initializeSqliteOperationalStorage(db)
     initializeSqliteAppendOnlyStorage(db)
     return

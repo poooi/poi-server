@@ -158,6 +158,7 @@ export const closeSqliteAppendOnlyStorage = () => {
     db.close()
   }
   state.handles.clear()
+  state.appendOnlyDir = ''
 }
 
 export const insertCreateItemRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
