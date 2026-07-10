@@ -120,7 +120,12 @@ const getAppendOnlyDatabase = (month: string) => {
 
   fs.mkdirSync(state.appendOnlyDir, { recursive: true })
   const db = new Database(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
-  ensureAppendOnlySchema(db)
+  try {
+    ensureAppendOnlySchema(db)
+  } catch (err) {
+    db.close()
+    throw err
+  }
   state.handles.set(month, db)
   closeExcessAppendOnlyHandles(month)
   return db

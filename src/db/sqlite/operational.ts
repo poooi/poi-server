@@ -163,8 +163,14 @@ export const initializeSqliteOperationalStorage = (db: string) => {
   closeSqliteOperationalStorage()
   const sqlitePath = stripSqliteDatabaseUrl(db)
   fs.mkdirSync(path.dirname(sqlitePath), { recursive: true })
-  operationalDb = new Database(sqlitePath)
-  ensureOperationalSchema(operationalDb)
+  const nextOperationalDb = new Database(sqlitePath)
+  try {
+    ensureOperationalSchema(nextOperationalDb)
+  } catch (err) {
+    nextOperationalDb.close()
+    throw err
+  }
+  operationalDb = nextOperationalDb
 }
 
 export const closeSqliteOperationalStorage = () => {
