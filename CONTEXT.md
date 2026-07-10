@@ -29,7 +29,7 @@ The collection-oriented record format expected by consumers of the existing comm
 _Avoid_: internal schema, storage schema
 
 **Report receipt month**:
-The calendar month, determined from server receipt time, that owns an append-only report record for storage, dump, and cleanup purposes.
+The UTC calendar month, determined from server receipt time, that owns an append-only report record for storage, dump, and cleanup purposes.
 _Avoid_: client month, payload month
 
 **Rollover grace window**:

@@ -157,13 +157,15 @@ Route append-only writes by server receipt time.
 ```text
 receive request
 → serverReceivedAt = Date.now()
-→ reportReceiptMonth = YYYY-MM from serverReceivedAt
+→ reportReceiptMonth = UTC YYYY-MM from serverReceivedAt
 → db = appendOnlyRegistry.get(reportReceiptMonth)
 → insert
 → return success only after commit
 ```
 
-Do not use client-provided timestamps or payload fields to choose the monthly file.
+Do not use client-provided timestamps or payload fields to choose the monthly file. Derive the month
+in UTC so file selection and the rollover grace window are consistent across deployments and are not
+affected by local timezone or DST behavior.
 
 The registry must cache long-lived SQLite handles. It should not physically open the SQLite file for
 every insert. Normal insert overhead should be a month-string calculation and a map lookup.
@@ -176,7 +178,7 @@ day. This avoids racing in-flight requests that computed the previous month befo
 Append-only tables use typed columns matching the current Mongoose schemas, plus storage metadata:
 
 - `id INTEGER PRIMARY KEY`
-- `public_id TEXT NOT NULL`
+- `public_id TEXT NOT NULL UNIQUE`
 - `received_at_ms INTEGER NOT NULL`
 - current report fields from the matching Mongoose schema
 
@@ -184,7 +186,8 @@ Append-only tables use typed columns matching the current Mongoose schemas, plus
 as the `_id` value in published dumps so retries produce consistent dump rows.
 
 Do not add secondary indexes to append-only tables unless a real query requirement appears. The
-current implementation does not query these records after insert.
+`public_id` uniqueness constraint is the intended exception so published `_id` values cannot collide.
+The current implementation does not query these records after insert.
 
 ## Write concurrency and backpressure
 
