@@ -18,12 +18,13 @@ import {
 import { runSqliteWrite, SqliteWriteQueueFullError } from '../../../db/sqlite/write-queue'
 import { handleReportError, parseReportInfo } from './shared'
 import { type QuestPayload, type QuestRewardPayload } from '../../../models'
+import {
+  getItemImprovementRecipeValidationErrorMessage,
+  isItemImprovementValidationError,
+  parseItemImprovementRecipeRecords,
+} from './v3.handlers'
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
-const validItemImprovementSources = new Set(['list', 'detail', 'execution'])
-const itemImprovementMaxBatchSize = 100
-
-class ItemImprovementValidationError extends Error {}
 
 const createQuestHash = ({ title, detail }: QuestPayload | QuestRewardPayload) =>
   createHash(`${title}${detail}`)
@@ -67,160 +68,6 @@ const parseExportCursor = (request: AppRequest) => {
     limit: Math.min(limit, 1000),
     updatedAfter,
   }
-}
-
-const isInteger = (value: unknown) =>
-  typeof value === 'number'
-    ? Number.isInteger(value)
-    : typeof value === 'string' && /^-?\d+$/.test(value)
-
-const toInteger = (value: unknown) =>
-  typeof value === 'number' ? value : parseInt(String(value), 10)
-
-const validatePositiveInteger = (record: Record<string, any>, field: string) => {
-  if (!isInteger(record[field]) || toInteger(record[field]) <= 0) {
-    throw new ItemImprovementValidationError(`${field}: must be a positive integer`)
-  }
-}
-
-const validateNonNegativeInteger = (record: Record<string, any>, field: string) => {
-  if (!isInteger(record[field]) || toInteger(record[field]) < 0) {
-    throw new ItemImprovementValidationError(`${field}: must be a non-negative integer`)
-  }
-}
-
-const normalizePositiveIntegerArray = (value: unknown, field: string) => {
-  if (value == null) {
-    return []
-  }
-  if (!Array.isArray(value)) {
-    throw new ItemImprovementValidationError(`${field}: must be an array`)
-  }
-  return value
-    .map((item, index) => {
-      if (!isInteger(item) || toInteger(item) <= 0) {
-        throw new ItemImprovementValidationError(`${field}.${index}: must be a positive integer`)
-      }
-      return toInteger(item)
-    })
-    .sort((a, b) => a - b)
-}
-
-const normalizeRequiredItems = (value: unknown, field: string) => {
-  if (!Array.isArray(value)) {
-    throw new ItemImprovementValidationError(`${field}: must be an array`)
-  }
-  return value.map((item, index) => {
-    if (item == null || typeof item !== 'object') {
-      throw new ItemImprovementValidationError(`${field}.${index}: must be an object`)
-    }
-    const requiredItem = item as Record<string, unknown>
-    if (!isInteger(requiredItem.id) || !isInteger(requiredItem.count)) {
-      throw new ItemImprovementValidationError(
-        `${field}.${index}: must contain integer id and count`,
-      )
-    }
-    const id = toInteger(requiredItem.id)
-    const count = toInteger(requiredItem.count)
-    if (!(id === 0 && count === 0) && (id <= 0 || count <= 0)) {
-      throw new ItemImprovementValidationError(
-        `${field}.${index}: must contain positive id and count`,
-      )
-    }
-    return { id, count }
-  })
-}
-
-const normalizeItemImprovementRecord = (
-  record: Record<string, any>,
-  serverReceivedAt: number,
-): Record<string, any> => {
-  if (!validItemImprovementSources.has(record.source)) {
-    throw new ItemImprovementValidationError('source: Invalid option')
-  }
-
-  validatePositiveInteger(record, 'schemaVersion')
-  validatePositiveInteger(record, 'recipeId')
-  validatePositiveInteger(record, 'itemId')
-  validateNonNegativeInteger(record, 'observedSecondShipId')
-  if (!isInteger(record.day) || toInteger(record.day) < 0 || toInteger(record.day) > 6) {
-    throw new ItemImprovementValidationError('day: must be between 0 and 6')
-  }
-  if (
-    !isInteger(record.clientObservedAt) ||
-    toInteger(record.clientObservedAt) < Date.UTC(2013, 3, 23) ||
-    toInteger(record.clientObservedAt) > serverReceivedAt + 10 * 60 * 1000
-  ) {
-    throw new ItemImprovementValidationError('clientObservedAt: is not a plausible timestamp')
-  }
-
-  const normalized: Record<string, any> = {
-    ...record,
-    clientObservedAt: toInteger(record.clientObservedAt),
-    day: toInteger(record.day),
-    itemId: toInteger(record.itemId),
-    observedSecondShipId: toInteger(record.observedSecondShipId),
-    recipeId: toInteger(record.recipeId),
-    schemaVersion: toInteger(record.schemaVersion),
-  }
-  const observedFlagshipIds = new Set<number>()
-  if (record.observedFlagshipId != null) {
-    validatePositiveInteger(record, 'observedFlagshipId')
-    observedFlagshipIds.add(toInteger(record.observedFlagshipId))
-  }
-  normalizePositiveIntegerArray(record.observedFlagshipIds, 'observedFlagshipIds').forEach((id) =>
-    observedFlagshipIds.add(id),
-  )
-  normalized.observedFlagshipIds = Array.from(observedFlagshipIds).sort((a, b) => a - b)
-
-  if (record.source === 'detail') {
-    ;[
-      'itemLevel',
-      'stage',
-      'fuel',
-      'ammo',
-      'steel',
-      'bauxite',
-      'buildkit',
-      'remodelkit',
-      'certainBuildkit',
-      'certainRemodelkit',
-    ].forEach((field) => validateNonNegativeInteger(record, field))
-    ;[
-      'itemLevel',
-      'stage',
-      'fuel',
-      'ammo',
-      'steel',
-      'bauxite',
-      'buildkit',
-      'remodelkit',
-      'certainBuildkit',
-      'certainRemodelkit',
-    ].forEach((field) => {
-      normalized[field] = toInteger(record[field])
-    })
-    normalized.reqSlotItems = normalizeRequiredItems(record.reqSlotItems, 'reqSlotItems')
-    normalized.reqUseItems = normalizeRequiredItems(record.reqUseItems, 'reqUseItems')
-    if (record.changeFlag != null) {
-      validateNonNegativeInteger(record, 'changeFlag')
-    }
-    normalized.changeFlag = record.changeFlag == null ? 0 : toInteger(record.changeFlag)
-  }
-
-  if (record.source === 'execution') {
-    validateNonNegativeInteger(record, 'itemLevel')
-    validatePositiveInteger(record, 'upgradeToItemId')
-    validateNonNegativeInteger(record, 'upgradeToItemLevel')
-    if (record.upgradeObserved !== true) {
-      throw new ItemImprovementValidationError('upgradeObserved: Invalid literal value')
-    }
-    normalized.itemLevel = toInteger(record.itemLevel)
-    normalized.upgradeToItemId = toInteger(record.upgradeToItemId)
-    normalized.upgradeToItemLevel = toInteger(record.upgradeToItemLevel)
-  }
-
-  return normalized
 }
 
 const createNextCursor = (records: Array<{ _id: string; lastReported: number }>, limit: number) => {
@@ -273,17 +120,18 @@ export const questReward = async (request: AppRequest): Promise<AppResult> => {
 }
 
 export const itemImprovementRecipe = async (request: AppRequest): Promise<AppResult> => {
+  const serverReceivedAt = Date.now()
+  let records: ReturnType<typeof parseItemImprovementRecipeRecords>
   try {
-    const info = parseReportInfo(request)
-    const rawRecords = Array.isArray(info.records) ? info.records : [info]
-    if (rawRecords.length > itemImprovementMaxBatchSize) {
-      return badRequest('records: Too big: expected array to have <=100 items')
+    records = parseItemImprovementRecipeRecords(request, serverReceivedAt)
+  } catch (err) {
+    if (isItemImprovementValidationError(err)) {
+      return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
     }
-    const serverReceivedAt = Date.now()
-    const records = rawRecords.map((record) =>
-      normalizeItemImprovementRecord(record, serverReceivedAt),
-    )
+    return handleSqliteReportError(err, request)
+  }
 
+  try {
     await runSqliteWrite('operational', () => {
       for (const record of records) {
         if (record.source === 'list') {
@@ -297,9 +145,6 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
     })
     return ok({ records: records.length })
   } catch (err) {
-    if (err instanceof ItemImprovementValidationError) {
-      return badRequest(err.message)
-    }
     return handleSqliteReportError(err, request)
   }
 }

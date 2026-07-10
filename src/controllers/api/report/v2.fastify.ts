@@ -3,7 +3,6 @@ import { type FastifyPluginAsync } from 'fastify'
 import { sendResult, toAppRequest } from '../../../http/fastify'
 import { type DatabaseBackend } from '../../../db/backend'
 import * as mongoHandlers from './v2.handlers'
-import * as sqliteHandlers from './v2.sqlite.handlers'
 
 interface ReportRouteOptions {
   backend?: DatabaseBackend
@@ -13,7 +12,7 @@ export const registerReportV2Routes: FastifyPluginAsync<ReportRouteOptions> = as
   app,
   { backend = 'mongo' },
 ) => {
-  const handlers = backend === 'sqlite' ? sqliteHandlers : mongoHandlers
+  const handlers = backend === 'sqlite' ? await import('./v2.sqlite.handlers') : mongoHandlers
   app.post('/create_ship', async (request, reply) =>
     sendResult(reply, await handlers.createShip(toAppRequest(request))),
   )

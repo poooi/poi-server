@@ -1195,7 +1195,9 @@ describe('SQLite backend selection', () => {
     await close()
 
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'source: Invalid option' })
+    expect(await response.json()).toEqual({
+      error: 'source: Invalid option: expected one of "list"|"detail"|"execution"',
+    })
   })
 
   test('rejects unbounded SQLite item improvement exports', async () => {

@@ -354,7 +354,7 @@ const exportCursorSchema = z
     limit: Math.min(cursor.limit, ITEM_IMPROVEMENT_RECIPE_MAX_EXPORT_LIMIT),
   }))
 
-const getItemImprovementRecipeValidationErrorMessage = (
+export const getItemImprovementRecipeValidationErrorMessage = (
   err: ItemImprovementRecipeValidationError | ZodError,
 ): string => {
   if (err instanceof ItemImprovementRecipeValidationError) {
@@ -369,7 +369,7 @@ const getItemImprovementRecipeValidationErrorMessage = (
   return `${path}${issue.message}`
 }
 
-const isItemImprovementValidationError = (
+export const isItemImprovementValidationError = (
   err: unknown,
 ): err is ItemImprovementRecipeValidationError | ZodError =>
   err instanceof ItemImprovementRecipeValidationError || err instanceof ZodError
@@ -638,15 +638,21 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
   }
 }
 
+export const parseItemImprovementRecipeRecords = (
+  request: AppRequest,
+  serverReceivedAt = Date.now(),
+) => {
+  const origin = getReporterOrigin(request)
+  const schema = createItemImprovementRecipeRecordSchema(serverReceivedAt)
+  return parseItemImprovementRecipeData(request).map((record) =>
+    normalizeItemImprovementRecipeRecord(record, schema, origin),
+  )
+}
+
 export const itemImprovementRecipe = async (request: AppRequest): Promise<AppResult> => {
   try {
     const serverReceivedAt = Date.now()
-    const origin = getReporterOrigin(request)
-    const schema = createItemImprovementRecipeRecordSchema(serverReceivedAt)
-    const records = parseItemImprovementRecipeData(request).map((record) =>
-      normalizeItemImprovementRecipeRecord(record, schema, origin),
-    )
-
+    const records = parseItemImprovementRecipeRecords(request, serverReceivedAt)
     await bluebird.map(
       records,
       (record) => saveItemImprovementRecipeRecord(record, serverReceivedAt),
