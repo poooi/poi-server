@@ -122,6 +122,7 @@ const ensureOperationalSchema = (db: Database.Database) => {
       remodelkit INTEGER,
       certain_buildkit INTEGER,
       certain_remodelkit INTEGER,
+      change_flag INTEGER,
       req_slot_items_json TEXT NOT NULL,
       req_use_items_json TEXT NOT NULL,
       observed_flagship_ids_json TEXT NOT NULL,
@@ -405,10 +406,9 @@ export const upsertItemImprovementAvailabilityFact = (
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
-          observed_flagship_ids_json = excluded.observed_flagship_ids_json,
-          sources_json = excluded.sources_json,
-          last_reported = excluded.last_reported,
-          last_client_observed_at = excluded.last_client_observed_at,
+          first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
+          last_reported = max(last_reported, excluded.last_reported),
+          last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
     )
@@ -451,7 +451,7 @@ export const upsertItemImprovementCostFact = (
     record.certainRemodelkit,
     JSON.stringify(record.reqSlotItems || []),
     JSON.stringify(record.reqUseItems || []),
-    record.changeFlag || 0,
+    record.changeFlag,
   ].join('|')
   getOperationalDb()
     .prepare(
@@ -473,6 +473,7 @@ export const upsertItemImprovementCostFact = (
           remodelkit,
           certain_buildkit,
           certain_remodelkit,
+          change_flag,
           req_slot_items_json,
           req_use_items_json,
           observed_flagship_ids_json,
@@ -483,10 +484,11 @@ export const upsertItemImprovementCostFact = (
           last_client_observed_at,
           count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
-          last_reported = excluded.last_reported,
-          last_client_observed_at = excluded.last_client_observed_at,
+          first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
+          last_reported = max(last_reported, excluded.last_reported),
+          last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
     )
@@ -507,6 +509,7 @@ export const upsertItemImprovementCostFact = (
       record.remodelkit,
       record.certainBuildkit,
       record.certainRemodelkit,
+      record.changeFlag,
       JSON.stringify(record.reqSlotItems || []),
       JSON.stringify(record.reqUseItems || []),
       JSON.stringify(record.observedFlagshipIds || []),
@@ -557,8 +560,9 @@ export const upsertItemImprovementUpdateFact = (
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
-          last_reported = excluded.last_reported,
-          last_client_observed_at = excluded.last_client_observed_at,
+          first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
+          last_reported = max(last_reported, excluded.last_reported),
+          last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
     )

@@ -89,6 +89,48 @@ const validateNonNegativeInteger = (record: Record<string, any>, field: string) 
   }
 }
 
+const normalizePositiveIntegerArray = (value: unknown, field: string) => {
+  if (value == null) {
+    return []
+  }
+  if (!Array.isArray(value)) {
+    throw new ItemImprovementValidationError(`${field}: must be an array`)
+  }
+  return value
+    .map((item, index) => {
+      if (!isInteger(item) || toInteger(item) <= 0) {
+        throw new ItemImprovementValidationError(`${field}.${index}: must be a positive integer`)
+      }
+      return toInteger(item)
+    })
+    .sort((a, b) => a - b)
+}
+
+const normalizeRequiredItems = (value: unknown, field: string) => {
+  if (!Array.isArray(value)) {
+    throw new ItemImprovementValidationError(`${field}: must be an array`)
+  }
+  return value.map((item, index) => {
+    if (item == null || typeof item !== 'object') {
+      throw new ItemImprovementValidationError(`${field}.${index}: must be an object`)
+    }
+    const requiredItem = item as Record<string, unknown>
+    if (!isInteger(requiredItem.id) || !isInteger(requiredItem.count)) {
+      throw new ItemImprovementValidationError(
+        `${field}.${index}: must contain integer id and count`,
+      )
+    }
+    const id = toInteger(requiredItem.id)
+    const count = toInteger(requiredItem.count)
+    if (!(id === 0 && count === 0) && (id <= 0 || count <= 0)) {
+      throw new ItemImprovementValidationError(
+        `${field}.${index}: must contain positive id and count`,
+      )
+    }
+    return { id, count }
+  })
+}
+
 const normalizeItemImprovementRecord = (
   record: Record<string, any>,
   serverReceivedAt: number,
@@ -121,6 +163,15 @@ const normalizeItemImprovementRecord = (
     recipeId: toInteger(record.recipeId),
     schemaVersion: toInteger(record.schemaVersion),
   }
+  const observedFlagshipIds = new Set<number>()
+  if (record.observedFlagshipId != null) {
+    validatePositiveInteger(record, 'observedFlagshipId')
+    observedFlagshipIds.add(toInteger(record.observedFlagshipId))
+  }
+  normalizePositiveIntegerArray(record.observedFlagshipIds, 'observedFlagshipIds').forEach((id) =>
+    observedFlagshipIds.add(id),
+  )
+  normalized.observedFlagshipIds = Array.from(observedFlagshipIds).sort((a, b) => a - b)
 
   if (record.source === 'detail') {
     ;[
@@ -135,9 +186,6 @@ const normalizeItemImprovementRecord = (
       'certainBuildkit',
       'certainRemodelkit',
     ].forEach((field) => validateNonNegativeInteger(record, field))
-    if (!Array.isArray(record.reqSlotItems) || !Array.isArray(record.reqUseItems)) {
-      throw new ItemImprovementValidationError('required items: must be arrays')
-    }
     ;[
       'itemLevel',
       'stage',
@@ -152,6 +200,11 @@ const normalizeItemImprovementRecord = (
     ].forEach((field) => {
       normalized[field] = toInteger(record[field])
     })
+    normalized.reqSlotItems = normalizeRequiredItems(record.reqSlotItems, 'reqSlotItems')
+    normalized.reqUseItems = normalizeRequiredItems(record.reqUseItems, 'reqUseItems')
+    if (record.changeFlag != null) {
+      validateNonNegativeInteger(record, 'changeFlag')
+    }
     normalized.changeFlag = record.changeFlag == null ? 0 : toInteger(record.changeFlag)
   }
 
@@ -298,6 +351,7 @@ export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<A
     buildkit: row.buildkit,
     certainBuildkit: row.certain_buildkit,
     certainRemodelkit: row.certain_remodelkit,
+    changeFlag: row.change_flag,
     count: row.count,
     day: row.day,
     firstClientObservedAt: row.first_client_observed_at,

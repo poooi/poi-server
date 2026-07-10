@@ -1221,6 +1221,7 @@ describe('SQLite backend selection', () => {
       certainRemodelkit: 4,
       reqSlotItems: [{ id: 5, count: 1 }],
       reqUseItems: [{ id: 6, count: 2 }],
+      changeFlag: 7,
     })
     const updateResponse = await postReport(baseUrl, '/api/report/v3/item_improvement_recipe', {
       schemaVersion: 1,
@@ -1247,6 +1248,7 @@ describe('SQLite backend selection', () => {
       records: [
         {
           count: 1,
+          changeFlag: 7,
           itemId: 701,
           itemLevel: 1,
           recipeId: 34,
