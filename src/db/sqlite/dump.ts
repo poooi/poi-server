@@ -58,6 +58,14 @@ const writeGzip = async (gzip: zlib.Gzip, text: string) => {
   }
 }
 
+const computeFileSha256 = async (filePath: string) => {
+  const hash = crypto.createHash('sha256')
+  const input = fs.createReadStream(filePath)
+  input.on('data', (chunk: Buffer) => hash.update(chunk))
+  await once(input, 'end')
+  return hash.digest('hex')
+}
+
 const writeTable = async <TRow>({
   gzip,
   includeComma,
@@ -248,6 +256,9 @@ export const removeValidatedAppendOnlyMonth = async ({
   assertMonth(dump.month)
   if (!/^[a-f0-9]{64}$/.test(dump.fileSha256)) {
     throw new Error('Refusing to remove append-only SQLite file without a valid dump checksum')
+  }
+  if ((await computeFileSha256(dump.filePath)) !== dump.fileSha256) {
+    throw new Error('Refusing to remove append-only SQLite file before dump checksum verification')
   }
   if (
     dump.month >= getUtcMonth(now) ||

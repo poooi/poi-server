@@ -679,6 +679,36 @@ describe('SQLite backend selection', () => {
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
   })
 
+  test('refuses cleanup when the dump artifact checksum does not match', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const dump = await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+    await fs.writeFile(dump.filePath, 'tampered')
+
+    await expect(
+      removeValidatedAppendOnlyMonth({
+        appendOnlyDir,
+        dump,
+        now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
+      }),
+    ).rejects.toThrow(
+      'Refusing to remove append-only SQLite file before dump checksum verification',
+    )
+  })
+
   test('refuses to remove the previous month during the rollover grace day', async () => {
     const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
     await postReport(baseUrl, '/api/report/v2/create_item', {
@@ -728,6 +758,7 @@ describe('SQLite backend selection', () => {
       '--output-dir',
       outputDir,
       '--cleanup',
+      '--confirm-local-delete',
       '--now',
       new Date(
         Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
@@ -737,6 +768,32 @@ describe('SQLite backend selection', () => {
     expect(dump.tables.createitemrecords.count).toBe(1)
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
     await expect(fs.stat(sqliteFile)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('requires explicit CLI confirmation before cleanup', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'cli-dumps')
+    const receiptMonth = new Date().toISOString().slice(0, 7)
+
+    await expect(
+      runAppendOnlyDumpCli([
+        '--append-only-dir',
+        appendOnlyDir,
+        '--month',
+        receiptMonth,
+        '--output-dir',
+        outputDir,
+        '--cleanup',
+      ]),
+    ).rejects.toThrow('--cleanup requires --confirm-local-delete')
   })
 
   test('stores v3 quests in the operational SQLite database and exposes known quest prefixes', async () => {

@@ -6,6 +6,7 @@ import {
 
 interface DumpCliOptions {
   appendOnlyDir: string
+  confirmLocalDelete: boolean
   cleanup: boolean
   month: string
   now?: number
@@ -14,6 +15,7 @@ interface DumpCliOptions {
 
 const parseArgs = (args: string[]): DumpCliOptions => {
   const options: Partial<DumpCliOptions> = {
+    confirmLocalDelete: false,
     cleanup: false,
   }
 
@@ -21,6 +23,10 @@ const parseArgs = (args: string[]): DumpCliOptions => {
     const arg = args[index]
     if (arg === '--cleanup') {
       options.cleanup = true
+      continue
+    }
+    if (arg === '--confirm-local-delete') {
+      options.confirmLocalDelete = true
       continue
     }
     const value = args[index + 1]
@@ -50,8 +56,13 @@ const parseArgs = (args: string[]): DumpCliOptions => {
       [
         'Usage: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --month <YYYY-MM> --output-dir <dir> [--cleanup]',
         'Optional: --now <ISO date> controls the active-month cutoff used with --cleanup.',
+        'Cleanup also requires --confirm-local-delete after external publication/verification.',
       ].join('\n'),
     )
+  }
+
+  if (options.cleanup && !options.confirmLocalDelete) {
+    throw new Error('--cleanup requires --confirm-local-delete')
   }
 
   return options as DumpCliOptions
