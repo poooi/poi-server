@@ -341,11 +341,12 @@ Add structured logs and metrics for:
 - Rehearse restore from operational backup.
 - Run Mongo and SQLite deployments separately before traffic switch.
 
-## Open questions before implementation
+## Remaining open questions
 
 - Exact public dump container format after SQLite migration.
-- Exact `public_id` generation algorithm.
-- Exact operational table schemas and unique constraints.
+- Whether the implemented ObjectId-like random `public_id` generation needs retry-idempotent IDs later.
+- Whether the implemented operational table schemas and unique constraints need further normalization
+  before production traffic switch.
 - Whether `battleapis`, `nightbattlecis`, and `passeventrecords` should remain operational or be
   reconsidered as future dumpable append-only data.
 - Whether dump files should be generated on-server or copied elsewhere for compression/publication.

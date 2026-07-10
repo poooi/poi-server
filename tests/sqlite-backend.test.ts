@@ -679,6 +679,33 @@ describe('SQLite backend selection', () => {
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
   })
 
+  test('refuses to remove the previous month during the rollover grace day', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const dump = await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+
+    await expect(
+      removeValidatedAppendOnlyMonth({
+        appendOnlyDir,
+        dump,
+        now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1),
+      }),
+    ).rejects.toThrow('Refusing to remove the active append-only SQLite month')
+  })
+
   test('runs append-only dump and cleanup through the external CLI seam', async () => {
     const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
     await postReport(baseUrl, '/api/report/v2/create_item', {

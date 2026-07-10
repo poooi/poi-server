@@ -32,6 +32,15 @@ interface RemoveValidatedAppendOnlyMonthOptions {
 
 const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
 
+const getPreviousUtcMonth = (time: number) => {
+  const date = new Date(time)
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1))
+    .toISOString()
+    .slice(0, 7)
+}
+
+const isRolloverGraceDay = (time: number) => new Date(time).getUTCDate() === 1
+
 const assertMonth = (month: string) => {
   const match = /^(\d{4})-(\d{2})$/.exec(month)
   if (match == null) {
@@ -233,7 +242,10 @@ export const removeValidatedAppendOnlyMonth = async ({
   if (!/^[a-f0-9]{64}$/.test(dump.fileSha256)) {
     throw new Error('Refusing to remove append-only SQLite file without a valid dump checksum')
   }
-  if (dump.month >= getUtcMonth(now)) {
+  if (
+    dump.month >= getUtcMonth(now) ||
+    (isRolloverGraceDay(now) && dump.month === getPreviousUtcMonth(now))
+  ) {
     throw new Error('Refusing to remove the active append-only SQLite month')
   }
   const sqlitePath = path.join(appendOnlyDir, `append-only-${dump.month}.sqlite`)
