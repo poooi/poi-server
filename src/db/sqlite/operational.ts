@@ -602,7 +602,7 @@ export const upsertItemImprovementUpdateFact = (
           last_client_observed_at,
           count
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
           observed_flagship_ids_json = excluded.observed_flagship_ids_json,
           sources_json = excluded.sources_json,
@@ -621,6 +621,7 @@ export const upsertItemImprovementUpdateFact = (
     record.observedSecondShipId,
     record.upgradeToItemId,
     record.upgradeToItemLevel,
+    record.upgradeObserved ? 1 : 0,
     JSON.stringify(observedFlagshipIds),
     JSON.stringify(sources),
     lastReported,
