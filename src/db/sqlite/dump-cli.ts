@@ -8,6 +8,7 @@ interface DumpCliOptions {
   appendOnlyDir: string
   cleanup: boolean
   month: string
+  now?: number
   outputDir: string
 }
 
@@ -30,6 +31,12 @@ const parseArgs = (args: string[]): DumpCliOptions => {
       options.appendOnlyDir = value
     } else if (arg === '--month') {
       options.month = value
+    } else if (arg === '--now') {
+      const now = Date.parse(value)
+      if (!Number.isFinite(now)) {
+        throw new Error('--now must be an ISO date')
+      }
+      options.now = now
     } else if (arg === '--output-dir') {
       options.outputDir = value
     } else {
@@ -56,6 +63,7 @@ export const runAppendOnlyDumpCli = async (
     await removeValidatedAppendOnlyMonth({
       appendOnlyDir: options.appendOnlyDir,
       dump,
+      now: options.now,
     })
   }
   return dump

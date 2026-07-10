@@ -630,6 +630,13 @@ describe('SQLite backend selection', () => {
         },
       }),
     ).rejects.toThrow('Month must use YYYY-MM format')
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: '2026-99',
+        outputDir,
+      }),
+    ).rejects.toThrow('Month must use YYYY-MM format')
   })
 
   test('removes the monthly SQLite file only after a validated dump result', async () => {
@@ -654,6 +661,7 @@ describe('SQLite backend selection', () => {
     await removeValidatedAppendOnlyMonth({
       appendOnlyDir,
       dump,
+      now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
     })
 
     await expect(fs.stat(sqliteFile)).rejects.toMatchObject({ code: 'ENOENT' })
@@ -682,6 +690,10 @@ describe('SQLite backend selection', () => {
       '--output-dir',
       outputDir,
       '--cleanup',
+      '--now',
+      new Date(
+        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
+      ).toISOString(),
     ])
 
     expect(dump.tables.createitemrecords.count).toBe(1)

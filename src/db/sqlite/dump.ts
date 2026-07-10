@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3'
 import crypto from 'crypto'
-import fs from 'fs/promises'
+import { once } from 'events'
+import fs from 'fs'
+import fsPromises from 'fs/promises'
 import path from 'path'
 import zlib from 'zlib'
 
@@ -25,18 +27,54 @@ export interface AppendOnlyDumpResult {
 interface RemoveValidatedAppendOnlyMonthOptions {
   appendOnlyDir: string
   dump: AppendOnlyDumpResult
+  now?: number
 }
 
-const sha256 = (value: string | Buffer) => crypto.createHash('sha256').update(value).digest('hex')
-
-const createTableResult = (records: unknown[]): TableDumpResult => ({
-  count: records.length,
-  sha256: sha256(JSON.stringify(records)),
-})
+const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
 
 const assertMonth = (month: string) => {
-  if (!/^\d{4}-\d{2}$/.test(month)) {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (match == null) {
     throw new Error('Month must use YYYY-MM format')
+  }
+  const parsedMonth = parseInt(match[2], 10)
+  if (parsedMonth < 1 || parsedMonth > 12) {
+    throw new Error('Month must use YYYY-MM format')
+  }
+}
+
+const writeGzip = async (gzip: zlib.Gzip, text: string) => {
+  if (!gzip.write(text)) {
+    await once(gzip, 'drain')
+  }
+}
+
+const writeTable = async <TRow>({
+  gzip,
+  includeComma,
+  name,
+  rows,
+  serialize,
+}: {
+  gzip: zlib.Gzip
+  includeComma: boolean
+  name: string
+  rows: Iterable<TRow>
+  serialize: (row: TRow) => Record<string, unknown>
+}): Promise<TableDumpResult> => {
+  const tableHash = crypto.createHash('sha256')
+  let count = 0
+  await writeGzip(gzip, `${includeComma ? ',' : ''}"${name}":[`)
+  for (const row of rows) {
+    const json = JSON.stringify(serialize(row))
+    tableHash.update(json)
+    await writeGzip(gzip, `${count === 0 ? '' : ','}${json}`)
+    count += 1
+  }
+  await writeGzip(gzip, ']')
+  return {
+    count,
+    sha256: tableHash.digest('hex'),
   }
 }
 
@@ -48,113 +86,27 @@ export const exportAppendOnlyMonth = async ({
   assertMonth(month)
   const sqlitePath = path.join(appendOnlyDir, `append-only-${month}.sqlite`)
   const db = new Database(sqlitePath, { readonly: true })
+  await fsPromises.mkdir(outputDir, { recursive: true })
+  const filePath = path.join(outputDir, `append-only-${month}.json.gz`)
+  const output = fs.createWriteStream(filePath)
+  const gzip = zlib.createGzip()
+  const fileHash = crypto.createHash('sha256')
+  const tables: Record<string, TableDumpResult> = {}
+  gzip.on('data', (chunk: Buffer) => fileHash.update(chunk))
+  gzip.pipe(output)
+
   try {
-    const createitemrecords = db
-      .prepare(
-        `
-          SELECT public_id, items_json, secretary, item_id, teitoku_lv, successful, origin
-          FROM create_item_records
-          ORDER BY id
-        `,
-      )
-      .all() as Array<{
-      item_id: number
-      items_json: string
-      origin: string
-      public_id: string
-      secretary: number
-      successful: number
-      teitoku_lv: number
-    }>
-    const createshiprecords = db
-      .prepare(
-        `
-          SELECT public_id, items_json, kdock_id, secretary, ship_id, highspeed, teitoku_lv, large_flag, origin
-          FROM create_ship_records
-          ORDER BY id
-        `,
-      )
-      .all() as Array<{
-      highspeed: number
-      items_json: string
-      kdock_id: number
-      large_flag: number
-      origin: string
-      public_id: string
-      secretary: number
-      ship_id: number
-      teitoku_lv: number
-    }>
-    const dropshiprecords = db
-      .prepare(
-        `
-          SELECT public_id, ship_id, item_id, map_id, quest, cell_id, enemy, rank, is_boss, teitoku_lv, map_lv, enemy_ships1_json, enemy_ships2_json, enemy_formation, base_exp, teitoku_id, ship_counts_json, owned_ship_snapshot_json, origin
-          FROM drop_ship_records
-          ORDER BY id
-        `,
-      )
-      .all() as Array<{
-      base_exp: number
-      cell_id: number
-      enemy: string
-      enemy_formation: number
-      enemy_ships1_json: string
-      enemy_ships2_json: string
-      is_boss: number
-      item_id: number
-      map_id: number
-      map_lv: number
-      origin: string
-      owned_ship_snapshot_json: string
-      public_id: string
-      quest: string
-      rank: string
-      ship_counts_json: string
-      ship_id: number
-      teitoku_id: string
-      teitoku_lv: number
-    }>
-    const nightcontactrecords = db
-      .prepare(
-        `
-          SELECT public_id, fleet_type, ship_id, ship_lv, item_id, item_lv, contact
-          FROM night_contact_records
-          ORDER BY id
-        `,
-      )
-      .all() as Array<{
-      contact: number
-      fleet_type: number
-      item_id: number
-      item_lv: number
-      public_id: string
-      ship_id: number
-      ship_lv: number
-    }>
-    const aacirecords = db
-      .prepare(
-        `
-          SELECT public_id, poi_version, available_json, triggered, items_json, improvement_json, raw_luck, raw_taiku, lv, hp_percent, pos, origin
-          FROM aaci_records
-          ORDER BY id
-        `,
-      )
-      .all() as Array<{
-      available_json: string
-      hp_percent: number
-      improvement_json: string
-      items_json: string
-      lv: number
-      origin: string
-      poi_version: string
-      pos: number
-      public_id: string
-      raw_luck: number
-      raw_taiku: number
-      triggered: number
-    }>
-    const dump = {
-      aacirecords: aacirecords.map((row) => ({
+    await writeGzip(gzip, '{')
+    tables.aacirecords = await writeTable({
+      gzip,
+      includeComma: false,
+      name: 'aacirecords',
+      rows: db
+        .prepare(
+          'SELECT public_id, poi_version, available_json, triggered, items_json, improvement_json, raw_luck, raw_taiku, lv, hp_percent, pos, origin FROM aaci_records ORDER BY id',
+        )
+        .iterate() as Iterable<Record<string, any>>,
+      serialize: (row) => ({
         _id: row.public_id,
         available: JSON.parse(row.available_json),
         hpPercent: row.hp_percent,
@@ -167,8 +119,18 @@ export const exportAppendOnlyMonth = async ({
         rawLuck: row.raw_luck,
         rawTaiku: row.raw_taiku,
         triggered: row.triggered,
-      })),
-      createitemrecords: createitemrecords.map((row) => ({
+      }),
+    })
+    tables.createitemrecords = await writeTable({
+      gzip,
+      includeComma: true,
+      name: 'createitemrecords',
+      rows: db
+        .prepare(
+          'SELECT public_id, items_json, secretary, item_id, teitoku_lv, successful, origin FROM create_item_records ORDER BY id',
+        )
+        .iterate() as Iterable<Record<string, any>>,
+      serialize: (row) => ({
         _id: row.public_id,
         itemId: row.item_id,
         items: JSON.parse(row.items_json),
@@ -176,8 +138,18 @@ export const exportAppendOnlyMonth = async ({
         secretary: row.secretary,
         successful: Boolean(row.successful),
         teitokuLv: row.teitoku_lv,
-      })),
-      createshiprecords: createshiprecords.map((row) => ({
+      }),
+    })
+    tables.createshiprecords = await writeTable({
+      gzip,
+      includeComma: true,
+      name: 'createshiprecords',
+      rows: db
+        .prepare(
+          'SELECT public_id, items_json, kdock_id, secretary, ship_id, highspeed, teitoku_lv, large_flag, origin FROM create_ship_records ORDER BY id',
+        )
+        .iterate() as Iterable<Record<string, any>>,
+      serialize: (row) => ({
         _id: row.public_id,
         highspeed: row.highspeed,
         items: JSON.parse(row.items_json),
@@ -187,8 +159,18 @@ export const exportAppendOnlyMonth = async ({
         secretary: row.secretary,
         shipId: row.ship_id,
         teitokuLv: row.teitoku_lv,
-      })),
-      dropshiprecords: dropshiprecords.map((row) => ({
+      }),
+    })
+    tables.dropshiprecords = await writeTable({
+      gzip,
+      includeComma: true,
+      name: 'dropshiprecords',
+      rows: db
+        .prepare(
+          'SELECT public_id, ship_id, item_id, map_id, quest, cell_id, enemy, rank, is_boss, teitoku_lv, map_lv, enemy_ships1_json, enemy_ships2_json, enemy_formation, base_exp, teitoku_id, ship_counts_json, owned_ship_snapshot_json, origin FROM drop_ship_records ORDER BY id',
+        )
+        .iterate() as Iterable<Record<string, any>>,
+      serialize: (row) => ({
         _id: row.public_id,
         baseExp: row.base_exp,
         cellId: row.cell_id,
@@ -208,8 +190,18 @@ export const exportAppendOnlyMonth = async ({
         shipId: row.ship_id,
         teitokuId: row.teitoku_id,
         teitokuLv: row.teitoku_lv,
-      })),
-      nightcontactrecords: nightcontactrecords.map((row) => ({
+      }),
+    })
+    tables.nightcontactrecords = await writeTable({
+      gzip,
+      includeComma: true,
+      name: 'nightcontactrecords',
+      rows: db
+        .prepare(
+          'SELECT public_id, fleet_type, ship_id, ship_lv, item_id, item_lv, contact FROM night_contact_records ORDER BY id',
+        )
+        .iterate() as Iterable<Record<string, any>>,
+      serialize: (row) => ({
         _id: row.public_id,
         contact: Boolean(row.contact),
         fleetType: row.fleet_type,
@@ -217,25 +209,16 @@ export const exportAppendOnlyMonth = async ({
         itemLv: row.item_lv,
         shipId: row.ship_id,
         shipLv: row.ship_lv,
-      })),
-    }
-    const json = JSON.stringify(dump)
-    const gzip = zlib.gzipSync(json)
-    await fs.mkdir(outputDir, { recursive: true })
-    const filePath = path.join(outputDir, `append-only-${month}.json.gz`)
-    await fs.writeFile(filePath, gzip)
-
+      }),
+    })
+    await writeGzip(gzip, '}')
+    gzip.end()
+    await once(output, 'finish')
     return {
       filePath,
-      fileSha256: sha256(gzip),
+      fileSha256: fileHash.digest('hex'),
       month,
-      tables: {
-        aacirecords: createTableResult(dump.aacirecords),
-        createitemrecords: createTableResult(dump.createitemrecords),
-        createshiprecords: createTableResult(dump.createshiprecords),
-        dropshiprecords: createTableResult(dump.dropshiprecords),
-        nightcontactrecords: createTableResult(dump.nightcontactrecords),
-      },
+      tables,
     }
   } finally {
     db.close()
@@ -245,11 +228,15 @@ export const exportAppendOnlyMonth = async ({
 export const removeValidatedAppendOnlyMonth = async ({
   appendOnlyDir,
   dump,
+  now = Date.now(),
 }: RemoveValidatedAppendOnlyMonthOptions): Promise<void> => {
   assertMonth(dump.month)
   if (!/^[a-f0-9]{64}$/.test(dump.fileSha256)) {
     throw new Error('Refusing to remove append-only SQLite file without a valid dump checksum')
   }
+  if (dump.month >= getUtcMonth(now)) {
+    throw new Error('Refusing to remove the active append-only SQLite month')
+  }
   const sqlitePath = path.join(appendOnlyDir, `append-only-${dump.month}.sqlite`)
-  await fs.rm(sqlitePath)
+  await fsPromises.rm(sqlitePath)
 }

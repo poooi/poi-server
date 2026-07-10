@@ -13,7 +13,7 @@ const queues = new Map<string, QueueState>()
 
 const getMaxQueueSize = () => {
   const value = parseInt(process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE || '1000', 10)
-  return Number.isFinite(value) ? value : 1000
+  return Number.isFinite(value) && value >= 0 ? value : 1000
 }
 
 const getQueue = (key: string) => {

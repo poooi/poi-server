@@ -35,8 +35,11 @@ const parseInteger = (value: unknown, fallback: number) => {
   if (value == null) {
     return fallback
   }
-  const parsed = parseInt(String(value), 10)
-  return Number.isFinite(parsed) ? parsed : fallback
+  const text = String(value)
+  if (!/^-?\d+$/.test(text)) {
+    throw new Error('must be an integer')
+  }
+  return parseInt(text, 10)
 }
 
 const parseExportCursor = (request: AppRequest) => {
@@ -48,8 +51,12 @@ const parseExportCursor = (request: AppRequest) => {
   if (updatedAfter < 0) {
     throw new Error('updatedAfter must be non-negative')
   }
+  const afterId = request.query.afterId == null ? undefined : String(request.query.afterId)
+  if (afterId != null && !/^[a-f0-9]{24}$/.test(afterId)) {
+    throw new Error('afterId must be a valid ObjectId')
+  }
   return {
-    afterId: request.query.afterId == null ? undefined : String(request.query.afterId),
+    afterId,
     limit: Math.min(limit, 1000),
     updatedAfter,
   }
@@ -107,16 +114,19 @@ export const questReward = async (request: AppRequest): Promise<AppResult> => {
 export const itemImprovementRecipe = async (request: AppRequest): Promise<AppResult> => {
   try {
     const info = parseReportInfo(request)
-    if (info.source === 'list') {
-      await runSqliteWrite('operational', () => upsertItemImprovementAvailabilityFact(info))
-    } else if (info.source === 'detail') {
-      await runSqliteWrite('operational', () => upsertItemImprovementCostFact(info))
-    } else if (info.source === 'execution') {
-      await runSqliteWrite('operational', () => upsertItemImprovementUpdateFact(info))
-    } else {
-      return badRequest('source: Invalid option')
+    const records = Array.isArray(info.records) ? info.records : [info]
+    for (const record of records) {
+      if (record.source === 'list') {
+        await runSqliteWrite('operational', () => upsertItemImprovementAvailabilityFact(record))
+      } else if (record.source === 'detail') {
+        await runSqliteWrite('operational', () => upsertItemImprovementCostFact(record))
+      } else if (record.source === 'execution') {
+        await runSqliteWrite('operational', () => upsertItemImprovementUpdateFact(record))
+      } else {
+        return badRequest('source: Invalid option')
+      }
     }
-    return ok({ records: 1 })
+    return ok({ records: records.length })
   } catch (err) {
     return handleSqliteReportError(err, request)
   }
