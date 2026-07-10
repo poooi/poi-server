@@ -177,6 +177,16 @@ const getOperationalDb = () => {
   return operationalDb
 }
 
+const mergeJsonNumberArray = (existingJson: string | undefined, incoming: number[]) =>
+  Array.from(
+    new Set([...(existingJson == null ? [] : JSON.parse(existingJson)), ...incoming]),
+  ).sort((a, b) => a - b)
+
+const mergeJsonStringArray = (existingJson: string | undefined, incoming: string[]) =>
+  Array.from(
+    new Set([...(existingJson == null ? [] : JSON.parse(existingJson)), ...incoming]),
+  ).sort()
+
 export const upsertQuestRecords = (records: Array<Record<string, any>>) => {
   const db = getOperationalDb()
   const insert = db.prepare(`
@@ -386,9 +396,19 @@ export const upsertItemImprovementAvailabilityFact = (
     record.day,
     record.observedSecondShipId,
   ].join('|')
-  getOperationalDb()
+  const db = getOperationalDb()
+  const existing = db
     .prepare(
-      `
+      'SELECT observed_flagship_ids_json, sources_json FROM item_improvement_availability_facts WHERE key = ?',
+    )
+    .get(key) as { observed_flagship_ids_json: string; sources_json: string } | undefined
+  const observedFlagshipIds = mergeJsonNumberArray(
+    existing?.observed_flagship_ids_json,
+    record.observedFlagshipIds || [],
+  )
+  const sources = mergeJsonStringArray(existing?.sources_json, [record.source])
+  db.prepare(
+    `
         INSERT INTO item_improvement_availability_facts (
           key,
           schema_version,
@@ -406,26 +426,27 @@ export const upsertItemImprovementAvailabilityFact = (
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
+          observed_flagship_ids_json = excluded.observed_flagship_ids_json,
+          sources_json = excluded.sources_json,
           first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
           last_reported = max(last_reported, excluded.last_reported),
           last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
-    )
-    .run(
-      key,
-      record.schemaVersion,
-      record.recipeId,
-      record.itemId,
-      record.day,
-      record.observedSecondShipId,
-      JSON.stringify(record.observedFlagshipIds || []),
-      JSON.stringify([record.source]),
-      lastReported,
-      lastReported,
-      record.clientObservedAt,
-      record.clientObservedAt,
-    )
+  ).run(
+    key,
+    record.schemaVersion,
+    record.recipeId,
+    record.itemId,
+    record.day,
+    record.observedSecondShipId,
+    JSON.stringify(observedFlagshipIds),
+    JSON.stringify(sources),
+    lastReported,
+    lastReported,
+    record.clientObservedAt,
+    record.clientObservedAt,
+  )
 }
 
 export const upsertItemImprovementCostFact = (
@@ -453,9 +474,19 @@ export const upsertItemImprovementCostFact = (
     JSON.stringify(record.reqUseItems || []),
     record.changeFlag,
   ].join('|')
-  getOperationalDb()
+  const db = getOperationalDb()
+  const existing = db
     .prepare(
-      `
+      'SELECT observed_flagship_ids_json, sources_json FROM item_improvement_cost_facts WHERE key = ?',
+    )
+    .get(key) as { observed_flagship_ids_json: string; sources_json: string } | undefined
+  const observedFlagshipIds = mergeJsonNumberArray(
+    existing?.observed_flagship_ids_json,
+    record.observedFlagshipIds || [],
+  )
+  const sources = mergeJsonStringArray(existing?.sources_json, [record.source])
+  db.prepare(
+    `
         INSERT INTO item_improvement_cost_facts (
           key,
           schema_version,
@@ -486,39 +517,40 @@ export const upsertItemImprovementCostFact = (
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
+          observed_flagship_ids_json = excluded.observed_flagship_ids_json,
+          sources_json = excluded.sources_json,
           first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
           last_reported = max(last_reported, excluded.last_reported),
           last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
-    )
-    .run(
-      key,
-      record.schemaVersion,
-      record.recipeId,
-      record.itemId,
-      record.itemLevel,
-      record.stage,
-      record.day,
-      record.observedSecondShipId,
-      record.fuel,
-      record.ammo,
-      record.steel,
-      record.bauxite,
-      record.buildkit,
-      record.remodelkit,
-      record.certainBuildkit,
-      record.certainRemodelkit,
-      record.changeFlag,
-      JSON.stringify(record.reqSlotItems || []),
-      JSON.stringify(record.reqUseItems || []),
-      JSON.stringify(record.observedFlagshipIds || []),
-      JSON.stringify([record.source]),
-      lastReported,
-      lastReported,
-      record.clientObservedAt,
-      record.clientObservedAt,
-    )
+  ).run(
+    key,
+    record.schemaVersion,
+    record.recipeId,
+    record.itemId,
+    record.itemLevel,
+    record.stage,
+    record.day,
+    record.observedSecondShipId,
+    record.fuel,
+    record.ammo,
+    record.steel,
+    record.bauxite,
+    record.buildkit,
+    record.remodelkit,
+    record.certainBuildkit,
+    record.certainRemodelkit,
+    record.changeFlag,
+    JSON.stringify(record.reqSlotItems || []),
+    JSON.stringify(record.reqUseItems || []),
+    JSON.stringify(observedFlagshipIds),
+    JSON.stringify(sources),
+    lastReported,
+    lastReported,
+    record.clientObservedAt,
+    record.clientObservedAt,
+  )
 }
 
 export const upsertItemImprovementUpdateFact = (
@@ -536,9 +568,19 @@ export const upsertItemImprovementUpdateFact = (
     record.upgradeToItemId,
     record.upgradeToItemLevel,
   ].join('|')
-  getOperationalDb()
+  const db = getOperationalDb()
+  const existing = db
     .prepare(
-      `
+      'SELECT observed_flagship_ids_json, sources_json FROM item_improvement_update_facts WHERE key = ?',
+    )
+    .get(key) as { observed_flagship_ids_json: string; sources_json: string } | undefined
+  const observedFlagshipIds = mergeJsonNumberArray(
+    existing?.observed_flagship_ids_json,
+    record.observedFlagshipIds || [],
+  )
+  const sources = mergeJsonStringArray(existing?.sources_json, [record.source])
+  db.prepare(
+    `
         INSERT INTO item_improvement_update_facts (
           key,
           schema_version,
@@ -560,29 +602,30 @@ export const upsertItemImprovementUpdateFact = (
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(key) DO UPDATE SET
+          observed_flagship_ids_json = excluded.observed_flagship_ids_json,
+          sources_json = excluded.sources_json,
           first_client_observed_at = min(first_client_observed_at, excluded.first_client_observed_at),
           last_reported = max(last_reported, excluded.last_reported),
           last_client_observed_at = max(last_client_observed_at, excluded.last_client_observed_at),
           count = count + 1
       `,
-    )
-    .run(
-      key,
-      record.schemaVersion,
-      record.recipeId,
-      record.itemId,
-      record.itemLevel,
-      record.day,
-      record.observedSecondShipId,
-      record.upgradeToItemId,
-      record.upgradeToItemLevel,
-      JSON.stringify(record.observedFlagshipIds || []),
-      JSON.stringify([record.source]),
-      lastReported,
-      lastReported,
-      record.clientObservedAt,
-      record.clientObservedAt,
-    )
+  ).run(
+    key,
+    record.schemaVersion,
+    record.recipeId,
+    record.itemId,
+    record.itemLevel,
+    record.day,
+    record.observedSecondShipId,
+    record.upgradeToItemId,
+    record.upgradeToItemLevel,
+    JSON.stringify(observedFlagshipIds),
+    JSON.stringify(sources),
+    lastReported,
+    lastReported,
+    record.clientObservedAt,
+    record.clientObservedAt,
+  )
 }
 
 interface ExportFactCursor {

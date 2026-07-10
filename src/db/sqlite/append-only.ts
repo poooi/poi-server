@@ -383,11 +383,13 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
       if (countedFiles.has(filePath)) {
         continue
       }
-      const db = new Database(filePath, { readonly: true })
       try {
+        const db = new Database(filePath, { readonly: true })
         addCounts(db)
-      } finally {
         db.close()
+      } catch {
+        // Status is best-effort; a corrupt historical month must not break health reporting.
+        continue
       }
     }
   }

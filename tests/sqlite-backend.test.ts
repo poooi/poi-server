@@ -1146,6 +1146,20 @@ describe('SQLite backend selection', () => {
       observedSecondShipId: 0,
       observedFlagshipIds: [100],
     })
+    const secondIngestResponse = await postReport(
+      baseUrl,
+      '/api/report/v3/item_improvement_recipe',
+      {
+        schemaVersion: 1,
+        source: 'list',
+        clientObservedAt: observedAt,
+        recipeId: 33,
+        itemId: 700,
+        day: 6,
+        observedSecondShipId: 0,
+        observedFlagshipIds: [101],
+      },
+    )
     const exportResponse = await fetch(
       `${baseUrl}/api/report/v3/item_improvement_recipes/availability`,
     )
@@ -1153,13 +1167,15 @@ describe('SQLite backend selection', () => {
     await close()
 
     expect(ingestResponse.status).toBe(200)
+    expect(secondIngestResponse.status).toBe(200)
     expect(await ingestResponse.json()).toEqual({ records: 1 })
     expect(exportResponse.status).toBe(200)
     expect(await exportResponse.json()).toMatchObject({
       records: [
         {
-          count: 1,
+          count: 2,
           itemId: 700,
+          observedFlagshipIds: [100, 101],
           observedSecondShipId: 0,
           recipeId: 33,
           sources: ['list'],
