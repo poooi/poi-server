@@ -137,7 +137,10 @@ export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
 export const questNoop = mongoHandlers.questNoop
 export const battleApi = (request: AppRequest) => saveOperationalRecord(request, 'battle_api')
 export const knownRecipes = mongoHandlers.knownRecipes
-export const remodelRecipeDeduplicate = async (): Promise<AppResult> => ok({ recipes: [] })
+export const remodelRecipeDeduplicate = async (_request: AppRequest): Promise<AppResult> => {
+  void _request
+  return ok({ recipes: [] })
+}
 export const nightBattleCi = (request: AppRequest) =>
   saveOperationalRecord(request, 'night_battle_ci')
 export const nightBattleSsCi = mongoHandlers.nightBattleSsCi
