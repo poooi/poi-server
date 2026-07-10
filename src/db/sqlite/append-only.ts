@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { stripSqliteDatabaseUrl } from '../backend'
 import { runSqliteWrite } from './write-queue'
 
 interface AppendOnlyState {
@@ -13,11 +14,6 @@ const state: AppendOnlyState = {
   appendOnlyDir: '',
   handles: new Map(),
 }
-
-const sqlitePrefix = 'sqlite://'
-
-const stripSqlitePrefix = (db: string) =>
-  db.startsWith(sqlitePrefix) ? db.slice(sqlitePrefix.length) : db
 
 const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
 
@@ -136,7 +132,7 @@ const countTable = (db: Database.Database, table: string) =>
 
 export const initializeSqliteAppendOnlyStorage = (operationalDb: string) => {
   closeSqliteAppendOnlyStorage()
-  const operationalPath = stripSqlitePrefix(operationalDb)
+  const operationalPath = stripSqliteDatabaseUrl(operationalDb)
   state.appendOnlyDir =
     process.env.POI_SERVER_SQLITE_APPEND_ONLY_DIR ||
     path.join(path.dirname(operationalPath), 'append-only')

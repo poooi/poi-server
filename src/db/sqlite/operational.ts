@@ -1,13 +1,9 @@
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
+import { stripSqliteDatabaseUrl } from '../backend'
 
 let operationalDb: Database.Database | undefined
-
-const sqlitePrefix = 'sqlite://'
-
-const stripSqlitePrefix = (db: string) =>
-  db.startsWith(sqlitePrefix) ? db.slice(sqlitePrefix.length) : db
 
 const ensureOperationalSchema = (db: Database.Database) => {
   db.pragma('journal_mode = WAL')
@@ -161,7 +157,7 @@ const ensureOperationalSchema = (db: Database.Database) => {
 
 export const initializeSqliteOperationalStorage = (db: string) => {
   closeSqliteOperationalStorage()
-  const sqlitePath = stripSqlitePrefix(db)
+  const sqlitePath = stripSqliteDatabaseUrl(db)
   fs.mkdirSync(path.dirname(sqlitePath), { recursive: true })
   operationalDb = new Database(sqlitePath)
   ensureOperationalSchema(operationalDb)

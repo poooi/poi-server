@@ -185,8 +185,8 @@ Append-only tables use typed columns matching the current Mongoose schemas, plus
 - `received_at_ms INTEGER NOT NULL`
 - current report fields from the matching Mongoose schema
 
-`id` is the internal cutoff/export/delete identity. `public_id` is a stable generated 24-hex value used
-as the `_id` value in published dumps so retries produce consistent dump rows.
+`id` is the internal cutoff/export/delete identity. `public_id` is a generated unique 24-hex value used
+as the `_id` value in published dumps so rows keep an ObjectId-like public identity.
 
 Do not add secondary indexes to append-only tables unless a real query requirement appears. The
 `public_id` uniqueness constraint is the intended exception so published `_id` values cannot collide.

@@ -5,6 +5,16 @@ export const isMongoDatabaseUrl = (db: string) =>
 
 export const isSqliteDatabaseUrl = (db: string) => db.startsWith('sqlite:')
 
+export const stripSqliteDatabaseUrl = (db: string) => {
+  if (!isSqliteDatabaseUrl(db)) {
+    return db
+  }
+  if (db.startsWith('sqlite://')) {
+    return db.slice('sqlite://'.length)
+  }
+  return db.slice('sqlite:'.length)
+}
+
 export const resolveDatabaseBackend = (db: string): DatabaseBackend => {
   if (isMongoDatabaseUrl(db)) {
     return 'mongo'

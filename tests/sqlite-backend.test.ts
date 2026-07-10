@@ -139,6 +139,26 @@ describe('SQLite backend selection', () => {
     expect(mongoConnect).not.toHaveBeenCalled()
   })
 
+  test('starts with sqlite: URLs that do not use the sqlite:// form', async () => {
+    const mongoConnect = vi.spyOn(mongoose, 'connect')
+    const environment = await createTempSqliteEnvironment()
+    const started = await startServer({
+      db: `sqlite:${environment.operationalUrl.replace(/^sqlite:\/\//, '')}`,
+      disableLogger: true,
+      host: '127.0.0.1',
+      loadLatestCommit: false,
+      port: 0,
+    })
+    const address = started.server.address() as AddressInfo
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/service-status-badge`)
+
+    await started.close()
+
+    expect(response.status).toBe(200)
+    expect(mongoConnect).not.toHaveBeenCalled()
+  })
+
   test('commits create item reports to the append-only monthly SQLite file', async () => {
     mongoose.set('bufferTimeoutMS', 100)
     const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
@@ -1005,6 +1025,19 @@ describe('SQLite backend selection', () => {
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'source: Invalid option' })
+  })
+
+  test('rejects unbounded SQLite item improvement exports', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+
+    const response = await fetch(
+      `${baseUrl}/api/report/v3/item_improvement_recipes/availability?limit=-1`,
+    )
+
+    await close()
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'limit must be positive' })
   })
 
   test('ingests and exports item improvement cost and update facts in SQLite mode', async () => {

@@ -39,11 +39,21 @@ const parseInteger = (value: unknown, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-const parseExportCursor = (request: AppRequest) => ({
-  afterId: request.query.afterId == null ? undefined : String(request.query.afterId),
-  limit: Math.min(parseInteger(request.query.limit, 500), 1000),
-  updatedAfter: parseInteger(request.query.updatedAfter, 0),
-})
+const parseExportCursor = (request: AppRequest) => {
+  const limit = parseInteger(request.query.limit, 500)
+  const updatedAfter = parseInteger(request.query.updatedAfter, 0)
+  if (limit <= 0) {
+    throw new Error('limit must be positive')
+  }
+  if (updatedAfter < 0) {
+    throw new Error('updatedAfter must be non-negative')
+  }
+  return {
+    afterId: request.query.afterId == null ? undefined : String(request.query.afterId),
+    limit: Math.min(limit, 1000),
+    updatedAfter,
+  }
+}
 
 const createNextCursor = (records: Array<{ _id: string; lastReported: number }>, limit: number) => {
   if (records.length < limit) {
@@ -115,7 +125,12 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
 export const itemImprovementRecipeAvailability = async (
   request: AppRequest,
 ): Promise<AppResult> => {
-  const cursor = parseExportCursor(request)
+  let cursor: ReturnType<typeof parseExportCursor>
+  try {
+    cursor = parseExportCursor(request)
+  } catch (err) {
+    return badRequest(err instanceof Error ? err.message : String(err))
+  }
   const records = getItemImprovementAvailabilityFacts(cursor).map((row) => ({
     _id: row.id.toString(16).padStart(24, '0'),
     count: row.count,
@@ -141,7 +156,12 @@ export const itemImprovementRecipeAvailability = async (
 }
 
 export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<AppResult> => {
-  const cursor = parseExportCursor(request)
+  let cursor: ReturnType<typeof parseExportCursor>
+  try {
+    cursor = parseExportCursor(request)
+  } catch (err) {
+    return badRequest(err instanceof Error ? err.message : String(err))
+  }
   const records = getItemImprovementCostFacts(cursor).map((row) => ({
     _id: row.id.toString(16).padStart(24, '0'),
     ammo: row.ammo,
@@ -179,7 +199,12 @@ export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<A
 }
 
 export const itemImprovementRecipeUpdates = async (request: AppRequest): Promise<AppResult> => {
-  const cursor = parseExportCursor(request)
+  let cursor: ReturnType<typeof parseExportCursor>
+  try {
+    cursor = parseExportCursor(request)
+  } catch (err) {
+    return badRequest(err instanceof Error ? err.message : String(err))
+  }
   const records = getItemImprovementUpdateFacts(cursor).map((row) => ({
     _id: row.id.toString(16).padStart(24, '0'),
     count: row.count,
