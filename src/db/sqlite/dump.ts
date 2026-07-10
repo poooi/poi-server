@@ -101,6 +101,7 @@ export const exportAppendOnlyMonth = async ({
   const gzip = zlib.createGzip()
   const fileHash = crypto.createHash('sha256')
   const tables: Record<string, TableDumpResult> = {}
+  let completed = false
   gzip.on('data', (chunk: Buffer) => fileHash.update(chunk))
   gzip.pipe(output)
 
@@ -176,7 +177,7 @@ export const exportAppendOnlyMonth = async ({
       name: 'dropshiprecords',
       rows: db
         .prepare(
-          'SELECT public_id, ship_id, item_id, map_id, quest, cell_id, enemy, rank, is_boss, teitoku_lv, map_lv, enemy_ships1_json, enemy_ships2_json, enemy_formation, base_exp, teitoku_id, ship_counts_json, owned_ship_snapshot_json, origin FROM drop_ship_records ORDER BY id',
+          'SELECT public_id, ship_id, item_id, map_id, quest, cell_id, enemy, rank, is_boss, teitoku_lv, map_lv, enemy_ships1_json, enemy_ships2_json, enemy_formation, base_exp, teitoku_id, owned_ship_snapshot_json, origin FROM drop_ship_records ORDER BY id',
         )
         .iterate() as Iterable<Record<string, any>>,
       serialize: (row) => ({
@@ -222,6 +223,7 @@ export const exportAppendOnlyMonth = async ({
     await writeGzip(gzip, '}')
     gzip.end()
     await once(output, 'finish')
+    completed = true
     return {
       filePath,
       fileSha256: fileHash.digest('hex'),
@@ -229,6 +231,11 @@ export const exportAppendOnlyMonth = async ({
       tables,
     }
   } finally {
+    if (!completed) {
+      gzip.destroy()
+      output.destroy()
+      await fsPromises.rm(filePath, { force: true }).catch(() => undefined)
+    }
     db.close()
   }
 }

@@ -23,6 +23,8 @@ const createHash = _.memoize((text) => crypto.createHash('md5').update(text).dig
 const validItemImprovementSources = new Set(['list', 'detail', 'execution'])
 const itemImprovementMaxBatchSize = 100
 
+class ItemImprovementValidationError extends Error {}
+
 const createQuestHash = ({ title, detail }: QuestPayload | QuestRewardPayload) =>
   createHash(`${title}${detail}`)
 
@@ -77,13 +79,13 @@ const toInteger = (value: unknown) =>
 
 const validatePositiveInteger = (record: Record<string, any>, field: string) => {
   if (!isInteger(record[field]) || toInteger(record[field]) <= 0) {
-    throw new Error(`${field}: must be a positive integer`)
+    throw new ItemImprovementValidationError(`${field}: must be a positive integer`)
   }
 }
 
 const validateNonNegativeInteger = (record: Record<string, any>, field: string) => {
   if (!isInteger(record[field]) || toInteger(record[field]) < 0) {
-    throw new Error(`${field}: must be a non-negative integer`)
+    throw new ItemImprovementValidationError(`${field}: must be a non-negative integer`)
   }
 }
 
@@ -92,7 +94,7 @@ const normalizeItemImprovementRecord = (
   serverReceivedAt: number,
 ): Record<string, any> => {
   if (!validItemImprovementSources.has(record.source)) {
-    throw new Error('source: Invalid option')
+    throw new ItemImprovementValidationError('source: Invalid option')
   }
 
   validatePositiveInteger(record, 'schemaVersion')
@@ -100,14 +102,24 @@ const normalizeItemImprovementRecord = (
   validatePositiveInteger(record, 'itemId')
   validateNonNegativeInteger(record, 'observedSecondShipId')
   if (!isInteger(record.day) || toInteger(record.day) < 0 || toInteger(record.day) > 6) {
-    throw new Error('day: must be between 0 and 6')
+    throw new ItemImprovementValidationError('day: must be between 0 and 6')
   }
   if (
     !isInteger(record.clientObservedAt) ||
     toInteger(record.clientObservedAt) < Date.UTC(2013, 3, 23) ||
     toInteger(record.clientObservedAt) > serverReceivedAt + 10 * 60 * 1000
   ) {
-    throw new Error('clientObservedAt: is not a plausible timestamp')
+    throw new ItemImprovementValidationError('clientObservedAt: is not a plausible timestamp')
+  }
+
+  const normalized: Record<string, any> = {
+    ...record,
+    clientObservedAt: toInteger(record.clientObservedAt),
+    day: toInteger(record.day),
+    itemId: toInteger(record.itemId),
+    observedSecondShipId: toInteger(record.observedSecondShipId),
+    recipeId: toInteger(record.recipeId),
+    schemaVersion: toInteger(record.schemaVersion),
   }
 
   if (record.source === 'detail') {
@@ -124,8 +136,23 @@ const normalizeItemImprovementRecord = (
       'certainRemodelkit',
     ].forEach((field) => validateNonNegativeInteger(record, field))
     if (!Array.isArray(record.reqSlotItems) || !Array.isArray(record.reqUseItems)) {
-      throw new Error('required items: must be arrays')
+      throw new ItemImprovementValidationError('required items: must be arrays')
     }
+    ;[
+      'itemLevel',
+      'stage',
+      'fuel',
+      'ammo',
+      'steel',
+      'bauxite',
+      'buildkit',
+      'remodelkit',
+      'certainBuildkit',
+      'certainRemodelkit',
+    ].forEach((field) => {
+      normalized[field] = toInteger(record[field])
+    })
+    normalized.changeFlag = record.changeFlag == null ? 0 : toInteger(record.changeFlag)
   }
 
   if (record.source === 'execution') {
@@ -133,19 +160,14 @@ const normalizeItemImprovementRecord = (
     validatePositiveInteger(record, 'upgradeToItemId')
     validateNonNegativeInteger(record, 'upgradeToItemLevel')
     if (record.upgradeObserved !== true) {
-      throw new Error('upgradeObserved: Invalid literal value')
+      throw new ItemImprovementValidationError('upgradeObserved: Invalid literal value')
     }
+    normalized.itemLevel = toInteger(record.itemLevel)
+    normalized.upgradeToItemId = toInteger(record.upgradeToItemId)
+    normalized.upgradeToItemLevel = toInteger(record.upgradeToItemLevel)
   }
 
-  return {
-    ...record,
-    clientObservedAt: toInteger(record.clientObservedAt),
-    day: toInteger(record.day),
-    itemId: toInteger(record.itemId),
-    observedSecondShipId: toInteger(record.observedSecondShipId),
-    recipeId: toInteger(record.recipeId),
-    schemaVersion: toInteger(record.schemaVersion),
-  }
+  return normalized
 }
 
 const createNextCursor = (records: Array<{ _id: string; lastReported: number }>, limit: number) => {
@@ -222,7 +244,7 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
     })
     return ok({ records: records.length })
   } catch (err) {
-    if (err instanceof Error && err.message !== 'SQLite write queue is full') {
+    if (err instanceof ItemImprovementValidationError) {
       return badRequest(err.message)
     }
     return handleSqliteReportError(err, request)

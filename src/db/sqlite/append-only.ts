@@ -73,7 +73,6 @@ const ensureAppendOnlySchema = (db: Database.Database) => {
       enemy_formation INTEGER,
       base_exp INTEGER,
       teitoku_id TEXT,
-      ship_counts_json TEXT NOT NULL,
       owned_ship_snapshot_json TEXT NOT NULL,
       origin TEXT
     );
@@ -250,11 +249,10 @@ export const insertDropShipRecord = (info: Record<string, any>, receivedAt = Dat
         enemy_formation,
         base_exp,
         teitoku_id,
-        ship_counts_json,
         owned_ship_snapshot_json,
         origin
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       createPublicId(receivedAt),
@@ -274,7 +272,6 @@ export const insertDropShipRecord = (info: Record<string, any>, receivedAt = Dat
       info.enemyFormation,
       info.baseExp,
       info.teitokuId,
-      JSON.stringify(info.shipCounts || []),
       JSON.stringify(ownedShipSnapshot),
       info.origin,
     )
