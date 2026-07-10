@@ -52,3 +52,16 @@ export const runSqliteWrite = async <T>(
     release!()
   }
 }
+
+export const deleteSqliteWriteQueue = (queueKey: string) => {
+  const queue = queues.get(queueKey)
+  if (queue == null || queue.pendingWrites === 0) {
+    queues.delete(queueKey)
+  }
+}
+
+export const clearIdleSqliteWriteQueues = () => {
+  for (const key of queues.keys()) {
+    deleteSqliteWriteQueue(key)
+  }
+}

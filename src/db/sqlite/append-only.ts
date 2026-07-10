@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { stripSqliteDatabaseUrl } from '../backend'
-import { runSqliteWrite } from './write-queue'
+import { deleteSqliteWriteQueue, runSqliteWrite } from './write-queue'
 
 interface AppendOnlyState {
   appendOnlyDir: string
@@ -144,6 +144,7 @@ const closeExcessAppendOnlyHandles = (currentMonth: string) => {
     const db = state.handles.get(month)
     db?.close()
     state.handles.delete(month)
+    deleteSqliteWriteQueue(`append-only:${month}`)
   }
 }
 
@@ -162,6 +163,9 @@ export const initializeSqliteAppendOnlyStorage = (operationalDb: string) => {
 export const closeSqliteAppendOnlyStorage = () => {
   for (const db of state.handles.values()) {
     db.close()
+  }
+  for (const month of state.handles.keys()) {
+    deleteSqliteWriteQueue(`append-only:${month}`)
   }
   state.handles.clear()
   state.appendOnlyDir = ''

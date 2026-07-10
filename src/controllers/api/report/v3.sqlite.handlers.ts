@@ -56,7 +56,8 @@ const parseExportCursor = (request: AppRequest) => {
   if (updatedAfter < 0) {
     throw new Error('updatedAfter: must be non-negative')
   }
-  const afterId = request.query.afterId == null ? undefined : String(request.query.afterId)
+  const afterId =
+    request.query.afterId == null ? undefined : String(request.query.afterId).toLowerCase()
   if (afterId != null && !/^[a-f0-9]{24}$/.test(afterId)) {
     throw new Error('afterId: must be a valid ObjectId')
   }

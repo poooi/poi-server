@@ -18,6 +18,7 @@ import {
   closeSqliteOperationalStorage,
   initializeSqliteOperationalStorage,
 } from './db/sqlite/operational'
+import { clearIdleSqliteWriteQueues } from './db/sqlite/write-queue'
 
 interface StartServerOptions {
   db: string
@@ -95,6 +96,7 @@ export const startServer = async ({
     if (backend === 'sqlite') {
       closeSqliteAppendOnlyStorage()
       closeSqliteOperationalStorage()
+      clearIdleSqliteWriteQueues()
     }
     throw err
   }
