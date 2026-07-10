@@ -115,6 +115,7 @@ export const startServer = async ({
         if (backend === 'sqlite') {
           closeSqliteAppendOnlyStorage()
           closeSqliteOperationalStorage()
+          clearIdleSqliteWriteQueues()
         }
       }
     },

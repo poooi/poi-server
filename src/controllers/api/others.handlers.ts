@@ -24,13 +24,16 @@ const NightContactRecord = mongoose.model('NightContactRecord')
 export const getStatus = async (backend: DatabaseBackend = 'mongo'): Promise<AppResult> => {
   const dsk = await df()
   if (backend === 'sqlite') {
+    const sqliteCounts = {
+      ...getAppendOnlySqliteCounts(),
+      ...getOperationalSqliteCounts(),
+    }
     return ok({
+      backend,
       env: process.env.NODE_ENV,
       disk: dsk.filter((e) => e.mountpoint == '/'),
-      sqlite: {
-        ...getAppendOnlySqliteCounts(),
-        ...getOperationalSqliteCounts(),
-      },
+      mongo: sqliteCounts,
+      sqlite: sqliteCounts,
     })
   }
 

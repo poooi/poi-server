@@ -1094,6 +1094,11 @@ describe('SQLite backend selection', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
+      backend: 'sqlite',
+      mongo: {
+        CreateItemRecord: 1,
+        Quest: 1,
+      },
       sqlite: {
         BattleAPI: 1,
         CreateItemRecord: 1,
