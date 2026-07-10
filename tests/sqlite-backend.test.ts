@@ -174,6 +174,18 @@ describe('SQLite backend selection', () => {
     expect(mongoConnect).not.toHaveBeenCalled()
   })
 
+  test('rejects sqlite database URLs without a path', async () => {
+    await expect(
+      startServer({
+        db: 'sqlite:',
+        disableLogger: true,
+        host: '127.0.0.1',
+        loadLatestCommit: false,
+        port: 0,
+      }),
+    ).rejects.toThrow('SQLite database URL must include a path')
+  })
+
   test('commits create item reports to the append-only monthly SQLite file', async () => {
     mongoose.set('bufferTimeoutMS', 100)
     const { appendOnlyDir, baseUrl, close } = await startSqliteServer()

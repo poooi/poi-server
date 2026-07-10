@@ -14,10 +14,13 @@ export const stripSqliteDatabaseUrl = (db: string) => {
   if (!isSqliteDatabaseUrl(db)) {
     return db
   }
-  if (db.startsWith('sqlite://')) {
-    return db.slice('sqlite://'.length)
+  const path = db.startsWith('sqlite://')
+    ? db.slice('sqlite://'.length)
+    : db.slice('sqlite:'.length)
+  if (path === '') {
+    throw new Error('SQLite database URL must include a path')
   }
-  return db.slice('sqlite:'.length)
+  return path
 }
 
 export const resolveDatabaseBackend = (db: string): DatabaseBackend => {

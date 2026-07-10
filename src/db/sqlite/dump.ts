@@ -4,6 +4,7 @@ import { once } from 'events'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
+import { finished } from 'stream/promises'
 import zlib from 'zlib'
 
 interface ExportAppendOnlyMonthOptions {
@@ -62,25 +63,12 @@ const computeFileSha256 = async (filePath: string) => {
   const hash = crypto.createHash('sha256')
   const input = fs.createReadStream(filePath)
   input.on('data', (chunk: Buffer) => hash.update(chunk))
-  await Promise.race([
-    once(input, 'end'),
-    once(input, 'error').then(([err]) => {
-      throw err
-    }),
-  ])
+  await finished(input)
   return hash.digest('hex')
 }
 
 const waitForGzipOutput = async (gzip: zlib.Gzip, output: fs.WriteStream) => {
-  await Promise.race([
-    once(output, 'finish'),
-    once(output, 'error').then(([err]) => {
-      throw err
-    }),
-    once(gzip, 'error').then(([err]) => {
-      throw err
-    }),
-  ])
+  await Promise.all([finished(gzip), finished(output)])
 }
 
 const writeTable = async <TRow>({
