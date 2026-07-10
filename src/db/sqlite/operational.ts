@@ -350,8 +350,8 @@ export const upsertEnemyInfoRecord = (info: Record<string, any>) => {
         VALUES (?, ?, ?, ?, 1)
         ON CONFLICT(enemy_key) DO UPDATE SET
           payload_json = excluded.payload_json,
-          bombers_min = min(bombers_min, excluded.bombers_min),
-          bombers_max = max(bombers_max, excluded.bombers_max),
+          bombers_min = max(bombers_min, excluded.bombers_min),
+          bombers_max = min(bombers_max, excluded.bombers_max),
           count = count + 1
       `,
     )

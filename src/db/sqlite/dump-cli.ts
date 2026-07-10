@@ -47,7 +47,10 @@ const parseArgs = (args: string[]): DumpCliOptions => {
 
   if (options.appendOnlyDir == null || options.month == null || options.outputDir == null) {
     throw new Error(
-      'Usage: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --month <YYYY-MM> --output-dir <dir> [--cleanup]',
+      [
+        'Usage: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --month <YYYY-MM> --output-dir <dir> [--cleanup]',
+        'Optional: --now <ISO date> controls the active-month cutoff used with --cleanup.',
+      ].join('\n'),
     )
   }
 

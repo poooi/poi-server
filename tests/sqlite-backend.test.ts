@@ -564,7 +564,11 @@ describe('SQLite backend selection', () => {
       aacirecords: Array<{ poiVersion: string }>
       createitemrecords: Array<{ itemId: number; origin: string }>
       createshiprecords: Array<{ shipId: number }>
-      dropshiprecords: Array<{ mapId: number; ownedShipSnapshot: Record<string, unknown> }>
+      dropshiprecords: Array<{
+        mapId: number
+        ownedShipSnapshot: Record<string, unknown>
+        shipCounts?: unknown
+      }>
       nightcontactrecords: Array<{ contact: boolean }>
     }
 
@@ -592,6 +596,7 @@ describe('SQLite backend selection', () => {
         ownedShipSnapshot: {},
       },
     ])
+    expect(exported.dropshiprecords[0]).not.toHaveProperty('shipCounts')
     expect(exported.nightcontactrecords).toMatchObject([
       { _id: expect.stringMatching(/^[a-f0-9]{24}$/), contact: true },
     ])
@@ -780,7 +785,7 @@ describe('SQLite backend selection', () => {
 
   test('handles representative v2 operational endpoints in SQLite mode', async () => {
     mongoose.set('bufferTimeoutMS', 100)
-    const { baseUrl, close } = await startSqliteServer()
+    const { operationalUrl, baseUrl, close } = await startSqliteServer()
 
     const firstRank = await postReport(baseUrl, '/api/report/v2/select_rank', {
       teitokuId: 'admiral-1',
@@ -826,14 +831,47 @@ describe('SQLite backend selection', () => {
       bombersMin: 1,
       bombersMax: 5,
     })
+    const secondEnemyInfo = await postReport(baseUrl, '/api/report/v2/enemy_info', {
+      ships1: [1],
+      levels1: [1],
+      hp1: [10],
+      stats1: [[1]],
+      equips1: [[2]],
+      ships2: [],
+      levels2: [],
+      hp2: [],
+      stats2: [],
+      equips2: [],
+      planes: [3],
+      bombersMin: 3,
+      bombersMax: 4,
+    })
 
     await close()
+    const db = new Database(operationalUrl.replace(/^sqlite:\/\//, ''), { readonly: true })
+    const enemyRow = (() => {
+      try {
+        return db.prepare('SELECT bombers_min, bombers_max, count FROM enemy_infos').get() as {
+          bombers_max: number
+          bombers_min: number
+          count: number
+        }
+      } finally {
+        db.close()
+      }
+    })()
 
     expect(firstRank.status).toBe(200)
     expect(secondRank.status).toBe(200)
     expect(recipe.status).toBe(200)
     expect(shipStat.status).toBe(200)
     expect(enemyInfo.status).toBe(200)
+    expect(secondEnemyInfo.status).toBe(200)
+    expect(enemyRow).toEqual({
+      bombers_max: 4,
+      bombers_min: 3,
+      count: 2,
+    })
   })
 
   test('handles remaining v2 record endpoints in SQLite mode without Mongo fallback', async () => {

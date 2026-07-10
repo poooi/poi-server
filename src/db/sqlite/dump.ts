@@ -186,7 +186,6 @@ export const exportAppendOnlyMonth = async ({
         ownedShipSnapshot: JSON.parse(row.owned_ship_snapshot_json),
         quest: row.quest,
         rank: row.rank,
-        shipCounts: JSON.parse(row.ship_counts_json),
         shipId: row.ship_id,
         teitokuId: row.teitoku_id,
         teitokuLv: row.teitoku_lv,
