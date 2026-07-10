@@ -5,6 +5,9 @@ import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
+import { type DatabaseBackend } from '../../db/backend'
+import { getAppendOnlySqliteCounts } from '../../db/sqlite/append-only'
+import { getOperationalSqliteCounts } from '../../db/sqlite/operational'
 import { ok, type AppResult } from '../../http/result'
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
@@ -18,8 +21,19 @@ const BattleAPI = mongoose.model('BattleAPI')
 const AACIRecord = mongoose.model('AACIRecord')
 const NightContactRecord = mongoose.model('NightContactRecord')
 
-export const getStatus = async (): Promise<AppResult> => {
+export const getStatus = async (backend: DatabaseBackend = 'mongo'): Promise<AppResult> => {
   const dsk = await df()
+  if (backend === 'sqlite') {
+    return ok({
+      env: process.env.NODE_ENV,
+      disk: dsk.filter((e) => e.mountpoint == '/'),
+      sqlite: {
+        ...getAppendOnlySqliteCounts(),
+        ...getOperationalSqliteCounts(),
+      },
+    })
+  }
+
   return ok({
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),

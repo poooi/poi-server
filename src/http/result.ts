@@ -12,3 +12,8 @@ export const badRequest = (message: string): AppResult => ({
 })
 
 export const internalServerError = (): AppResult => ({ status: 500 })
+
+export const serviceUnavailable = (message: string): AppResult => ({
+  body: { error: message },
+  status: 503,
+})

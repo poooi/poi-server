@@ -4,6 +4,16 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
+import { isMongoDatabaseUrl, isSqliteDatabaseUrl, resolveDatabaseBackend } from './db/backend'
+import {
+  closeSqliteAppendOnlyStorage,
+  initializeSqliteAppendOnlyStorage,
+} from './db/sqlite/append-only'
+import {
+  closeSqliteOperationalStorage,
+  initializeSqliteOperationalStorage,
+} from './db/sqlite/operational'
+import { resetSqliteWriteQueue } from './db/sqlite/write-queue'
 
 interface StartServerOptions {
   db: string
@@ -34,6 +44,16 @@ export const loadLatestCommit = () => {
 }
 
 export const connectDatabase = async (db: string) => {
+  if (isSqliteDatabaseUrl(db)) {
+    resetSqliteWriteQueue()
+    initializeSqliteOperationalStorage(db)
+    initializeSqliteAppendOnlyStorage(db)
+    return
+  }
+  if (!isMongoDatabaseUrl(db)) {
+    throw new Error(`Unsupported database URL scheme: ${db}`)
+  }
+
   try {
     await mongoose.connect(db, {
       useNewUrlParser: true,
@@ -54,15 +74,18 @@ export const startServer = async ({
   loadLatestCommit: shouldLoadLatestCommit,
   port,
 }: StartServerOptions): Promise<StartedServer> => {
+  const backend = resolveDatabaseBackend(db)
   await connectDatabase(db)
 
-  mongoose.connection.on('error', (err: Error) => {
-    throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
-    )
-  })
+  if (isMongoDatabaseUrl(db)) {
+    mongoose.connection.on('error', (err: Error) => {
+      throw new Error(
+        `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      )
+    })
+  }
 
-  const app = createApp({ disableLogger })
+  const app = createApp({ backend, disableLogger })
   await app.listen({ host, port })
   const server: Server = app.server
 
@@ -72,6 +95,12 @@ export const startServer = async ({
 
   return {
     server,
-    close: () => app.close(),
+    close: async () => {
+      await app.close()
+      if (backend === 'sqlite') {
+        closeSqliteAppendOnlyStorage()
+        closeSqliteOperationalStorage()
+      }
+    },
   }
 }

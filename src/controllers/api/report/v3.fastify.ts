@@ -1,36 +1,38 @@
 import { type FastifyPluginAsync } from 'fastify'
 
 import { sendResult, toAppRequest } from '../../../http/fastify'
-import {
-  itemImprovementRecipe,
-  itemImprovementRecipeAvailability,
-  itemImprovementRecipeCosts,
-  itemImprovementRecipeUpdates,
-  knownQuests,
-  quest,
-  questReward,
-} from './v3.handlers'
+import { type DatabaseBackend } from '../../../db/backend'
+import * as mongoHandlers from './v3.handlers'
+import * as sqliteHandlers from './v3.sqlite.handlers'
 
-export const registerReportV3Routes: FastifyPluginAsync = async (app) => {
+interface ReportRouteOptions {
+  backend?: DatabaseBackend
+}
+
+export const registerReportV3Routes: FastifyPluginAsync<ReportRouteOptions> = async (
+  app,
+  { backend = 'mongo' },
+) => {
+  const handlers = backend === 'sqlite' ? sqliteHandlers : mongoHandlers
   app.post('/item_improvement_recipe', async (request, reply) =>
-    sendResult(reply, await itemImprovementRecipe(toAppRequest(request))),
+    sendResult(reply, await handlers.itemImprovementRecipe(toAppRequest(request))),
   )
   app.get('/item_improvement_recipes/availability', async (request, reply) =>
-    sendResult(reply, await itemImprovementRecipeAvailability(toAppRequest(request))),
+    sendResult(reply, await handlers.itemImprovementRecipeAvailability(toAppRequest(request))),
   )
   app.get('/item_improvement_recipes/costs', async (request, reply) =>
-    sendResult(reply, await itemImprovementRecipeCosts(toAppRequest(request))),
+    sendResult(reply, await handlers.itemImprovementRecipeCosts(toAppRequest(request))),
   )
   app.get('/item_improvement_recipes/updates', async (request, reply) =>
-    sendResult(reply, await itemImprovementRecipeUpdates(toAppRequest(request))),
+    sendResult(reply, await handlers.itemImprovementRecipeUpdates(toAppRequest(request))),
   )
   app.get('/known_quests', async (request, reply) =>
-    sendResult(reply, await knownQuests(toAppRequest(request))),
+    sendResult(reply, await handlers.knownQuests(toAppRequest(request))),
   )
   app.post('/quest', async (request, reply) =>
-    sendResult(reply, await quest(toAppRequest(request))),
+    sendResult(reply, await handlers.quest(toAppRequest(request))),
   )
   app.post('/quest_reward', async (request, reply) =>
-    sendResult(reply, await questReward(toAppRequest(request))),
+    sendResult(reply, await handlers.questReward(toAppRequest(request))),
   )
 }

@@ -2,11 +2,13 @@ import Fastify from 'fastify'
 import { randomUUID } from 'crypto'
 
 import { config } from './config'
+import { type DatabaseBackend } from './db/backend'
 import './models'
 import { registerRoutes } from './controllers'
 import { registerSentryHooks } from './sentry'
 
 interface CreateAppOptions {
+  backend?: DatabaseBackend
   disableLogger?: boolean
 }
 
@@ -70,6 +72,7 @@ const createLoggerOptions = (disableLogger: boolean) =>
       }
 
 export const createApp = ({
+  backend = 'mongo',
   disableLogger = Boolean(config.disableLogger),
 }: CreateAppOptions = {}) => {
   const app = Fastify({
@@ -93,7 +96,7 @@ export const createApp = ({
     return reply.code(statusCode).send(statusCode >= 500 ? undefined : { error: message })
   })
 
-  void app.register(registerRoutes)
+  void app.register(registerRoutes, { backend })
 
   return app
 }
