@@ -96,10 +96,13 @@ export const startServer = async ({
   return {
     server,
     close: async () => {
-      await app.close()
-      if (backend === 'sqlite') {
-        closeSqliteAppendOnlyStorage()
-        closeSqliteOperationalStorage()
+      try {
+        await app.close()
+      } finally {
+        if (backend === 'sqlite') {
+          closeSqliteAppendOnlyStorage()
+          closeSqliteOperationalStorage()
+        }
       }
     },
   }

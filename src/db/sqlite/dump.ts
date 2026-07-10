@@ -67,7 +67,7 @@ const writeTable = async <TRow>({
   await writeGzip(gzip, `${includeComma ? ',' : ''}"${name}":[`)
   for (const row of rows) {
     const json = JSON.stringify(serialize(row))
-    tableHash.update(json)
+    tableHash.update(`${json.length}:${json}`)
     await writeGzip(gzip, `${count === 0 ? '' : ','}${json}`)
     count += 1
   }

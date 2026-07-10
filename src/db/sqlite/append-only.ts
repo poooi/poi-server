@@ -18,9 +18,7 @@ const state: AppendOnlyState = {
 const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
 
 const createPublicId = (time: number) => {
-  const timestamp = Math.floor(time / 1000)
-    .toString(16)
-    .padStart(8, '0')
+  const timestamp = (Math.floor(time / 1000) >>> 0).toString(16).padStart(8, '0')
   return `${timestamp}${crypto.randomBytes(8).toString('hex')}`
 }
 
@@ -259,7 +257,7 @@ export const insertDropShipRecord = (info: Record<string, any>, receivedAt = Dat
       info.enemyFormation,
       info.baseExp,
       info.teitokuId,
-      JSON.stringify(info.shipCounts),
+      JSON.stringify(info.shipCounts || []),
       JSON.stringify(ownedShipSnapshot),
       info.origin,
     )
@@ -357,7 +355,11 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
     addCounts(db)
   }
 
-  if (state.appendOnlyDir !== '' && fs.existsSync(state.appendOnlyDir)) {
+  if (
+    process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES === '1' &&
+    state.appendOnlyDir !== '' &&
+    fs.existsSync(state.appendOnlyDir)
+  ) {
     for (const fileName of fs.readdirSync(state.appendOnlyDir)) {
       if (!/^append-only-\d{4}-\d{2}\.sqlite$/.test(fileName)) {
         continue

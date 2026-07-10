@@ -43,6 +43,7 @@ describe('SQLite backend selection', () => {
   let tempDir: string | undefined
   let originalAppendOnlyDir: string | undefined
   let originalQueueSize: string | undefined
+  let originalStatusScan: string | undefined
 
   beforeEach(() => {
     sentryMocks.startInactiveSpan.mockReturnValue({
@@ -73,6 +74,11 @@ describe('SQLite backend selection', () => {
       delete process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE
     } else {
       process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE = originalQueueSize
+    }
+    if (originalStatusScan == null) {
+      delete process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES
+    } else {
+      process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES = originalStatusScan
     }
     vi.restoreAllMocks()
   })
@@ -955,6 +961,10 @@ describe('SQLite backend selection', () => {
     await close()
 
     expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('public, max-age=60')
+    expect(response.headers.get('cdn-cache-control')).toBe(
+      'public, max-age=600, stale-while-revalidate=60, stale-if-error=300',
+    )
     expect(await response.json()).toEqual({ quests: [1, 10, 2] })
   })
 
@@ -1002,6 +1012,8 @@ describe('SQLite backend selection', () => {
   })
 
   test('SQLite status counts unopened append-only monthly files on disk', async () => {
+    originalStatusScan = process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES
+    process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES = '1'
     const sqliteEnvironment = await createTempSqliteEnvironment()
     const firstStart = await startSqliteServer(sqliteEnvironment)
     await postReport(firstStart.baseUrl, '/api/report/v2/create_item', {

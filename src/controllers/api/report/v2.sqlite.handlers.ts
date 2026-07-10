@@ -1,5 +1,6 @@
 import * as mongoHandlers from './v2.handlers'
 import semver from 'semver'
+import { withCloudflareCache } from '../../../http/cache-control'
 import { ok, serviceUnavailable, type AppResult } from '../../../http/result'
 import {
   insertAACIRecord,
@@ -131,7 +132,8 @@ const saveOperationalRecord = async (request: AppRequest, kind: string): Promise
 
 export const remodelItem = (request: AppRequest) => saveOperationalRecord(request, 'remodel_item')
 export const passEvent = (request: AppRequest) => saveOperationalRecord(request, 'pass_event')
-export const knownQuests = async (): Promise<AppResult> => ok({ quests: getKnownQuestIds() })
+export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
+  withCloudflareCache(request, ok({ quests: getKnownQuestIds() }))
 export const questNoop = mongoHandlers.questNoop
 export const battleApi = (request: AppRequest) => saveOperationalRecord(request, 'battle_api')
 export const knownRecipes = mongoHandlers.knownRecipes
