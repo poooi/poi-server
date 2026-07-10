@@ -3,7 +3,7 @@ import _ from 'lodash'
 
 import { withCloudflareCache } from '../../../http/cache-control'
 import { type AppRequest } from '../../../http/request'
-import { ok, type AppResult } from '../../../http/result'
+import { badRequest, ok, serviceUnavailable, type AppResult } from '../../../http/result'
 import {
   upsertQuestRecords,
   getKnownQuestKeys,
@@ -18,7 +18,6 @@ import {
 import { runSqliteWrite, SqliteWriteQueueFullError } from '../../../db/sqlite/write-queue'
 import { handleReportError, parseReportInfo } from './shared'
 import { type QuestPayload, type QuestRewardPayload } from '../../../models'
-import { serviceUnavailable } from '../../../http/result'
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
 
@@ -30,6 +29,31 @@ const handleSqliteReportError = (err: Error, request: AppRequest): AppResult => 
     return serviceUnavailable(err.message)
   }
   return handleReportError(err, request)
+}
+
+const parseInteger = (value: unknown, fallback: number) => {
+  if (value == null) {
+    return fallback
+  }
+  const parsed = parseInt(String(value), 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const parseExportCursor = (request: AppRequest) => ({
+  afterId: request.query.afterId == null ? undefined : String(request.query.afterId),
+  limit: Math.min(parseInteger(request.query.limit, 500), 1000),
+  updatedAfter: parseInteger(request.query.updatedAfter, 0),
+})
+
+const createNextCursor = (records: Array<{ _id: string; lastReported: number }>, limit: number) => {
+  if (records.length < limit) {
+    return null
+  }
+  const last = records[records.length - 1]
+  return {
+    afterId: last._id,
+    updatedAfter: last.lastReported,
+  }
 }
 
 export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
@@ -48,7 +72,7 @@ export const quest = async (request: AppRequest): Promise<AppResult> => {
       key: createQuestHash(questItem),
       origin: info.origin,
     }))
-    await runSqliteWrite(() => upsertQuestRecords(records))
+    await runSqliteWrite('operational', () => upsertQuestRecords(records))
     return ok()
   } catch (err) {
     return handleSqliteReportError(err, request)
@@ -58,7 +82,7 @@ export const quest = async (request: AppRequest): Promise<AppResult> => {
 export const questReward = async (request: AppRequest): Promise<AppResult> => {
   try {
     const info = parseReportInfo(request) as QuestRewardPayload
-    await runSqliteWrite(() =>
+    await runSqliteWrite('operational', () =>
       upsertQuestRewardRecord({
         ...info,
         key: createQuestHash(info),
@@ -74,11 +98,13 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
   try {
     const info = parseReportInfo(request)
     if (info.source === 'list') {
-      await runSqliteWrite(() => upsertItemImprovementAvailabilityFact(info))
+      await runSqliteWrite('operational', () => upsertItemImprovementAvailabilityFact(info))
     } else if (info.source === 'detail') {
-      await runSqliteWrite(() => upsertItemImprovementCostFact(info))
+      await runSqliteWrite('operational', () => upsertItemImprovementCostFact(info))
     } else if (info.source === 'execution') {
-      await runSqliteWrite(() => upsertItemImprovementUpdateFact(info))
+      await runSqliteWrite('operational', () => upsertItemImprovementUpdateFact(info))
+    } else {
+      return badRequest('source: Invalid option')
     }
     return ok({ records: 1 })
   } catch (err) {
@@ -86,64 +112,98 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
   }
 }
 
-export const itemImprovementRecipeAvailability = async (request: AppRequest): Promise<AppResult> =>
-  withCloudflareCache(
+export const itemImprovementRecipeAvailability = async (
+  request: AppRequest,
+): Promise<AppResult> => {
+  const cursor = parseExportCursor(request)
+  const records = getItemImprovementAvailabilityFacts(cursor).map((row) => ({
+    _id: row.id.toString(16).padStart(24, '0'),
+    count: row.count,
+    day: row.day,
+    firstClientObservedAt: row.first_client_observed_at,
+    firstReported: row.first_reported,
+    itemId: row.item_id,
+    lastClientObservedAt: row.last_client_observed_at,
+    lastReported: row.last_reported,
+    observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
+    observedSecondShipId: row.observed_second_ship_id,
+    recipeId: row.recipe_id,
+    schemaVersion: row.schema_version,
+    sources: JSON.parse(row.sources_json),
+  }))
+  return withCloudflareCache(
     request,
     ok({
-      records: getItemImprovementAvailabilityFacts().map((row) => ({
-        _id: row.id.toString(16).padStart(24, '0'),
-        count: row.count,
-        day: row.day,
-        firstClientObservedAt: row.first_client_observed_at,
-        firstReported: row.first_reported,
-        itemId: row.item_id,
-        lastClientObservedAt: row.last_client_observed_at,
-        lastReported: row.last_reported,
-        observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
-        observedSecondShipId: row.observed_second_ship_id,
-        recipeId: row.recipe_id,
-        schemaVersion: row.schema_version,
-        sources: JSON.parse(row.sources_json),
-      })),
-      next: null,
+      records,
+      next: createNextCursor(records, cursor.limit),
     }),
   )
+}
 
-export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<AppResult> =>
-  withCloudflareCache(
+export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<AppResult> => {
+  const cursor = parseExportCursor(request)
+  const records = getItemImprovementCostFacts(cursor).map((row) => ({
+    _id: row.id.toString(16).padStart(24, '0'),
+    ammo: row.ammo,
+    bauxite: row.bauxite,
+    buildkit: row.buildkit,
+    certainBuildkit: row.certain_buildkit,
+    certainRemodelkit: row.certain_remodelkit,
+    count: row.count,
+    day: row.day,
+    firstClientObservedAt: row.first_client_observed_at,
+    firstReported: row.first_reported,
+    fuel: row.fuel,
+    itemId: row.item_id,
+    itemLevel: row.item_level,
+    lastClientObservedAt: row.last_client_observed_at,
+    lastReported: row.last_reported,
+    observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
+    observedSecondShipId: row.observed_second_ship_id,
+    recipeId: row.recipe_id,
+    remodelkit: row.remodelkit,
+    reqSlotItems: JSON.parse(row.req_slot_items_json),
+    reqUseItems: JSON.parse(row.req_use_items_json),
+    schemaVersion: row.schema_version,
+    sources: JSON.parse(row.sources_json),
+    stage: row.stage,
+    steel: row.steel,
+  }))
+  return withCloudflareCache(
     request,
     ok({
-      records: getItemImprovementCostFacts().map((row) => ({
-        _id: row.id.toString(16).padStart(24, '0'),
-        count: row.count,
-        itemId: row.item_id,
-        itemLevel: row.item_level,
-        observedSecondShipId: row.observed_second_ship_id,
-        recipeId: row.recipe_id,
-        reqSlotItems: JSON.parse(row.req_slot_items_json),
-        reqUseItems: JSON.parse(row.req_use_items_json),
-        sources: JSON.parse(row.sources_json),
-      })),
-      next: null,
+      records,
+      next: createNextCursor(records, cursor.limit),
     }),
   )
+}
 
-export const itemImprovementRecipeUpdates = async (request: AppRequest): Promise<AppResult> =>
-  withCloudflareCache(
+export const itemImprovementRecipeUpdates = async (request: AppRequest): Promise<AppResult> => {
+  const cursor = parseExportCursor(request)
+  const records = getItemImprovementUpdateFacts(cursor).map((row) => ({
+    _id: row.id.toString(16).padStart(24, '0'),
+    count: row.count,
+    day: row.day,
+    firstClientObservedAt: row.first_client_observed_at,
+    firstReported: row.first_reported,
+    itemId: row.item_id,
+    itemLevel: row.item_level,
+    lastClientObservedAt: row.last_client_observed_at,
+    lastReported: row.last_reported,
+    observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
+    observedSecondShipId: row.observed_second_ship_id,
+    recipeId: row.recipe_id,
+    schemaVersion: row.schema_version,
+    sources: JSON.parse(row.sources_json),
+    upgradeObserved: Boolean(row.upgrade_observed),
+    upgradeToItemId: row.upgrade_to_item_id,
+    upgradeToItemLevel: row.upgrade_to_item_level,
+  }))
+  return withCloudflareCache(
     request,
     ok({
-      records: getItemImprovementUpdateFacts().map((row) => ({
-        _id: row.id.toString(16).padStart(24, '0'),
-        count: row.count,
-        itemId: row.item_id,
-        itemLevel: row.item_level,
-        observedSecondShipId: row.observed_second_ship_id,
-        recipeId: row.recipe_id,
-        sources: JSON.parse(row.sources_json),
-        upgradeObserved: Boolean(row.upgrade_observed),
-        upgradeToItemId: row.upgrade_to_item_id,
-        upgradeToItemLevel: row.upgrade_to_item_level,
-      })),
-      next: null,
+      records,
+      next: createNextCursor(records, cursor.limit),
     }),
   )
+}

@@ -584,7 +584,19 @@ export const upsertItemImprovementUpdateFact = (
     )
 }
 
-export const getItemImprovementAvailabilityFacts = () =>
+interface ExportFactCursor {
+  afterId?: string
+  limit: number
+  updatedAfter: number
+}
+
+const parseAfterId = (afterId: string | undefined) => (afterId == null ? 0 : parseInt(afterId, 16))
+
+export const getItemImprovementAvailabilityFacts = ({
+  afterId,
+  limit,
+  updatedAfter,
+}: ExportFactCursor) =>
   getOperationalDb()
     .prepare(
       `
@@ -603,10 +615,14 @@ export const getItemImprovementAvailabilityFacts = () =>
           last_client_observed_at,
           count
         FROM item_improvement_availability_facts
+        WHERE
+          last_reported > ?
+          OR (last_reported = ? AND id > ?)
         ORDER BY last_reported, id
+        LIMIT ?
       `,
     )
-    .all() as Array<{
+    .all(updatedAfter, updatedAfter, parseAfterId(afterId), limit) as Array<{
     count: number
     day: number
     first_client_observed_at: number
@@ -622,28 +638,65 @@ export const getItemImprovementAvailabilityFacts = () =>
     sources_json: string
   }>
 
-export const getItemImprovementCostFacts = () =>
+export const getItemImprovementCostFacts = (cursor: ExportFactCursor) =>
   getOperationalDb()
-    .prepare('SELECT * FROM item_improvement_cost_facts ORDER BY last_reported, id')
-    .all() as Array<Record<string, any>>
+    .prepare(
+      `
+        SELECT *
+        FROM item_improvement_cost_facts
+        WHERE
+          last_reported > ?
+          OR (last_reported = ? AND id > ?)
+        ORDER BY last_reported, id
+        LIMIT ?
+      `,
+    )
+    .all(
+      cursor.updatedAfter,
+      cursor.updatedAfter,
+      parseAfterId(cursor.afterId),
+      cursor.limit,
+    ) as Array<Record<string, any>>
 
-export const getItemImprovementUpdateFacts = () =>
+export const getItemImprovementUpdateFacts = (cursor: ExportFactCursor) =>
   getOperationalDb()
-    .prepare('SELECT * FROM item_improvement_update_facts ORDER BY last_reported, id')
-    .all() as Array<Record<string, any>>
+    .prepare(
+      `
+        SELECT *
+        FROM item_improvement_update_facts
+        WHERE
+          last_reported > ?
+          OR (last_reported = ? AND id > ?)
+        ORDER BY last_reported, id
+        LIMIT ?
+      `,
+    )
+    .all(
+      cursor.updatedAfter,
+      cursor.updatedAfter,
+      parseAfterId(cursor.afterId),
+      cursor.limit,
+    ) as Array<Record<string, any>>
 
 const countRows = (table: string) =>
   (getOperationalDb().prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number })
     .count
 
+const countOperationalRecords = (kind: string) =>
+  (
+    getOperationalDb()
+      .prepare('SELECT COUNT(*) AS count FROM operational_records WHERE kind = ?')
+      .get(kind) as { count: number }
+  ).count
+
 export const getOperationalSqliteCounts = (): Record<string, number> => ({
-  BattleAPI: countRows('operational_records'),
+  BattleAPI: countOperationalRecords('battle_api'),
   EnemyInfo: countRows('enemy_infos'),
-  PassEventRecord: countRows('operational_records'),
+  PassEventRecord: countOperationalRecords('pass_event'),
   Quest: countRows('quests'),
   QuestReward: countRows('quest_rewards'),
   RecipeRecord: countRows('recipe_records'),
-  RemodelItemRecord: countRows('operational_records'),
+  RemodelItemRecord: countOperationalRecords('remodel_item'),
   SelectRankRecord: countRows('select_rank_records'),
   ShipStat: countRows('ship_stats'),
 })

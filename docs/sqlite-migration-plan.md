@@ -125,7 +125,9 @@ routed by report receipt month.
 
 ## SQLite access layer
 
-Use Drizzle ORM with a SQLite driver such as `better-sqlite3`.
+Use `better-sqlite3` behind backend-specific repository/action functions. This keeps SQLite access
+explicit for the initial migration and avoids adding an ORM dependency before the table shapes and
+dump lifecycle have stabilized.
 
 Use backend-specific actions/repositories rather than forcing MongoDB and SQLite through a
 lowest-common-denominator abstraction. Shared code should include route registration, request parsing,
@@ -290,8 +292,8 @@ Add structured logs and metrics for:
 ### Phase 1: Schema contract
 
 - Define the exact SQLite table matrix for append-only and operational data.
-- Define Drizzle schemas for append-only tables.
-- Define Drizzle schemas for operational tables.
+- Define exact SQLite schemas for append-only tables.
+- Define exact SQLite schemas for operational tables.
 - Define `public_id` generation.
 - Define dump serialization for each append-only table.
 

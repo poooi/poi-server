@@ -81,10 +81,10 @@ export const aaci = async (request: AppRequest): Promise<AppResult> => {
 
 export const selectRank = async (request: AppRequest): Promise<AppResult> => {
   try {
-    await runSqliteWrite(() => upsertSelectRankRecord(parseReportInfo(request)))
+    await runSqliteWrite('operational', () => upsertSelectRankRecord(parseReportInfo(request)))
     return ok()
   } catch (err) {
-    return handleReportError(err, request)
+    return handleSqliteReportError(err, request)
   }
 }
 
@@ -92,38 +92,40 @@ export const remodelRecipe = async (request: AppRequest): Promise<AppResult> => 
   try {
     const info = parseReportInfo(request)
     if (info.stage !== -1) {
-      await runSqliteWrite(() => upsertRecipeRecord(info))
+      await runSqliteWrite('operational', () => upsertRecipeRecord(info))
     }
     return ok()
   } catch (err) {
-    return handleReportError(err, request)
+    return handleSqliteReportError(err, request)
   }
 }
 
 export const shipStat = async (request: AppRequest): Promise<AppResult> => {
   try {
-    await runSqliteWrite(() => upsertShipStatRecord(parseReportInfo(request)))
+    await runSqliteWrite('operational', () => upsertShipStatRecord(parseReportInfo(request)))
     return ok()
   } catch (err) {
-    return handleReportError(err, request)
+    return handleSqliteReportError(err, request)
   }
 }
 
 export const enemyInfo = async (request: AppRequest): Promise<AppResult> => {
   try {
-    await runSqliteWrite(() => upsertEnemyInfoRecord(parseReportInfo(request)))
+    await runSqliteWrite('operational', () => upsertEnemyInfoRecord(parseReportInfo(request)))
     return ok()
   } catch (err) {
-    return handleReportError(err, request)
+    return handleSqliteReportError(err, request)
   }
 }
 
 const saveOperationalRecord = async (request: AppRequest, kind: string): Promise<AppResult> => {
   try {
-    await runSqliteWrite(() => insertOperationalRecord(kind, parseReportInfo(request)))
+    await runSqliteWrite('operational', () =>
+      insertOperationalRecord(kind, parseReportInfo(request)),
+    )
     return ok()
   } catch (err) {
-    return handleReportError(err, request)
+    return handleSqliteReportError(err, request)
   }
 }
 

@@ -40,7 +40,6 @@
     "better-sqlite3": "^12.11.1",
     "bluebird": "^3.7.2",
     "dotenv": "^8.2.0",
-    "drizzle-orm": "^0.45.2",
     "fastify": "^5.9.0",
     "lodash": "^4.17.20",
     "mongoose": "^5.11.13",

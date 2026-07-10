@@ -131,6 +131,9 @@ const getAppendOnlyDatabase = (month: string) => {
   return db
 }
 
+const countTable = (db: Database.Database, table: string) =>
+  (db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count
+
 export const initializeSqliteAppendOnlyStorage = (operationalDb: string) => {
   closeSqliteAppendOnlyStorage()
   const operationalPath = stripSqlitePrefix(operationalDb)
@@ -147,7 +150,7 @@ export const closeSqliteAppendOnlyStorage = () => {
 }
 
 export const insertCreateItemRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
-  runSqliteWrite(() => {
+  runSqliteWrite(`append-only:${getUtcMonth(receivedAt)}`, () => {
     const month = getUtcMonth(receivedAt)
     const db = getAppendOnlyDatabase(month)
     db.prepare(
@@ -177,7 +180,7 @@ export const insertCreateItemRecord = (info: Record<string, any>, receivedAt = D
   })
 
 export const insertCreateShipRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
-  runSqliteWrite(() => {
+  runSqliteWrite(`append-only:${getUtcMonth(receivedAt)}`, () => {
     const month = getUtcMonth(receivedAt)
     const db = getAppendOnlyDatabase(month)
     db.prepare(
@@ -211,7 +214,7 @@ export const insertCreateShipRecord = (info: Record<string, any>, receivedAt = D
   })
 
 export const insertDropShipRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
-  runSqliteWrite(() => {
+  runSqliteWrite(`append-only:${getUtcMonth(receivedAt)}`, () => {
     const month = getUtcMonth(receivedAt)
     const db = getAppendOnlyDatabase(month)
     const ownedShipSnapshot = info.mapId < 73 ? {} : info.ownedShipSnapshot
@@ -266,7 +269,7 @@ export const insertDropShipRecord = (info: Record<string, any>, receivedAt = Dat
   })
 
 export const insertNightContactRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
-  runSqliteWrite(() => {
+  runSqliteWrite(`append-only:${getUtcMonth(receivedAt)}`, () => {
     const month = getUtcMonth(receivedAt)
     const db = getAppendOnlyDatabase(month)
     db.prepare(
@@ -296,7 +299,7 @@ export const insertNightContactRecord = (info: Record<string, any>, receivedAt =
   })
 
 export const insertAACIRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
-  runSqliteWrite(() => {
+  runSqliteWrite(`append-only:${getUtcMonth(receivedAt)}`, () => {
     const month = getUtcMonth(receivedAt)
     const db = getAppendOnlyDatabase(month)
     db.prepare(
@@ -343,24 +346,36 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
     DropShipRecord: 0,
     NightContactRecord: 0,
   }
-  for (const db of state.handles.values()) {
-    counts.AACIRecord += (
-      db.prepare('SELECT COUNT(*) AS count FROM aaci_records').get() as {
-        count: number
+  const countedFiles = new Set<string>()
+  const addCounts = (db: Database.Database) => {
+    counts.AACIRecord += countTable(db, 'aaci_records')
+    counts.CreateItemRecord += countTable(db, 'create_item_records')
+    counts.CreateShipRecord += countTable(db, 'create_ship_records')
+    counts.DropShipRecord += countTable(db, 'drop_ship_records')
+    counts.NightContactRecord += countTable(db, 'night_contact_records')
+  }
+
+  for (const [month, db] of state.handles.entries()) {
+    countedFiles.add(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
+    addCounts(db)
+  }
+
+  if (state.appendOnlyDir !== '' && fs.existsSync(state.appendOnlyDir)) {
+    for (const fileName of fs.readdirSync(state.appendOnlyDir)) {
+      if (!/^append-only-\d{4}-\d{2}\.sqlite$/.test(fileName)) {
+        continue
       }
-    ).count
-    counts.CreateItemRecord += (
-      db.prepare('SELECT COUNT(*) AS count FROM create_item_records').get() as { count: number }
-    ).count
-    counts.CreateShipRecord += (
-      db.prepare('SELECT COUNT(*) AS count FROM create_ship_records').get() as { count: number }
-    ).count
-    counts.DropShipRecord += (
-      db.prepare('SELECT COUNT(*) AS count FROM drop_ship_records').get() as { count: number }
-    ).count
-    counts.NightContactRecord += (
-      db.prepare('SELECT COUNT(*) AS count FROM night_contact_records').get() as { count: number }
-    ).count
+      const filePath = path.join(state.appendOnlyDir, fileName)
+      if (countedFiles.has(filePath)) {
+        continue
+      }
+      const db = new Database(filePath, { readonly: true })
+      try {
+        addCounts(db)
+      } finally {
+        db.close()
+      }
+    }
   }
   return counts
 }

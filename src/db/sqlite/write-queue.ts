@@ -4,36 +4,55 @@ export class SqliteWriteQueueFullError extends Error {
   }
 }
 
-let pendingWrites = 0
-let tail: Promise<void> = Promise.resolve()
+interface QueueState {
+  pendingWrites: number
+  tail: Promise<void>
+}
+
+const queues = new Map<string, QueueState>()
 
 const getMaxQueueSize = () => {
   const value = parseInt(process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE || '1000', 10)
   return Number.isFinite(value) ? value : 1000
 }
 
-export const runSqliteWrite = async <T>(write: () => T): Promise<T> => {
-  if (pendingWrites >= getMaxQueueSize()) {
+const getQueue = (key: string) => {
+  let queue = queues.get(key)
+  if (queue == null) {
+    queue = {
+      pendingWrites: 0,
+      tail: Promise.resolve(),
+    }
+    queues.set(key, queue)
+  }
+  return queue
+}
+
+export const runSqliteWrite = async <T>(
+  queueKey: string,
+  write: () => T | Promise<T>,
+): Promise<T> => {
+  const queue = getQueue(queueKey)
+  if (queue.pendingWrites >= getMaxQueueSize()) {
     throw new SqliteWriteQueueFullError()
   }
 
-  pendingWrites += 1
-  const previous = tail
+  queue.pendingWrites += 1
+  const previous = queue.tail
   let release: () => void
-  tail = new Promise<void>((resolve) => {
+  queue.tail = new Promise<void>((resolve) => {
     release = resolve
   })
 
   try {
     await previous
-    return write()
+    return await write()
   } finally {
-    pendingWrites -= 1
+    queue.pendingWrites -= 1
     release!()
   }
 }
 
 export const resetSqliteWriteQueue = () => {
-  pendingWrites = 0
-  tail = Promise.resolve()
+  queues.clear()
 }

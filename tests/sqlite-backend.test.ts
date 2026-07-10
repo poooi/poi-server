@@ -89,10 +89,12 @@ describe('SQLite backend selection', () => {
     }
   }
 
-  const startSqliteServer = async () => {
-    const environment = await createTempSqliteEnvironment()
+  const startSqliteServer = async (
+    environment?: Awaited<ReturnType<typeof createTempSqliteEnvironment>>,
+  ) => {
+    const sqliteEnvironment = environment || (await createTempSqliteEnvironment())
     const started = await startServer({
-      db: environment.operationalUrl,
+      db: sqliteEnvironment.operationalUrl,
       disableLogger: true,
       host: '127.0.0.1',
       loadLatestCommit: false,
@@ -100,7 +102,7 @@ describe('SQLite backend selection', () => {
     })
     const address = started.server.address() as AddressInfo
     return {
-      ...environment,
+      ...sqliteEnvironment,
       baseUrl: `http://127.0.0.1:${address.port}`,
       close: started.close,
     }
@@ -553,16 +555,61 @@ describe('SQLite backend selection', () => {
     expect(result.tables.nightcontactrecords.count).toBe(1)
     expect(result.tables.aacirecords.count).toBe(1)
     expect(result.fileSha256).toMatch(/^[a-f0-9]{64}$/)
-    expect(exported.createitemrecords).toEqual([
+    expect(exported.createitemrecords).toMatchObject([
       {
+        _id: expect.stringMatching(/^[a-f0-9]{24}$/),
         itemId: 15,
         origin: 'Reporter/8.1.0 poi/10.3.99',
       },
     ])
-    expect(exported.createshiprecords).toEqual([{ shipId: 101 }])
-    expect(exported.dropshiprecords).toEqual([{ mapId: 72, ownedShipSnapshot: {} }])
-    expect(exported.nightcontactrecords).toEqual([{ contact: true }])
-    expect(exported.aacirecords).toEqual([{ poiVersion: '7.9.2' }])
+    expect(exported.createshiprecords).toMatchObject([
+      { _id: expect.stringMatching(/^[a-f0-9]{24}$/), shipId: 101 },
+    ])
+    expect(exported.dropshiprecords).toMatchObject([
+      {
+        _id: expect.stringMatching(/^[a-f0-9]{24}$/),
+        mapId: 72,
+        ownedShipSnapshot: {},
+      },
+    ])
+    expect(exported.nightcontactrecords).toMatchObject([
+      { _id: expect.stringMatching(/^[a-f0-9]{24}$/), contact: true },
+    ])
+    expect(exported.aacirecords).toMatchObject([
+      { _id: expect.stringMatching(/^[a-f0-9]{24}$/), poiVersion: '7.9.2' },
+    ])
+  })
+
+  test('rejects invalid dump month paths before opening or deleting files', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: '..\\evil',
+        outputDir,
+      }),
+    ).rejects.toThrow('Month must use YYYY-MM format')
+    await expect(
+      removeValidatedAppendOnlyMonth({
+        appendOnlyDir,
+        dump: {
+          filePath: path.join(outputDir, 'dump.gz'),
+          fileSha256: 'a'.repeat(64),
+          month: '..\\evil',
+          tables: {},
+        },
+      }),
+    ).rejects.toThrow('Month must use YYYY-MM format')
   })
 
   test('removes the monthly SQLite file only after a validated dump result', async () => {
@@ -858,6 +905,15 @@ describe('SQLite backend selection', () => {
         quests: [{ questId: 1, category: 1, title: 'A', detail: 'A details' }],
       }),
     )
+    await postReport(baseUrl, '/api/report/v2/remodel_item', {
+      successful: true,
+      itemId: 200,
+      itemLevel: 6,
+    })
+    await postReport(baseUrl, '/api/report/v2/pass_event', { eventId: 1 })
+    await postReport(baseUrl, '/api/report/v2/battle_api', {
+      path: '/kcsapi/api_req_sortie/battle',
+    })
 
     const response = await fetch(`${baseUrl}/api/status`)
 
@@ -866,8 +922,36 @@ describe('SQLite backend selection', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       sqlite: {
+        BattleAPI: 1,
         CreateItemRecord: 1,
+        PassEventRecord: 1,
         Quest: 1,
+        RemodelItemRecord: 1,
+      },
+    })
+  })
+
+  test('SQLite status counts unopened append-only monthly files on disk', async () => {
+    const sqliteEnvironment = await createTempSqliteEnvironment()
+    const firstStart = await startSqliteServer(sqliteEnvironment)
+    await postReport(firstStart.baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await firstStart.close()
+    const restarted = await startSqliteServer(sqliteEnvironment)
+
+    const response = await fetch(`${restarted.baseUrl}/api/status`)
+
+    await restarted.close()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      sqlite: {
+        CreateItemRecord: 1,
       },
     })
   })
@@ -907,6 +991,20 @@ describe('SQLite backend selection', () => {
         },
       ],
     })
+  })
+
+  test('rejects unsupported item improvement recipe sources in SQLite mode', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+
+    const response = await postReport(baseUrl, '/api/report/v3/item_improvement_recipe', {
+      schemaVersion: 1,
+      source: 'unknown',
+    })
+
+    await close()
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'source: Invalid option' })
   })
 
   test('ingests and exports item improvement cost and update facts in SQLite mode', async () => {
