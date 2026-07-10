@@ -106,9 +106,9 @@ export const exportAppendOnlyMonth = async ({
   outputDir,
 }: ExportAppendOnlyMonthOptions): Promise<AppendOnlyDumpResult> => {
   assertMonth(month)
+  await fsPromises.mkdir(outputDir, { recursive: true })
   const sqlitePath = path.join(appendOnlyDir, `append-only-${month}.sqlite`)
   const db = new Database(sqlitePath, { readonly: true })
-  await fsPromises.mkdir(outputDir, { recursive: true })
   const filePath = path.join(outputDir, `append-only-${month}.json.gz`)
   const output = fs.createWriteStream(filePath)
   const gzip = zlib.createGzip()
