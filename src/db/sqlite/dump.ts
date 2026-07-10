@@ -272,5 +272,5 @@ export const removeValidatedAppendOnlyMonth = async ({
     throw new Error('Refusing to remove the active append-only SQLite month')
   }
   const sqlitePath = path.join(appendOnlyDir, `append-only-${dump.month}.sqlite`)
-  await fsPromises.rm(sqlitePath)
+  await fsPromises.rm(sqlitePath, { force: true })
 }

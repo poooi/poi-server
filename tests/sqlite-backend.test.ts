@@ -695,6 +695,11 @@ describe('SQLite backend selection', () => {
       dump,
       now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
     })
+    await removeValidatedAppendOnlyMonth({
+      appendOnlyDir,
+      dump,
+      now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
+    })
 
     await expect(fs.stat(sqliteFile)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
