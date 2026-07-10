@@ -130,6 +130,15 @@ describe('SQLite backend selection', () => {
       method: 'POST',
     })
 
+  const getAppendOnlyMonth = async (appendOnlyDir: string) => {
+    const files = await fs.readdir(appendOnlyDir)
+    const fileName = files.find((file) => /^append-only-\d{4}-\d{2}\.sqlite$/.test(file))
+    if (fileName == null) {
+      throw new Error('No append-only SQLite file was created')
+    }
+    return fileName.replace(/^append-only-/, '').replace(/\.sqlite$/, '')
+  }
+
   test('starts with a sqlite database URL without connecting to MongoDB', async () => {
     const mongoConnect = vi.spyOn(mongoose, 'connect')
     const { close, baseUrl, operationalUrl } = await startSqliteServer()
@@ -179,7 +188,7 @@ describe('SQLite backend selection', () => {
 
     await close()
 
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const db = new Database(path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`), {
       readonly: true,
     })
@@ -246,7 +255,7 @@ describe('SQLite backend selection', () => {
 
     await close()
 
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const db = new Database(path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`), {
       readonly: true,
     })
@@ -331,7 +340,7 @@ describe('SQLite backend selection', () => {
 
     await close()
 
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const db = new Database(path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`), {
       readonly: true,
     })
@@ -385,7 +394,7 @@ describe('SQLite backend selection', () => {
 
     await close()
 
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const db = new Database(path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`), {
       readonly: true,
     })
@@ -462,7 +471,7 @@ describe('SQLite backend selection', () => {
 
     await close()
 
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const db = new Database(path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`), {
       readonly: true,
     })
@@ -558,7 +567,7 @@ describe('SQLite backend selection', () => {
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
     await fs.mkdir(outputDir)
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
 
     const result = await exportAppendOnlyMonth({
       appendOnlyDir,
@@ -661,7 +670,7 @@ describe('SQLite backend selection', () => {
     })
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const sqliteFile = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
@@ -690,7 +699,7 @@ describe('SQLite backend selection', () => {
     })
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
       month: receiptMonth,
@@ -720,7 +729,7 @@ describe('SQLite backend selection', () => {
     })
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
       month: receiptMonth,
@@ -747,7 +756,7 @@ describe('SQLite backend selection', () => {
     })
     await close()
     const outputDir = path.join(tempDir as string, 'cli-dumps')
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const sqliteFile = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
 
     const dump = await runAppendOnlyDumpCli([
@@ -781,7 +790,7 @@ describe('SQLite backend selection', () => {
     })
     await close()
     const outputDir = path.join(tempDir as string, 'cli-dumps')
-    const receiptMonth = new Date().toISOString().slice(0, 7)
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
 
     await expect(
       runAppendOnlyDumpCli([
@@ -1183,7 +1192,7 @@ describe('SQLite backend selection', () => {
     await close()
 
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'limit must be positive' })
+    expect(await response.json()).toEqual({ error: 'limit: must be positive' })
   })
 
   test('ingests and exports item improvement cost and update facts in SQLite mode', async () => {

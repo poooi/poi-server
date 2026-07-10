@@ -35,32 +35,32 @@ const handleSqliteReportError = (err: Error, request: AppRequest): AppResult => 
   return handleReportError(err, request)
 }
 
-const parseInteger = (value: unknown, fallback: number) => {
+const parseInteger = (value: unknown, fallback: number, field: string) => {
   if (value == null) {
     return fallback
   }
   const text = String(value)
   if (!/^-?\d+$/.test(text)) {
-    throw new Error('must be an integer')
+    throw new Error(`${field}: must be an integer`)
   }
   return parseInt(text, 10)
 }
 
 const parseExportCursor = (request: AppRequest) => {
-  const limit = parseInteger(request.query.limit, 500)
-  const updatedAfter = parseInteger(request.query.updatedAfter, 0)
+  const limit = parseInteger(request.query.limit, 500, 'limit')
+  const updatedAfter = parseInteger(request.query.updatedAfter, 0, 'updatedAfter')
   if (limit <= 0) {
-    throw new Error('limit must be positive')
+    throw new Error('limit: must be positive')
   }
   if (updatedAfter < 0) {
-    throw new Error('updatedAfter must be non-negative')
+    throw new Error('updatedAfter: must be non-negative')
   }
   const afterId = request.query.afterId == null ? undefined : String(request.query.afterId)
   if (afterId != null && !/^[a-f0-9]{24}$/.test(afterId)) {
-    throw new Error('afterId must be a valid ObjectId')
+    throw new Error('afterId: must be a valid ObjectId')
   }
   if (afterId != null && BigInt(`0x${afterId}`) > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new Error('afterId is outside SQLite cursor range')
+    throw new Error('afterId: is outside SQLite cursor range')
   }
   return {
     afterId,

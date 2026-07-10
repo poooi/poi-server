@@ -62,8 +62,25 @@ const computeFileSha256 = async (filePath: string) => {
   const hash = crypto.createHash('sha256')
   const input = fs.createReadStream(filePath)
   input.on('data', (chunk: Buffer) => hash.update(chunk))
-  await once(input, 'end')
+  await Promise.race([
+    once(input, 'end'),
+    once(input, 'error').then(([err]) => {
+      throw err
+    }),
+  ])
   return hash.digest('hex')
+}
+
+const waitForGzipOutput = async (gzip: zlib.Gzip, output: fs.WriteStream) => {
+  await Promise.race([
+    once(output, 'finish'),
+    once(output, 'error').then(([err]) => {
+      throw err
+    }),
+    once(gzip, 'error').then(([err]) => {
+      throw err
+    }),
+  ])
 }
 
 const writeTable = async <TRow>({
@@ -230,7 +247,7 @@ export const exportAppendOnlyMonth = async ({
     })
     await writeGzip(gzip, '}')
     gzip.end()
-    await once(output, 'finish')
+    await waitForGzipOutput(gzip, output)
     completed = true
     return {
       filePath,
