@@ -4,8 +4,10 @@ import { once } from 'events'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import path from 'path'
-import { finished } from 'stream/promises'
+import { finished, pipeline } from 'stream/promises'
 import zlib from 'zlib'
+import { z } from 'zod'
+import { acquireAppendOnlyMonthLock, acquireDumpPublicationLock } from './month-lock'
 
 interface ExportAppendOnlyMonthOptions {
   appendOnlyDir: string
@@ -21,14 +23,28 @@ interface TableDumpResult {
 export interface AppendOnlyDumpResult {
   filePath: string
   fileSha256: string
+  manifestFileSha256: string
+  manifestPath: string
   month: string
+  sourceFileSha256: string
   tables: Record<string, TableDumpResult>
 }
 
-interface RemoveValidatedAppendOnlyMonthOptions {
+interface AppendOnlyDumpManifest {
+  artifactFileName: string
+  fileSha256: string
+  month: string
+  sourceFileName: string
+  sourceFileSha256: string
+  tables: Record<string, TableDumpResult>
+  version: 1
+}
+
+interface RemoveManifestValidatedAppendOnlyMonthOptions {
   appendOnlyDir: string
-  dump: AppendOnlyDumpResult
+  manifestPath: string
   now?: number
+  verifiedManifestSha256: string
 }
 
 const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
@@ -42,6 +58,23 @@ const getPreviousUtcMonth = (time: number) => {
 
 const isRolloverGraceDay = (time: number) => new Date(time).getUTCDate() === 1
 
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
+const tableDumpResultSchema = z.object({
+  count: z.number().int().nonnegative(),
+  sha256: sha256Schema,
+})
+const appendOnlyDumpManifestSchema = z
+  .object({
+    artifactFileName: z.string().min(1),
+    fileSha256: sha256Schema,
+    month: z.string(),
+    sourceFileName: z.string().min(1),
+    sourceFileSha256: sha256Schema,
+    tables: z.record(z.string(), tableDumpResultSchema),
+    version: z.literal(1),
+  })
+  .strict()
+
 const assertMonth = (month: string) => {
   const match = /^(\d{4})-(\d{2})$/.exec(month)
   if (match == null) {
@@ -53,22 +86,46 @@ const assertMonth = (month: string) => {
   }
 }
 
-const writeGzip = async (gzip: zlib.Gzip, text: string) => {
+const assertInactiveMonth = (month: string, now: number, action: 'export' | 'remove') => {
+  if (
+    month >= getUtcMonth(now) ||
+    (isRolloverGraceDay(now) && month === getPreviousUtcMonth(now))
+  ) {
+    throw new Error(
+      action === 'export'
+        ? 'Refusing to export an active append-only SQLite month'
+        : 'Refusing to remove the active append-only SQLite month',
+    )
+  }
+}
+
+const writeGzip = async (gzip: zlib.Gzip, streamFailure: Promise<never>, text: string) => {
   if (!gzip.write(text)) {
-    await once(gzip, 'drain')
+    await Promise.race([once(gzip, 'drain'), streamFailure])
   }
 }
 
 const computeFileSha256 = async (filePath: string) => {
-  const hash = crypto.createHash('sha256')
   const input = fs.createReadStream(filePath)
+  const hash = crypto.createHash('sha256')
   input.on('data', (chunk: Buffer) => hash.update(chunk))
   await finished(input)
   return hash.digest('hex')
 }
 
-const waitForGzipOutput = async (gzip: zlib.Gzip, output: fs.WriteStream) => {
-  await Promise.all([finished(gzip), finished(output)])
+const computeBufferSha256 = (content: Buffer) =>
+  crypto.createHash('sha256').update(content).digest('hex')
+
+const fileExists = async (filePath: string) => {
+  try {
+    await fsPromises.access(filePath)
+    return true
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false
+    }
+    throw err
+  }
 }
 
 const writeTable = async <TRow>({
@@ -77,26 +134,70 @@ const writeTable = async <TRow>({
   name,
   rows,
   serialize,
+  streamFailure,
 }: {
   gzip: zlib.Gzip
   includeComma: boolean
   name: string
   rows: Iterable<TRow>
   serialize: (row: TRow) => Record<string, unknown>
+  streamFailure: Promise<never>
 }): Promise<TableDumpResult> => {
   const tableHash = crypto.createHash('sha256')
   let count = 0
-  await writeGzip(gzip, `${includeComma ? ',' : ''}"${name}":[`)
+  await writeGzip(gzip, streamFailure, `${includeComma ? ',' : ''}"${name}":[`)
   for (const row of rows) {
     const json = JSON.stringify(serialize(row))
     tableHash.update(`${json.length}:${json}`)
-    await writeGzip(gzip, `${count === 0 ? '' : ','}${json}`)
+    await writeGzip(gzip, streamFailure, `${count === 0 ? '' : ','}${json}`)
     count += 1
   }
-  await writeGzip(gzip, ']')
+  await writeGzip(gzip, streamFailure, ']')
   return {
     count,
     sha256: tableHash.digest('hex'),
+  }
+}
+
+const assertExistingOutputCompatible = async (finalPath: string, expectedSha256: string) => {
+  if ((await fileExists(finalPath)) && (await computeFileSha256(finalPath)) !== expectedSha256) {
+    throw new Error(`Refusing to replace an existing dump output: ${path.basename(finalPath)}`)
+  }
+}
+
+const publishTemporaryFile = async (
+  temporaryPath: string,
+  finalPath: string,
+  expectedSha256: string,
+) => {
+  if (await fileExists(finalPath)) {
+    if ((await computeFileSha256(finalPath)) !== expectedSha256) {
+      throw new Error(`Refusing to replace an existing dump output: ${path.basename(finalPath)}`)
+    }
+    await fsPromises.rm(temporaryPath, { force: true })
+    return
+  }
+
+  try {
+    await fsPromises.link(temporaryPath, finalPath)
+    await fsPromises.rm(temporaryPath, { force: true })
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST' || !(await fileExists(finalPath))) {
+      throw err
+    }
+    if ((await computeFileSha256(finalPath)) !== expectedSha256) {
+      throw new Error(`Refusing to replace an existing dump output: ${path.basename(finalPath)}`)
+    }
+    await fsPromises.rm(temporaryPath, { force: true })
+  }
+}
+
+const removeStaleTemporaryOutputs = async (outputDir: string, month: string) => {
+  const prefixes = [`append-only-${month}.json.gz.tmp-`, `append-only-${month}.manifest.json.tmp-`]
+  for (const fileName of await fsPromises.readdir(outputDir)) {
+    if (prefixes.some((prefix) => fileName.startsWith(prefix))) {
+      await fsPromises.rm(path.join(outputDir, fileName), { force: true })
+    }
   }
 }
 
@@ -106,20 +207,56 @@ export const exportAppendOnlyMonth = async ({
   outputDir,
 }: ExportAppendOnlyMonthOptions): Promise<AppendOnlyDumpResult> => {
   assertMonth(month)
+  assertInactiveMonth(month, Date.now(), 'export')
   await fsPromises.mkdir(outputDir, { recursive: true })
+  const monthLock = acquireAppendOnlyMonthLock(appendOnlyDir, month)
+  let publicationLock: ReturnType<typeof acquireDumpPublicationLock> | undefined
   const sqlitePath = path.join(appendOnlyDir, `append-only-${month}.sqlite`)
-  const db = new Database(sqlitePath, { readonly: true })
+  let db: Database.Database | undefined
   const filePath = path.join(outputDir, `append-only-${month}.json.gz`)
-  const output = fs.createWriteStream(filePath)
-  const gzip = zlib.createGzip()
+  const manifestPath = path.join(outputDir, `append-only-${month}.manifest.json`)
+  const temporarySuffix = `.tmp-${process.pid}-${crypto.randomUUID()}`
+  const temporaryFilePath = `${filePath}${temporarySuffix}`
+  const temporaryManifestPath = `${manifestPath}${temporarySuffix}`
+  let output: fs.WriteStream | undefined
+  let gzip: zlib.Gzip | undefined
+  let pipelinePromise: Promise<void> | undefined
   const fileHash = crypto.createHash('sha256')
   const tables: Record<string, TableDumpResult> = {}
   let completed = false
-  gzip.on('data', (chunk: Buffer) => fileHash.update(chunk))
-  gzip.pipe(output)
 
   try {
-    await writeGzip(gzip, '{')
+    publicationLock = acquireDumpPublicationLock(outputDir, month)
+    await removeStaleTemporaryOutputs(outputDir, month)
+    if (!(await fileExists(sqlitePath))) {
+      throw new Error(`Append-only SQLite month ${month} does not exist`)
+    }
+    db = new Database(sqlitePath)
+    db.pragma('busy_timeout = 1000')
+    const checkpoint = db.pragma('wal_checkpoint(TRUNCATE)') as Array<{
+      busy: number
+      checkpointed: number
+      log: number
+    }>
+    if (
+      checkpoint.length !== 1 ||
+      checkpoint[0].busy !== 0 ||
+      checkpoint[0].log !== checkpoint[0].checkpointed
+    ) {
+      throw new Error(`Unable to checkpoint append-only SQLite month ${month}`)
+    }
+    output = fs.createWriteStream(temporaryFilePath)
+    gzip = zlib.createGzip()
+    let rejectStream: (err: Error) => void
+    const streamFailure = new Promise<never>((_resolve, reject) => {
+      rejectStream = reject
+    })
+    void streamFailure.catch(() => undefined)
+    gzip.once('error', rejectStream!)
+    output.once('error', rejectStream!)
+    gzip.on('data', (chunk: Buffer) => fileHash.update(chunk))
+    pipelinePromise = pipeline(gzip, output)
+    await writeGzip(gzip, streamFailure, '{')
     tables.aacirecords = await writeTable({
       gzip,
       includeComma: false,
@@ -143,6 +280,7 @@ export const exportAppendOnlyMonth = async ({
         rawTaiku: row.raw_taiku,
         triggered: row.triggered,
       }),
+      streamFailure,
     })
     tables.createitemrecords = await writeTable({
       gzip,
@@ -162,6 +300,7 @@ export const exportAppendOnlyMonth = async ({
         successful: Boolean(row.successful),
         teitokuLv: row.teitoku_lv,
       }),
+      streamFailure,
     })
     tables.createshiprecords = await writeTable({
       gzip,
@@ -183,6 +322,7 @@ export const exportAppendOnlyMonth = async ({
         shipId: row.ship_id,
         teitokuLv: row.teitoku_lv,
       }),
+      streamFailure,
     })
     tables.dropshiprecords = await writeTable({
       gzip,
@@ -213,6 +353,7 @@ export const exportAppendOnlyMonth = async ({
         teitokuId: row.teitoku_id,
         teitokuLv: row.teitoku_lv,
       }),
+      streamFailure,
     })
     tables.nightcontactrecords = await writeTable({
       gzip,
@@ -232,45 +373,142 @@ export const exportAppendOnlyMonth = async ({
         shipId: row.ship_id,
         shipLv: row.ship_lv,
       }),
+      streamFailure,
     })
-    await writeGzip(gzip, '}')
+    await writeGzip(gzip, streamFailure, '}')
     gzip.end()
-    await waitForGzipOutput(gzip, output)
+    await pipelinePromise
+    db.close()
+    db = undefined
+    const sourceFileSha256 = await computeFileSha256(sqlitePath)
+    const fileSha256 = fileHash.digest('hex')
+    const manifest: AppendOnlyDumpManifest = {
+      artifactFileName: path.basename(filePath),
+      fileSha256,
+      month,
+      sourceFileName: path.basename(sqlitePath),
+      sourceFileSha256,
+      tables,
+      version: 1,
+    }
+    await fsPromises.writeFile(
+      temporaryManifestPath,
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      'utf8',
+    )
+    const manifestFileSha256 = await computeFileSha256(temporaryManifestPath)
+    await assertExistingOutputCompatible(filePath, fileSha256)
+    await assertExistingOutputCompatible(manifestPath, manifestFileSha256)
+    await publishTemporaryFile(temporaryFilePath, filePath, fileSha256)
+    await publishTemporaryFile(temporaryManifestPath, manifestPath, manifestFileSha256)
     completed = true
     return {
       filePath,
-      fileSha256: fileHash.digest('hex'),
+      fileSha256,
+      manifestFileSha256,
+      manifestPath,
       month,
+      sourceFileSha256,
       tables,
     }
   } finally {
     if (!completed) {
-      gzip.destroy()
-      output.destroy()
-      await fsPromises.rm(filePath, { force: true }).catch(() => undefined)
+      gzip?.destroy()
+      output?.destroy()
+      await pipelinePromise?.catch(() => undefined)
+      await fsPromises.rm(temporaryFilePath, { force: true }).catch(() => undefined)
+      await fsPromises.rm(temporaryManifestPath, { force: true }).catch(() => undefined)
     }
-    db.close()
+    db?.close()
+    try {
+      publicationLock?.release()
+    } finally {
+      monthLock.release()
+    }
   }
 }
 
-export const removeValidatedAppendOnlyMonth = async ({
+export const removeManifestValidatedAppendOnlyMonth = async ({
   appendOnlyDir,
-  dump,
+  manifestPath,
   now = Date.now(),
-}: RemoveValidatedAppendOnlyMonthOptions): Promise<void> => {
-  assertMonth(dump.month)
-  if (!/^[a-f0-9]{64}$/.test(dump.fileSha256)) {
-    throw new Error('Refusing to remove append-only SQLite file without a valid dump checksum')
+  verifiedManifestSha256,
+}: RemoveManifestValidatedAppendOnlyMonthOptions): Promise<AppendOnlyDumpResult> => {
+  if (!sha256Schema.safeParse(verifiedManifestSha256).success) {
+    throw new Error('Cleanup requires a valid externally verified manifest checksum')
   }
-  if ((await computeFileSha256(dump.filePath)) !== dump.fileSha256) {
-    throw new Error('Refusing to remove append-only SQLite file before dump checksum verification')
+
+  const readVerifiedManifest = async () => {
+    const content = await fsPromises.readFile(manifestPath)
+    if (computeBufferSha256(content) !== verifiedManifestSha256) {
+      throw new Error('Refusing cleanup because the verified manifest checksum does not match')
+    }
+    return appendOnlyDumpManifestSchema.parse(JSON.parse(content.toString('utf8')))
   }
-  if (
-    dump.month >= getUtcMonth(now) ||
-    (isRolloverGraceDay(now) && dump.month === getPreviousUtcMonth(now))
-  ) {
-    throw new Error('Refusing to remove the active append-only SQLite month')
+
+  const assertManifestFileNames = (manifest: AppendOnlyDumpManifest) => {
+    const expectedArtifactFileName = `append-only-${manifest.month}.json.gz`
+    const expectedSourceFileName = `append-only-${manifest.month}.sqlite`
+    if (
+      manifest.artifactFileName !== expectedArtifactFileName ||
+      manifest.sourceFileName !== expectedSourceFileName
+    ) {
+      throw new Error('Refusing cleanup because the dump manifest contains unexpected file names')
+    }
   }
-  const sqlitePath = path.join(appendOnlyDir, `append-only-${dump.month}.sqlite`)
-  await fsPromises.rm(sqlitePath, { force: true })
+
+  const initialManifest = await readVerifiedManifest()
+  assertMonth(initialManifest.month)
+  assertManifestFileNames(initialManifest)
+  assertInactiveMonth(initialManifest.month, now, 'remove')
+  const monthLock = acquireAppendOnlyMonthLock(appendOnlyDir, initialManifest.month)
+  let publicationLock: ReturnType<typeof acquireDumpPublicationLock> | undefined
+  try {
+    publicationLock = acquireDumpPublicationLock(path.dirname(manifestPath), initialManifest.month)
+    const manifest = await readVerifiedManifest()
+    if (manifest.month !== initialManifest.month) {
+      throw new Error('Refusing cleanup because the dump manifest changed during verification')
+    }
+    assertManifestFileNames(manifest)
+    const artifactPath = path.join(path.dirname(manifestPath), manifest.artifactFileName)
+    const dumpResult: AppendOnlyDumpResult = {
+      filePath: artifactPath,
+      fileSha256: manifest.fileSha256,
+      manifestFileSha256: verifiedManifestSha256,
+      manifestPath,
+      month: manifest.month,
+      sourceFileSha256: manifest.sourceFileSha256,
+      tables: manifest.tables,
+    }
+
+    if ((await computeFileSha256(artifactPath)) !== manifest.fileSha256) {
+      throw new Error(
+        'Refusing cleanup because the published dump artifact checksum does not match',
+      )
+    }
+
+    const sqlitePath = path.join(appendOnlyDir, manifest.sourceFileName)
+    if (
+      (await fileExists(sqlitePath)) &&
+      (await computeFileSha256(sqlitePath)) !== manifest.sourceFileSha256
+    ) {
+      throw new Error('Refusing to remove an append-only SQLite file that changed after export')
+    }
+    const sqliteFiles = [sqlitePath, `${sqlitePath}-shm`, `${sqlitePath}-wal`]
+    for (const file of sqliteFiles) {
+      await fsPromises.rm(file, { force: true })
+    }
+    for (const file of sqliteFiles) {
+      if (await fileExists(file)) {
+        throw new Error(`Unable to remove append-only SQLite file: ${path.basename(file)}`)
+      }
+    }
+    return dumpResult
+  } finally {
+    try {
+      publicationLock?.release()
+    } finally {
+      monthLock.release()
+    }
+  }
 }

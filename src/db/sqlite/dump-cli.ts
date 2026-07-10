@@ -1,6 +1,6 @@
 import {
   exportAppendOnlyMonth,
-  removeValidatedAppendOnlyMonth,
+  removeManifestValidatedAppendOnlyMonth,
   type AppendOnlyDumpResult,
 } from './dump'
 
@@ -8,9 +8,10 @@ interface DumpCliOptions {
   appendOnlyDir: string
   confirmLocalDelete: boolean
   cleanup: boolean
-  month: string
-  now?: number
-  outputDir: string
+  manifestPath?: string
+  month?: string
+  outputDir?: string
+  verifiedManifestSha256?: string
 }
 
 const parseArgs = (args: string[]): DumpCliOptions => {
@@ -35,34 +36,39 @@ const parseArgs = (args: string[]): DumpCliOptions => {
     }
     if (arg === '--append-only-dir') {
       options.appendOnlyDir = value
+    } else if (arg === '--manifest') {
+      options.manifestPath = value
     } else if (arg === '--month') {
       options.month = value
-    } else if (arg === '--now') {
-      const now = Date.parse(value)
-      if (!Number.isFinite(now)) {
-        throw new Error('--now must be an ISO date')
-      }
-      options.now = now
     } else if (arg === '--output-dir') {
       options.outputDir = value
+    } else if (arg === '--verified-manifest-sha256') {
+      options.verifiedManifestSha256 = value
     } else {
       throw new Error(`Unknown argument: ${arg}`)
     }
     index += 1
   }
 
-  if (options.appendOnlyDir == null || options.month == null || options.outputDir == null) {
+  if (options.appendOnlyDir == null) {
     throw new Error(
       [
-        'Usage: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --month <YYYY-MM> --output-dir <dir> [--cleanup]',
-        'Optional: --now <ISO date> controls the active-month cutoff used with --cleanup.',
-        'Cleanup also requires --confirm-local-delete after external publication/verification.',
+        'Usage:',
+        '  Export: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --month <YYYY-MM> --output-dir <dir>',
+        '  Cleanup: tsx src/db/sqlite/dump-cli.ts --append-only-dir <dir> --cleanup --manifest <path> --verified-manifest-sha256 <sha256> --confirm-local-delete',
       ].join('\n'),
     )
   }
 
-  if (options.cleanup && !options.confirmLocalDelete) {
-    throw new Error('--cleanup requires --confirm-local-delete')
+  if (options.cleanup) {
+    if (!options.confirmLocalDelete) {
+      throw new Error('--cleanup requires --confirm-local-delete')
+    }
+    if (options.manifestPath == null || options.verifiedManifestSha256 == null) {
+      throw new Error('--cleanup requires --manifest and --verified-manifest-sha256')
+    }
+  } else if (options.month == null || options.outputDir == null) {
+    throw new Error('Export requires --month and --output-dir')
   }
 
   return options as DumpCliOptions
@@ -72,15 +78,18 @@ export const runAppendOnlyDumpCli = async (
   args = process.argv.slice(2),
 ): Promise<AppendOnlyDumpResult> => {
   const options = parseArgs(args)
-  const dump = await exportAppendOnlyMonth(options)
   if (options.cleanup) {
-    await removeValidatedAppendOnlyMonth({
+    return removeManifestValidatedAppendOnlyMonth({
       appendOnlyDir: options.appendOnlyDir,
-      dump,
-      now: options.now,
+      manifestPath: options.manifestPath as string,
+      verifiedManifestSha256: options.verifiedManifestSha256 as string,
     })
   }
-  return dump
+  return exportAppendOnlyMonth({
+    appendOnlyDir: options.appendOnlyDir,
+    month: options.month as string,
+    outputDir: options.outputDir as string,
+  })
 }
 
 if (require.main === module) {

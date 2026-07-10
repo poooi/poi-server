@@ -4,10 +4,18 @@ import fs from 'fs'
 import path from 'path'
 import { stripSqliteDatabaseUrl } from '../backend'
 import { deleteSqliteWriteQueue, runSqliteWrite } from './write-queue'
+import { acquireAppendOnlyMonthLock, type SqliteFileLock } from './month-lock'
 
 interface AppendOnlyState {
   appendOnlyDir: string
-  handles: Map<string, Database.Database>
+  handles: Map<
+    string,
+    {
+      db: Database.Database
+      lock: SqliteFileLock
+    }
+  >
+  rolloverTimer?: NodeJS.Timeout
 }
 
 const state: AppendOnlyState = {
@@ -20,6 +28,52 @@ const getUtcMonth = (time: number) => new Date(time).toISOString().slice(0, 7)
 const createPublicId = (time: number) => {
   const timestamp = (Math.floor(time / 1000) >>> 0).toString(16).padStart(8, '0')
   return `${timestamp}${crypto.randomBytes(8).toString('hex')}`
+}
+
+const closeAppendOnlyHandle = (month: string) => {
+  const handle = state.handles.get(month)
+  if (handle == null) {
+    return
+  }
+  state.handles.delete(month)
+  deleteSqliteWriteQueue(`append-only:${month}`)
+  let closeError: unknown
+  try {
+    handle.db.close()
+  } catch (err) {
+    closeError = err
+  }
+  try {
+    handle.lock.release()
+  } catch (err) {
+    closeError ??= err
+  }
+  if (closeError != null) {
+    throw closeError
+  }
+}
+
+const scheduleInactiveHandleCleanup = () => {
+  const now = Date.now()
+  const date = new Date(now)
+  const nextUtcDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)
+  state.rolloverTimer = setTimeout(
+    () => {
+      const currentMonth = getUtcMonth(Date.now())
+      for (const month of state.handles.keys()) {
+        if (month !== currentMonth) {
+          try {
+            closeAppendOnlyHandle(month)
+          } catch (err) {
+            console.error(`Unable to close inactive append-only SQLite month ${month}`, err)
+          }
+        }
+      }
+      scheduleInactiveHandleCleanup()
+    },
+    Math.max(1, nextUtcDay - now),
+  )
+  state.rolloverTimer.unref()
 }
 
 const ensureAppendOnlySchema = (db: Database.Database) => {
@@ -111,7 +165,7 @@ const ensureAppendOnlySchema = (db: Database.Database) => {
 const getAppendOnlyDatabase = (month: string) => {
   const existing = state.handles.get(month)
   if (existing != null) {
-    return existing
+    return existing.db
   }
 
   if (state.appendOnlyDir === '') {
@@ -119,14 +173,17 @@ const getAppendOnlyDatabase = (month: string) => {
   }
 
   fs.mkdirSync(state.appendOnlyDir, { recursive: true })
-  const db = new Database(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
+  const lock = acquireAppendOnlyMonthLock(state.appendOnlyDir, month)
+  let db: Database.Database | undefined
   try {
+    db = new Database(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
     ensureAppendOnlySchema(db)
   } catch (err) {
-    db.close()
+    db?.close()
+    lock.release()
     throw err
   }
-  state.handles.set(month, db)
+  state.handles.set(month, { db, lock })
   closeExcessAppendOnlyHandles(month)
   return db
 }
@@ -141,10 +198,7 @@ const closeExcessAppendOnlyHandles = (currentMonth: string) => {
     .sort()
   while (state.handles.size > 3 && closeableMonths.length > 0) {
     const month = closeableMonths.shift() as string
-    const db = state.handles.get(month)
-    db?.close()
-    state.handles.delete(month)
-    deleteSqliteWriteQueue(`append-only:${month}`)
+    closeAppendOnlyHandle(month)
   }
 }
 
@@ -158,17 +212,26 @@ export const initializeSqliteAppendOnlyStorage = (operationalDb: string) => {
   state.appendOnlyDir =
     process.env.POI_SERVER_SQLITE_APPEND_ONLY_DIR ||
     path.join(path.dirname(operationalPath), 'append-only')
+  scheduleInactiveHandleCleanup()
 }
 
 export const closeSqliteAppendOnlyStorage = () => {
-  for (const db of state.handles.values()) {
-    db.close()
+  if (state.rolloverTimer != null) {
+    clearTimeout(state.rolloverTimer)
+    state.rolloverTimer = undefined
   }
-  for (const month of state.handles.keys()) {
-    deleteSqliteWriteQueue(`append-only:${month}`)
+  let closeError: unknown
+  for (const month of Array.from(state.handles.keys())) {
+    try {
+      closeAppendOnlyHandle(month)
+    } catch (err) {
+      closeError ??= err
+    }
   }
-  state.handles.clear()
   state.appendOnlyDir = ''
+  if (closeError != null) {
+    throw closeError
+  }
 }
 
 export const insertCreateItemRecord = (info: Record<string, any>, receivedAt = Date.now()) =>
@@ -375,16 +438,12 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
     counts.NightContactRecord += countTable(db, 'night_contact_records')
   }
 
-  for (const [month, db] of state.handles.entries()) {
+  for (const [month, handle] of state.handles.entries()) {
     countedFiles.add(path.join(state.appendOnlyDir, `append-only-${month}.sqlite`))
-    addCounts(db)
+    addCounts(handle.db)
   }
 
-  if (
-    process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES === '1' &&
-    state.appendOnlyDir !== '' &&
-    fs.existsSync(state.appendOnlyDir)
-  ) {
+  if (state.appendOnlyDir !== '' && fs.existsSync(state.appendOnlyDir)) {
     for (const fileName of fs.readdirSync(state.appendOnlyDir)) {
       if (!/^append-only-\d{4}-\d{2}\.sqlite$/.test(fileName)) {
         continue
@@ -394,7 +453,10 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
         continue
       }
       let db: Database.Database | undefined
+      let lock: SqliteFileLock | undefined
       try {
+        const month = fileName.slice('append-only-'.length, -'.sqlite'.length)
+        lock = acquireAppendOnlyMonthLock(state.appendOnlyDir, month)
         db = new Database(filePath, { readonly: true })
         addCounts(db)
       } catch {
@@ -402,6 +464,7 @@ export const getAppendOnlySqliteCounts = (): Record<string, number> => {
         continue
       } finally {
         db?.close()
+        lock?.release()
       }
     }
   }

@@ -134,6 +134,10 @@ lowest-common-denominator abstraction. Shared code should include route registra
 HTTP result helpers, Sentry capture, and Cloudflare cache headers. Persistence actions should be
 backend-specific.
 
+SQLite repositories are process-global in the current single-server implementation. Startup
+therefore enforces one active SQLite server per process; a second in-process server is rejected
+without replacing or closing the active server's storage.
+
 Suggested layout:
 
 ```text
@@ -185,6 +189,11 @@ Append-only tables use typed columns matching the current Mongoose schemas, plus
 - `received_at_ms INTEGER NOT NULL`
 - current report fields from the matching Mongoose schema
 
+SQLite handlers normalize and validate report payloads through the same Mongoose models before
+binding typed columns or constructing deduplication keys. This preserves existing number, array,
+string, and boolean coercion for append-only, operational v2, quest, and quest-reward writes without
+requiring a MongoDB connection.
+
 `id` is the internal cutoff/export/delete identity. `public_id` is a generated unique 24-hex value used
 as the `_id` value in published dumps so rows keep an ObjectId-like public identity.
 
@@ -216,23 +225,31 @@ The monthly dump job runs as an external scheduled maintenance job, not inside t
 Use systemd timers, cron, or an equivalent scheduler on the single server.
 
 The job operates only on inactive append-only monthly SQLite files older than the rollover grace
-window.
+window. The API process holds a per-month ownership lock while it has a database handle open.
+The API releases inactive handles at the next UTC day boundary. Maintenance refuses to export or
+remove a month until that ownership lock has been released.
 
 Workflow:
 
 1. Discover dumpable append-only SQLite files.
-2. Open the inactive monthly SQLite file read-only.
+2. Acquire the month maintenance lock and checkpoint any remaining WAL content.
 3. Export each append-only table in the public dump record shape.
-4. Produce per-table row counts.
-5. Produce per-table content checksums.
-6. Compress the dump artifact.
-7. Produce the compressed file checksum.
-8. Upload/publish to the community dump location.
-9. Verify the uploaded object is present and matches the checksum.
-10. Mark the dump as validated.
-11. Remove the local monthly SQLite file only after validation succeeds.
+4. Produce per-table row counts and content checksums.
+5. Compress the dump artifact and calculate its checksum.
+6. Calculate the exact source SQLite file checksum after checkpointing.
+7. Write a versioned manifest containing the month, canonical file names, source checksum, artifact
+   checksum, and per-table validation results.
+8. Hold a shared publication lock for the complete export, reclaim stale temporary outputs from
+   interrupted attempts, and publish with atomic no-replace links.
+9. Upload/publish both the artifact and manifest to the community dump location.
+10. Verify the uploaded objects and record the verified manifest checksum.
+11. Run cleanup with the original manifest and externally verified manifest checksum.
+12. Revalidate the same manifest bytes, artifact, unchanged source snapshot, inactive-month cutoff,
+    publication lock, and ownership lock before removing the SQLite file and sidecars.
 
-Do not delete or mutate active monthly SQLite files. Do not remove operational data during this job.
+Export and cleanup use the real server clock; the production CLI does not accept a clock override.
+Cleanup never regenerates a dump. Do not delete or mutate active monthly SQLite files, and do not
+remove operational data during this job.
 
 ## Dump format
 
@@ -282,6 +299,7 @@ Add structured logs and metrics for:
 - SQLite busy retries/errors;
 - active append-only month;
 - open SQLite handles;
+- month ownership-lock conflicts;
 - monthly dump start/end/failure;
 - dump validation row counts and checksums;
 - upload verification;
@@ -322,14 +340,16 @@ Add structured logs and metrics for:
 - Implement SQLite actions for stateful and upsert-heavy collections.
 - Preserve current public HTTP behavior.
 - Add parity tests for operational endpoints and v3 item-improvement exports.
+- Run serialized startup migrations for corrected item-improvement keys and NULL-stable quest/reward
+  uniqueness before serving traffic.
 
 ### Phase 5: Monthly dump job
 
 - Implement external dump CLI/job.
 - Export inactive monthly SQLite files.
-- Validate counts and checksums.
-- Upload/publish dumps.
-- Delete only validated local monthly files.
+- Generate and publish checksum-bound manifests with dumps.
+- Verify published manifest checksums outside the cleanup process.
+- Delete only the unchanged source snapshot named by a verified manifest.
 - Add dry-run mode.
 
 ### Phase 6: Benchmarks and production readiness
@@ -359,7 +379,7 @@ Add structured logs and metrics for:
 - Success is returned only after storage commit.
 - Queue overload returns retryable `503` instead of acknowledged data loss.
 - Monthly dump job exports only inactive append-only monthly files.
-- Monthly dump job deletes a monthly SQLite file only after validation and upload verification.
+- Monthly dump job deletes a monthly SQLite file only from its original externally verified manifest.
 - Operational data is never removed by community dump cleanup.
 - Public HTTP endpoint behavior remains compatible with the MongoDB backend.
 - Public dump record shape is preserved as much as practical.

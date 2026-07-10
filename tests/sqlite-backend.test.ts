@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import Database from 'better-sqlite3'
+import crypto from 'crypto'
 import fs from 'fs/promises'
 import mongoose from 'mongoose'
 import { type AddressInfo } from 'net'
@@ -36,14 +37,18 @@ vi.mock('@sindresorhus/df', () => ({
 }))
 
 import { startServer } from '../src/server'
-import { exportAppendOnlyMonth, removeValidatedAppendOnlyMonth } from '../src/db/sqlite/dump'
+import {
+  exportAppendOnlyMonth,
+  removeManifestValidatedAppendOnlyMonth,
+  type AppendOnlyDumpResult,
+} from '../src/db/sqlite/dump'
 import { runAppendOnlyDumpCli } from '../src/db/sqlite/dump-cli'
+import { stripSqliteDatabaseUrl } from '../src/db/backend'
 
 describe('SQLite backend selection', () => {
   let tempDir: string | undefined
   let originalAppendOnlyDir: string | undefined
   let originalQueueSize: string | undefined
-  let originalStatusScan: string | undefined
 
   beforeEach(() => {
     sentryMocks.startInactiveSpan.mockReturnValue({
@@ -74,11 +79,6 @@ describe('SQLite backend selection', () => {
       delete process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE
     } else {
       process.env.POI_SERVER_SQLITE_WRITE_QUEUE_SIZE = originalQueueSize
-    }
-    if (originalStatusScan == null) {
-      delete process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES
-    } else {
-      process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES = originalStatusScan
     }
     vi.restoreAllMocks()
   })
@@ -139,6 +139,23 @@ describe('SQLite backend selection', () => {
     return fileName.replace(/^append-only-/, '').replace(/\.sqlite$/, '')
   }
 
+  const getDumpableTime = (month: string) => {
+    const [year, monthNumber] = month.split('-').map(Number)
+    return Date.UTC(year, monthNumber, 2)
+  }
+
+  const removeExportedMonth = (
+    appendOnlyDir: string,
+    dump: AppendOnlyDumpResult,
+    now = Date.now(),
+  ) =>
+    removeManifestValidatedAppendOnlyMonth({
+      appendOnlyDir,
+      manifestPath: dump.manifestPath,
+      now,
+      verifiedManifestSha256: dump.manifestFileSha256,
+    })
+
   test('starts with a sqlite database URL without connecting to MongoDB', async () => {
     const mongoConnect = vi.spyOn(mongoose, 'connect')
     const { close, baseUrl, operationalUrl } = await startSqliteServer()
@@ -172,6 +189,43 @@ describe('SQLite backend selection', () => {
 
     expect(response.status).toBe(200)
     expect(mongoConnect).not.toHaveBeenCalled()
+  })
+
+  test.runIf(process.platform === 'win32')(
+    'normalizes standard SQLite file URLs with Windows drive letters',
+    () => {
+      expect(stripSqliteDatabaseUrl('sqlite:///C:/data/operational.sqlite')).toBe(
+        'C:/data/operational.sqlite',
+      )
+    },
+  )
+
+  test('rejects a second in-process SQLite server without disturbing the first', async () => {
+    const firstEnvironment = await createTempSqliteEnvironment()
+    const firstServer = await startSqliteServer(firstEnvironment)
+    const secondRoot = path.join(tempDir as string, 'second-server')
+    const secondEnvironment = {
+      appendOnlyDir: path.join(secondRoot, 'append-only'),
+      operationalUrl: `sqlite://${path.join(secondRoot, 'operational.sqlite')}`,
+    }
+    await fs.mkdir(secondEnvironment.appendOnlyDir, { recursive: true })
+    process.env.POI_SERVER_SQLITE_APPEND_ONLY_DIR = secondEnvironment.appendOnlyDir
+
+    await expect(startSqliteServer(secondEnvironment)).rejects.toThrow(
+      'A SQLite server is already running in this process',
+    )
+    const response = await postReport(firstServer.baseUrl, '/api/report/v2/create_item', {
+      items: [10],
+      successful: true,
+    })
+    await firstServer.close()
+
+    expect(response.status).toBe(200)
+    await expect(getAppendOnlyMonth(firstEnvironment.appendOnlyDir)).resolves.toMatch(
+      /^\d{4}-\d{2}$/,
+    )
+    const secondServer = await startSqliteServer(secondEnvironment)
+    await secondServer.close()
   })
 
   test('rejects sqlite database URLs without a path', async () => {
@@ -580,6 +634,7 @@ describe('SQLite backend selection', () => {
     const outputDir = path.join(tempDir as string, 'dumps')
     await fs.mkdir(outputDir)
     const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    vi.spyOn(Date, 'now').mockReturnValue(getDumpableTime(receiptMonth))
 
     const result = await exportAppendOnlyMonth({
       appendOnlyDir,
@@ -632,6 +687,143 @@ describe('SQLite backend selection', () => {
     ])
   })
 
+  test('normalizes append-only reports before publishing their dump records', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: ['10'],
+      secretary: '100',
+      itemId: '15',
+      teitokuLv: '120',
+      successful: 'false',
+    })
+    await postReport(baseUrl, '/api/report/v2/create_ship', {
+      items: ['10'],
+      kdockId: '1',
+      secretary: '100',
+      shipId: '2',
+      highspeed: '0',
+      teitokuLv: '120',
+      largeFlag: 'false',
+    })
+    await postReport(baseUrl, '/api/report/v2/drop_ship', {
+      shipId: '2',
+      itemId: '3',
+      mapId: '73',
+      quest: 'test',
+      cellId: '1',
+      enemy: 'enemy',
+      rank: 'S',
+      isBoss: 'false',
+      teitokuLv: '120',
+      mapLv: '1',
+      enemyShips1: ['1'],
+      enemyShips2: ['2'],
+      enemyFormation: '1',
+      baseExp: '100',
+      teitokuId: '1',
+      ownedShipSnapshot: {},
+    })
+    await postReport(baseUrl, '/api/report/v2/night_contcat', {
+      fleetType: '1',
+      shipId: '2',
+      shipLv: '3',
+      itemId: '4',
+      itemLv: '5',
+      contact: 'false',
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'normalized-dump')
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    vi.spyOn(Date, 'now').mockReturnValue(getDumpableTime(receiptMonth))
+    const dump = await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+    const exported = JSON.parse(
+      zlib.gunzipSync(await fs.readFile(dump.filePath)).toString('utf8'),
+    ) as Record<string, Array<Record<string, unknown>>>
+
+    expect(exported.createitemrecords).toMatchObject([
+      { itemId: 15, items: [10], successful: false },
+    ])
+    expect(exported.createshiprecords).toMatchObject([{ items: [10], largeFlag: false, shipId: 2 }])
+    expect(exported.dropshiprecords).toMatchObject([
+      { enemyShips1: [1], enemyShips2: [2], isBoss: false, mapId: 73 },
+    ])
+    expect(exported.nightcontactrecords).toMatchObject([{ contact: false, itemId: 4, shipId: 2 }])
+  })
+
+  test('rejects append-only reports with Mongoose cast errors', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+    const response = await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: ['invalid'],
+      successful: 'not-a-boolean',
+    })
+    const statusResponse = await fetch(`${baseUrl}/api/status`)
+    await close()
+
+    expect(response.status).toBe(500)
+    expect(await statusResponse.json()).toMatchObject({
+      sqlite: {
+        CreateItemRecord: 0,
+      },
+    })
+  })
+
+  test('refuses to export the active append-only month', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: receiptMonth,
+        outputDir,
+      }),
+    ).rejects.toThrow('Refusing to export an active append-only SQLite month')
+  })
+
+  test('refuses dump maintenance while the API server owns the monthly database', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 5, 15))
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    now.mockReturnValue(Date.UTC(2026, 6, 2))
+    const outputDir = path.join(tempDir as string, 'dumps')
+
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: '2026-06',
+        outputDir,
+      }),
+    ).rejects.toThrow('Append-only SQLite month 2026-06 is currently in use')
+
+    await close()
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: '2026-06',
+        outputDir,
+      }),
+    ).resolves.toMatchObject({ month: '2026-06' })
+  })
+
   test('rejects invalid dump month paths before opening or deleting files', async () => {
     const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
     await postReport(baseUrl, '/api/report/v2/create_item', {
@@ -652,15 +844,25 @@ describe('SQLite backend selection', () => {
       }),
     ).rejects.toThrow('Month must use YYYY-MM format')
     await expect(
-      removeValidatedAppendOnlyMonth({
-        appendOnlyDir,
-        dump: {
-          filePath: path.join(outputDir, 'dump.gz'),
+      (async () => {
+        await fs.mkdir(outputDir, { recursive: true })
+        const manifestPath = path.join(outputDir, 'invalid-month.manifest.json')
+        const manifest = `${JSON.stringify({
+          artifactFileName: 'append-only-..\\evil.json.gz',
           fileSha256: 'a'.repeat(64),
           month: '..\\evil',
+          sourceFileName: 'append-only-..\\evil.sqlite',
+          sourceFileSha256: 'a'.repeat(64),
           tables: {},
-        },
-      }),
+          version: 1,
+        })}\n`
+        await fs.writeFile(manifestPath, manifest)
+        return removeManifestValidatedAppendOnlyMonth({
+          appendOnlyDir,
+          manifestPath,
+          verifiedManifestSha256: crypto.createHash('sha256').update(manifest).digest('hex'),
+        })
+      })(),
     ).rejects.toThrow('Month must use YYYY-MM format')
     await expect(
       exportAppendOnlyMonth({
@@ -684,25 +886,202 @@ describe('SQLite backend selection', () => {
     const outputDir = path.join(tempDir as string, 'dumps')
     const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const sqliteFile = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
+    const cleanupNow = getDumpableTime(receiptMonth)
+    vi.spyOn(Date, 'now').mockReturnValue(cleanupNow)
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
       month: receiptMonth,
       outputDir,
     })
 
-    await removeValidatedAppendOnlyMonth({
-      appendOnlyDir,
-      dump,
-      now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
-    })
-    await removeValidatedAppendOnlyMonth({
-      appendOnlyDir,
-      dump,
-      now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
-    })
+    await removeExportedMonth(appendOnlyDir, dump, cleanupNow)
+    await fs.writeFile(`${sqliteFile}-wal`, 'orphaned wal')
+    await fs.writeFile(`${sqliteFile}-shm`, 'orphaned shm')
+    await removeExportedMonth(appendOnlyDir, dump, cleanupNow)
 
     await expect(fs.stat(sqliteFile)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(fs.stat(`${sqliteFile}-wal`)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(fs.stat(`${sqliteFile}-shm`)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
+  })
+
+  test('preserves a completed dump when a retry cannot reopen the source month', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    const cleanupNow = getDumpableTime(receiptMonth)
+    vi.spyOn(Date, 'now').mockReturnValue(cleanupNow)
+    const dump = await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+    const artifactBefore = await fs.readFile(dump.filePath)
+    const manifestBefore = await fs.readFile(dump.manifestPath)
+    await removeExportedMonth(appendOnlyDir, dump, cleanupNow)
+
+    await expect(
+      exportAppendOnlyMonth({
+        appendOnlyDir,
+        month: receiptMonth,
+        outputDir,
+      }),
+    ).rejects.toThrow(`Append-only SQLite month ${receiptMonth} does not exist`)
+    await expect(fs.readFile(dump.filePath)).resolves.toEqual(artifactBefore)
+    await expect(fs.readFile(dump.manifestPath)).resolves.toEqual(manifestBefore)
+  })
+
+  test('reclaims stale temporary dump outputs before retrying export', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      successful: true,
+    })
+    await close()
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    vi.spyOn(Date, 'now').mockReturnValue(getDumpableTime(receiptMonth))
+    const outputDir = path.join(tempDir as string, 'dumps')
+    await fs.mkdir(outputDir)
+    const staleArtifact = path.join(outputDir, `append-only-${receiptMonth}.json.gz.tmp-123-stale`)
+    const staleManifest = path.join(
+      outputDir,
+      `append-only-${receiptMonth}.manifest.json.tmp-123-stale`,
+    )
+    await fs.writeFile(staleArtifact, 'partial artifact')
+    await fs.writeFile(staleManifest, 'partial manifest')
+
+    await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+
+    await expect(fs.stat(staleArtifact)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(fs.stat(staleManifest)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('does not overwrite dump outputs published concurrently for the same month', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 5, 15))
+    const firstEnvironment = await createTempSqliteEnvironment()
+    const firstServer = await startSqliteServer(firstEnvironment)
+    await postReport(firstServer.baseUrl, '/api/report/v2/create_item', {
+      items: [1],
+      successful: true,
+    })
+    await firstServer.close()
+
+    const secondRoot = path.join(tempDir as string, 'second')
+    const secondEnvironment = {
+      appendOnlyDir: path.join(secondRoot, 'append-only'),
+      operationalUrl: `sqlite://${path.join(secondRoot, 'operational.sqlite')}`,
+    }
+    await fs.mkdir(secondEnvironment.appendOnlyDir, { recursive: true })
+    process.env.POI_SERVER_SQLITE_APPEND_ONLY_DIR = secondEnvironment.appendOnlyDir
+    const secondServer = await startSqliteServer(secondEnvironment)
+    await postReport(secondServer.baseUrl, '/api/report/v2/create_item', {
+      items: [2],
+      successful: true,
+    })
+    await secondServer.close()
+
+    now.mockReturnValue(Date.UTC(2026, 6, 2))
+    const outputDir = path.join(tempDir as string, 'shared-dumps')
+    const results = await Promise.allSettled([
+      exportAppendOnlyMonth({
+        appendOnlyDir: firstEnvironment.appendOnlyDir,
+        month: '2026-06',
+        outputDir,
+      }),
+      exportAppendOnlyMonth({
+        appendOnlyDir: secondEnvironment.appendOnlyDir,
+        month: '2026-06',
+        outputDir,
+      }),
+    ])
+    const fulfilled = results.filter(
+      (result): result is PromiseFulfilledResult<AppendOnlyDumpResult> =>
+        result.status === 'fulfilled',
+    )
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    )
+
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0].reason).toMatchObject({
+      message: expect.stringMatching(
+        /Append-only dump outputs .* currently in use|Refusing to replace an existing dump output/,
+      ),
+    })
+    const manifest = JSON.parse(await fs.readFile(fulfilled[0].value.manifestPath, 'utf8')) as {
+      fileSha256: string
+    }
+    expect(
+      crypto
+        .createHash('sha256')
+        .update(await fs.readFile(fulfilled[0].value.filePath))
+        .digest('hex'),
+    ).toBe(manifest.fileSha256)
+  })
+
+  test('refuses export when the inactive month cannot be fully checkpointed', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    vi.spyOn(Date, 'now').mockReturnValue(getDumpableTime(receiptMonth))
+    const sqlitePath = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
+    const reader = new Database(sqlitePath, { readonly: true })
+    const writer = new Database(sqlitePath)
+    try {
+      writer.pragma('journal_mode = WAL')
+      reader.exec('BEGIN')
+      reader.prepare('SELECT COUNT(*) FROM create_item_records').get()
+      writer
+        .prepare(
+          `
+            INSERT INTO create_item_records (
+              public_id,
+              received_at_ms,
+              items_json,
+              successful
+            )
+            VALUES (?, ?, ?, ?)
+          `,
+        )
+        .run('f'.repeat(24), Date.now(), '[]', 1)
+      writer.close()
+
+      await expect(
+        exportAppendOnlyMonth({
+          appendOnlyDir,
+          month: receiptMonth,
+          outputDir: path.join(tempDir as string, 'dumps'),
+        }),
+      ).rejects.toThrow(`Unable to checkpoint append-only SQLite month ${receiptMonth}`)
+    } finally {
+      if (reader.inTransaction) {
+        reader.exec('ROLLBACK')
+      }
+      reader.close()
+      if (writer.open) {
+        writer.close()
+      }
+    }
   })
 
   test('refuses cleanup when the dump artifact checksum does not match', async () => {
@@ -717,6 +1096,8 @@ describe('SQLite backend selection', () => {
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
     const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    const cleanupNow = getDumpableTime(receiptMonth)
+    vi.spyOn(Date, 'now').mockReturnValue(cleanupNow)
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
       month: receiptMonth,
@@ -724,14 +1105,51 @@ describe('SQLite backend selection', () => {
     })
     await fs.writeFile(dump.filePath, 'tampered')
 
-    await expect(
-      removeValidatedAppendOnlyMonth({
-        appendOnlyDir,
-        dump,
-        now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
-      }),
-    ).rejects.toThrow(
-      'Refusing to remove append-only SQLite file before dump checksum verification',
+    await expect(removeExportedMonth(appendOnlyDir, dump, cleanupNow)).rejects.toThrow(
+      'Refusing cleanup because the published dump artifact checksum does not match',
+    )
+  })
+
+  test('refuses cleanup when the exported SQLite snapshot has changed', async () => {
+    const { appendOnlyDir, baseUrl, close } = await startSqliteServer()
+    await postReport(baseUrl, '/api/report/v2/create_item', {
+      items: [10, 20, 30, 40],
+      secretary: 100,
+      itemId: 15,
+      teitokuLv: 120,
+      successful: true,
+    })
+    await close()
+    const outputDir = path.join(tempDir as string, 'dumps')
+    const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    const [year, month] = receiptMonth.split('-').map(Number)
+    const cleanupNow = Date.UTC(year, month, 2)
+    vi.spyOn(Date, 'now').mockReturnValue(cleanupNow)
+    const dump = await exportAppendOnlyMonth({
+      appendOnlyDir,
+      month: receiptMonth,
+      outputDir,
+    })
+    const sqlitePath = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
+    const db = new Database(sqlitePath)
+    try {
+      db.prepare(
+        `
+          INSERT INTO create_item_records (
+            public_id,
+            received_at_ms,
+            items_json,
+            successful
+          )
+          VALUES (?, ?, ?, ?)
+        `,
+      ).run('0'.repeat(24), cleanupNow, '[]', 1)
+    } finally {
+      db.close()
+    }
+
+    await expect(removeExportedMonth(appendOnlyDir, dump, cleanupNow)).rejects.toThrow(
+      'Refusing to remove an append-only SQLite file that changed after export',
     )
   })
 
@@ -747,6 +1165,7 @@ describe('SQLite backend selection', () => {
     await close()
     const outputDir = path.join(tempDir as string, 'dumps')
     const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
+    vi.spyOn(Date, 'now').mockReturnValue(getDumpableTime(receiptMonth))
     const dump = await exportAppendOnlyMonth({
       appendOnlyDir,
       month: receiptMonth,
@@ -754,11 +1173,14 @@ describe('SQLite backend selection', () => {
     })
 
     await expect(
-      removeValidatedAppendOnlyMonth({
+      removeExportedMonth(
         appendOnlyDir,
         dump,
-        now: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1),
-      }),
+        (() => {
+          const [year, monthNumber] = receiptMonth.split('-').map(Number)
+          return Date.UTC(year, monthNumber, 1)
+        })(),
+      ),
     ).rejects.toThrow('Refusing to remove the active append-only SQLite month')
   })
 
@@ -775,6 +1197,8 @@ describe('SQLite backend selection', () => {
     const outputDir = path.join(tempDir as string, 'cli-dumps')
     const receiptMonth = await getAppendOnlyMonth(appendOnlyDir)
     const sqliteFile = path.join(appendOnlyDir, `append-only-${receiptMonth}.sqlite`)
+    const [year, month] = receiptMonth.split('-').map(Number)
+    vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(year, month, 2))
 
     const dump = await runAppendOnlyDumpCli([
       '--append-only-dir',
@@ -783,15 +1207,20 @@ describe('SQLite backend selection', () => {
       receiptMonth,
       '--output-dir',
       outputDir,
+    ])
+    await runAppendOnlyDumpCli([
+      '--append-only-dir',
+      appendOnlyDir,
       '--cleanup',
+      '--manifest',
+      dump.manifestPath,
+      '--verified-manifest-sha256',
+      dump.manifestFileSha256,
       '--confirm-local-delete',
-      '--now',
-      new Date(
-        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 2),
-      ).toISOString(),
     ])
 
     expect(dump.tables.createitemrecords.count).toBe(1)
+    await expect(fs.stat(dump.manifestPath)).resolves.toMatchObject({ size: expect.any(Number) })
     await expect(fs.stat(dump.filePath)).resolves.toMatchObject({ size: expect.any(Number) })
     await expect(fs.stat(sqliteFile)).rejects.toMatchObject({ code: 'ENOENT' })
   })
@@ -820,6 +1249,23 @@ describe('SQLite backend selection', () => {
         '--cleanup',
       ]),
     ).rejects.toThrow('--cleanup requires --confirm-local-delete')
+  })
+
+  test('does not allow the cleanup clock to be overridden from the CLI', async () => {
+    await expect(
+      runAppendOnlyDumpCli([
+        '--append-only-dir',
+        'append-only',
+        '--month',
+        '2026-06',
+        '--output-dir',
+        'dumps',
+        '--cleanup',
+        '--confirm-local-delete',
+        '--now',
+        '2099-01-02T00:00:00.000Z',
+      ]),
+    ).rejects.toThrow('Unknown argument: --now')
   })
 
   test('stores v3 quests in the operational SQLite database and exposes known quest prefixes', async () => {
@@ -899,6 +1345,90 @@ describe('SQLite backend selection', () => {
     })
   })
 
+  test('normalizes v3 quests and quest rewards before SQLite deduplication', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+    const rewardPayload = {
+      questId: '1',
+      title: 'Reward',
+      detail: 'Reward details',
+      category: true,
+      type: '1',
+      selections: ['4'],
+      material: ['0'],
+      bonus: [],
+      bounsCount: '1',
+    }
+    const firstQuest = await postReport(
+      baseUrl,
+      '/api/report/v3/quest',
+      JSON.stringify({
+        quests: [{ questId: '1', category: true, title: 'Quest', detail: 'Details' }],
+      }),
+    )
+    const secondQuest = await postReport(
+      baseUrl,
+      '/api/report/v3/quest',
+      JSON.stringify({
+        quests: [{ questId: 1, category: 1, title: 'Quest', detail: 'Details' }],
+      }),
+    )
+    const firstReward = await postReport(baseUrl, '/api/report/v3/quest_reward', rewardPayload)
+    const secondReward = await postReport(baseUrl, '/api/report/v3/quest_reward', {
+      ...rewardPayload,
+      questId: 1,
+      category: 1,
+      type: 1,
+      selections: [4],
+      material: [0],
+      bounsCount: 1,
+    })
+    const statusResponse = await fetch(`${baseUrl}/api/status`)
+    await close()
+
+    expect([
+      firstQuest.status,
+      secondQuest.status,
+      firstReward.status,
+      secondReward.status,
+    ]).toEqual([200, 200, 200, 200])
+    expect(await statusResponse.json()).toMatchObject({
+      sqlite: {
+        Quest: 1,
+        QuestReward: 1,
+      },
+    })
+  })
+
+  test('deduplicates v3 quests and rewards with missing optional identity fields', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+    const quest = JSON.stringify({
+      quests: [{ title: 'Quest without IDs', detail: 'Details' }],
+    })
+    const reward = {
+      title: 'Reward without IDs',
+      detail: 'Reward details',
+      selections: [],
+      material: [],
+      bonus: [],
+    }
+    const responses = [
+      await postReport(baseUrl, '/api/report/v3/quest', quest),
+      await postReport(baseUrl, '/api/report/v3/quest', quest),
+      await postReport(baseUrl, '/api/report/v3/quest_reward', reward),
+      await postReport(baseUrl, '/api/report/v3/quest_reward', reward),
+    ]
+    const statusResponse = await fetch(`${baseUrl}/api/status`)
+    await close()
+
+    expect(responses.map(({ status }) => status)).toEqual([200, 200, 200, 200])
+    expect(await statusResponse.json()).toMatchObject({
+      sqlite: {
+        Quest: 1,
+        QuestReward: 1,
+      },
+    })
+  })
+
   test('handles representative v2 operational endpoints in SQLite mode', async () => {
     mongoose.set('bufferTimeoutMS', 100)
     const { operationalUrl, baseUrl, close } = await startSqliteServer()
@@ -943,7 +1473,7 @@ describe('SQLite backend selection', () => {
       hp2: [],
       stats2: [],
       equips2: [],
-      planes: [3],
+      planes: 3,
       bombersMin: 1,
       bombersMax: 5,
     })
@@ -958,7 +1488,7 @@ describe('SQLite backend selection', () => {
       hp2: [],
       stats2: [],
       equips2: [],
-      planes: [3],
+      planes: 3,
       bombersMin: 3,
       bombersMax: 4,
     })
@@ -987,6 +1517,70 @@ describe('SQLite backend selection', () => {
       bombers_max: 4,
       bombers_min: 3,
       count: 2,
+    })
+  })
+
+  test('normalizes operational reports before SQLite deduplication', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+    const shipStat = {
+      id: 100,
+      lv: 50,
+      los: 30,
+      los_max: 40,
+      asw: 70,
+      asw_max: 80,
+      evasion: 60,
+      evasion_max: 70,
+    }
+    const enemyInfo = {
+      ships1: [1],
+      levels1: [1],
+      hp1: [10],
+      stats1: [[1]],
+      equips1: [[2]],
+      ships2: [],
+      levels2: [],
+      hp2: [],
+      stats2: [],
+      equips2: [],
+      planes: 3,
+      bombersMin: 1,
+      bombersMax: 5,
+    }
+    await postReport(
+      baseUrl,
+      '/api/report/v2/ship_stat',
+      Object.fromEntries(Object.entries(shipStat).map(([key, value]) => [key, String(value)])),
+    )
+    await postReport(baseUrl, '/api/report/v2/ship_stat', shipStat)
+    await postReport(baseUrl, '/api/report/v2/enemy_info', {
+      ...enemyInfo,
+      ships1: ['1'],
+      levels1: ['1'],
+      hp1: ['10'],
+      stats1: [['1']],
+      equips1: [['2']],
+      planes: '3',
+      bombersMin: '1',
+      bombersMax: '5',
+    })
+    await postReport(baseUrl, '/api/report/v2/enemy_info', enemyInfo)
+    const selectRankResponse = await postReport(baseUrl, '/api/report/v2/select_rank', {
+      teitokuId: 123,
+      teitokuLv: '120',
+      mapareaId: true,
+      rank: '1',
+    })
+    const statusResponse = await fetch(`${baseUrl}/api/status`)
+    await close()
+
+    expect(selectRankResponse.status).toBe(200)
+    expect(await statusResponse.json()).toMatchObject({
+      sqlite: {
+        EnemyInfo: 1,
+        SelectRankRecord: 1,
+        ShipStat: 1,
+      },
     })
   })
 
@@ -1095,11 +1689,28 @@ describe('SQLite backend selection', () => {
         quests: [{ questId: 1, category: 1, title: 'A', detail: 'A details' }],
       }),
     )
+    await postReport(
+      baseUrl,
+      '/api/report/v3/quest',
+      JSON.stringify({
+        quests: [{ questId: 1, category: 1, title: 'A', detail: 'A details' }],
+      }),
+    )
     await postReport(baseUrl, '/api/report/v2/remodel_item', {
       successful: true,
       itemId: 200,
       itemLevel: 6,
     })
+    const recipe = {
+      recipeId: 1,
+      itemId: 200,
+      stage: 1,
+      day: 5,
+      secretary: 100,
+    }
+    await postReport(baseUrl, '/api/report/v2/remodel_recipe', recipe)
+    await postReport(baseUrl, '/api/report/v2/remodel_recipe', recipe)
+    await postReport(baseUrl, '/api/report/v2/remodel_recipe', { ...recipe, recipeId: 2 })
     await postReport(baseUrl, '/api/report/v2/pass_event', { eventId: 1 })
     await postReport(baseUrl, '/api/report/v2/battle_api', {
       path: '/kcsapi/api_req_sortie/battle',
@@ -1121,14 +1732,13 @@ describe('SQLite backend selection', () => {
         CreateItemRecord: 1,
         PassEventRecord: 1,
         Quest: 1,
+        RecipeRecord: 2,
         RemodelItemRecord: 1,
       },
     })
   })
 
   test('SQLite status counts unopened append-only monthly files on disk', async () => {
-    originalStatusScan = process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES
-    process.env.POI_SERVER_SQLITE_STATUS_SCAN_APPEND_ONLY_FILES = '1'
     const sqliteEnvironment = await createTempSqliteEnvironment()
     const firstStart = await startSqliteServer(sqliteEnvironment)
     await postReport(firstStart.baseUrl, '/api/report/v2/create_item', {
@@ -1193,10 +1803,15 @@ describe('SQLite backend selection', () => {
     expect(await ingestResponse.json()).toEqual({ records: 1 })
     expect(exportResponse.status).toBe(200)
     expect(await exportResponse.json()).toMatchObject({
+      next: {
+        afterId: expect.any(String),
+        updatedAfter: expect.any(Number),
+      },
       records: [
         {
           count: 2,
           itemId: 700,
+          key: 'v1|availability|33|700|6|0',
           observedFlagshipIds: [100, 101],
           observedSecondShipId: 0,
           recipeId: 33,
@@ -1204,6 +1819,35 @@ describe('SQLite backend selection', () => {
         },
       ],
     })
+  })
+
+  test('uses a strict updatedAfter boundary when no SQLite export ID is supplied', async () => {
+    const { baseUrl, close } = await startSqliteServer()
+    const observedAt = Date.UTC(2026, 6, 3, 15)
+    await postReport(baseUrl, '/api/report/v3/item_improvement_recipe', {
+      schemaVersion: 1,
+      source: 'list',
+      clientObservedAt: observedAt,
+      recipeId: 33,
+      itemId: 700,
+      day: 6,
+      observedSecondShipId: 0,
+      observedFlagshipIds: [100],
+    })
+    const firstResponse = await fetch(
+      `${baseUrl}/api/report/v3/item_improvement_recipes/availability`,
+    )
+    const firstBody = (await firstResponse.json()) as {
+      next: { updatedAfter: number }
+    }
+    const boundaryResponse = await fetch(
+      `${baseUrl}/api/report/v3/item_improvement_recipes/availability?updatedAfter=${firstBody.next.updatedAfter}`,
+    )
+
+    await close()
+
+    expect(boundaryResponse.status).toBe(200)
+    expect(await boundaryResponse.json()).toEqual({ next: null, records: [] })
   })
 
   test('rejects unsupported item improvement recipe sources in SQLite mode', async () => {
@@ -1233,6 +1877,38 @@ describe('SQLite backend selection', () => {
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ error: 'limit: must be positive' })
+  })
+
+  test('uses compound cursor indexes for SQLite item improvement exports', async () => {
+    const { operationalUrl, close } = await startSqliteServer()
+    await close()
+    const db = new Database(operationalUrl.replace(/^sqlite:\/\//, ''), { readonly: true })
+    try {
+      for (const table of [
+        'item_improvement_availability_facts',
+        'item_improvement_cost_facts',
+        'item_improvement_update_facts',
+      ]) {
+        const plan = db
+          .prepare(
+            `
+              EXPLAIN QUERY PLAN
+              SELECT *
+              FROM ${table}
+              WHERE last_reported > ?
+              ORDER BY last_reported, id
+              LIMIT ?
+            `,
+          )
+          .all(0, 500) as Array<{ detail: string }>
+
+        expect(plan.map(({ detail }) => detail).join('\n')).toContain(
+          `USING INDEX ${table}_export_idx`,
+        )
+      }
+    } finally {
+      db.close()
+    }
   })
 
   test('ingests and exports item improvement cost and update facts in SQLite mode', async () => {
@@ -1291,6 +1967,7 @@ describe('SQLite backend selection', () => {
           changeFlag: 7,
           itemId: 701,
           itemLevel: 1,
+          key: 'v1|cost|34|701|1|2|6|0|10|20|30|40|1|2|3|4|5:1|6:2|7',
           recipeId: 34,
           reqSlotItems: [{ id: 5, count: 1 }],
           reqUseItems: [{ id: 6, count: 2 }],
@@ -1303,8 +1980,66 @@ describe('SQLite backend selection', () => {
           count: 1,
           itemId: 702,
           itemLevel: 9,
+          key: 'v1|update|35|702|9|6|0|703|0',
           recipeId: 35,
           upgradeToItemId: 703,
+        },
+      ],
+    })
+  })
+
+  test('migrates legacy SQLite item improvement cost keys without splitting facts', async () => {
+    const environment = await createTempSqliteEnvironment()
+    const firstServer = await startSqliteServer(environment)
+    const observedAt = Date.UTC(2026, 6, 3, 15)
+    const costRecord = {
+      schemaVersion: 1,
+      source: 'detail',
+      clientObservedAt: observedAt,
+      recipeId: 34,
+      itemId: 701,
+      day: 6,
+      observedSecondShipId: 0,
+      observedFlagshipIds: [100],
+      itemLevel: 1,
+      stage: 2,
+      fuel: 10,
+      ammo: 20,
+      steel: 30,
+      bauxite: 40,
+      buildkit: 1,
+      remodelkit: 2,
+      certainBuildkit: 3,
+      certainRemodelkit: 4,
+      reqSlotItems: [{ id: 5, count: 1 }],
+      reqUseItems: [{ id: 6, count: 2 }],
+      changeFlag: 7,
+    }
+    await postReport(firstServer.baseUrl, '/api/report/v3/item_improvement_recipe', costRecord)
+    await firstServer.close()
+
+    const db = new Database(environment.operationalUrl.replace(/^sqlite:\/\//, ''))
+    try {
+      db.prepare('UPDATE item_improvement_cost_facts SET key = ?').run(
+        'v1|cost|34|701|1|2|6|0|10|20|30|40|1|2|3|4|[{"id":5,"count":1}]|[{"id":6,"count":2}]|7',
+      )
+    } finally {
+      db.close()
+    }
+
+    const restarted = await startSqliteServer(environment)
+    await postReport(restarted.baseUrl, '/api/report/v3/item_improvement_recipe', costRecord)
+    const response = await fetch(
+      `${restarted.baseUrl}/api/report/v3/item_improvement_recipes/costs`,
+    )
+    await restarted.close()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      records: [
+        {
+          count: 2,
+          key: 'v1|cost|34|701|1|2|6|0|10|20|30|40|1|2|3|4|5:1|6:2|7',
         },
       ],
     })

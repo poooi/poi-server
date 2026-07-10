@@ -2,6 +2,15 @@ import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import { stripSqliteDatabaseUrl } from '../backend'
+import {
+  createItemImprovementAvailabilityKey,
+  createItemImprovementCostKey,
+  createItemImprovementUpdateKey,
+  type ItemImprovementAvailabilityKeyFields,
+  type ItemImprovementCostKeyFields,
+  type ItemImprovementUpdateKeyFields,
+} from '../../models/report/item-improvement-key'
+import { acquireOperationalMigrationLock } from './month-lock'
 
 let operationalDb: Database.Database | undefined
 
@@ -156,16 +165,159 @@ const ensureOperationalSchema = (db: Database.Database) => {
       last_client_observed_at INTEGER,
       count INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE INDEX IF NOT EXISTS item_improvement_availability_facts_export_idx
+      ON item_improvement_availability_facts (last_reported, id);
+    CREATE INDEX IF NOT EXISTS item_improvement_cost_facts_export_idx
+      ON item_improvement_cost_facts (last_reported, id);
+    CREATE INDEX IF NOT EXISTS item_improvement_update_facts_export_idx
+      ON item_improvement_update_facts (last_reported, id);
   `)
 }
 
-export const initializeSqliteOperationalStorage = (db: string) => {
+interface ItemImprovementCostMigrationRow {
+  count: number
+  first_client_observed_at: number
+  first_reported: number
+  id: number
+  key: string
+  last_client_observed_at: number
+  last_reported: number
+  observed_flagship_ids_json: string
+  sources_json: string
+}
+
+const migrateQuestUniqueness = (db: Database.Database) => {
+  const migrate = db.transaction(() => {
+    db.exec(`
+      DELETE FROM quests
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM quests
+        GROUP BY
+          key,
+          COALESCE('v:' || CAST(quest_id AS TEXT), 'n:'),
+          COALESCE('v:' || CAST(category AS TEXT), 'n:')
+      );
+
+      DELETE FROM quest_rewards
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM quest_rewards
+        GROUP BY
+          key,
+          COALESCE('v:' || CAST(quest_id AS TEXT), 'n:'),
+          selections_json,
+          COALESCE('v:' || CAST(bouns_count AS TEXT), 'n:')
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS quests_null_stable_key_idx
+        ON quests (
+          key,
+          COALESCE('v:' || CAST(quest_id AS TEXT), 'n:'),
+          COALESCE('v:' || CAST(category AS TEXT), 'n:')
+        );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS quest_rewards_null_stable_key_idx
+        ON quest_rewards (
+          key,
+          COALESCE('v:' || CAST(quest_id AS TEXT), 'n:'),
+          selections_json,
+          COALESCE('v:' || CAST(bouns_count AS TEXT), 'n:')
+        );
+    `)
+  })
+  migrate.immediate()
+}
+
+const migrateItemImprovementCostKeys = (db: Database.Database) => {
+  const selectRows = db.prepare('SELECT * FROM item_improvement_cost_facts ORDER BY id')
+  const findByKey = db.prepare('SELECT * FROM item_improvement_cost_facts WHERE key = ?')
+  const updateKey = db.prepare('UPDATE item_improvement_cost_facts SET key = ? WHERE id = ?')
+  const mergeIntoTarget = db.prepare(`
+    UPDATE item_improvement_cost_facts
+    SET
+      observed_flagship_ids_json = ?,
+      sources_json = ?,
+      first_reported = ?,
+      last_reported = ?,
+      first_client_observed_at = ?,
+      last_client_observed_at = ?,
+      count = ?
+    WHERE id = ?
+  `)
+  const deleteById = db.prepare('DELETE FROM item_improvement_cost_facts WHERE id = ?')
+  const migrate = db.transaction(() => {
+    const rows = selectRows.all() as Array<ItemImprovementCostMigrationRow & Record<string, any>>
+    for (const row of rows) {
+      const canonicalKey = createItemImprovementCostKey({
+        ammo: row.ammo,
+        bauxite: row.bauxite,
+        buildkit: row.buildkit,
+        certainBuildkit: row.certain_buildkit,
+        certainRemodelkit: row.certain_remodelkit,
+        changeFlag: row.change_flag,
+        day: row.day,
+        fuel: row.fuel,
+        itemId: row.item_id,
+        itemLevel: row.item_level,
+        observedSecondShipId: row.observed_second_ship_id,
+        recipeId: row.recipe_id,
+        remodelkit: row.remodelkit,
+        reqSlotItems: JSON.parse(row.req_slot_items_json),
+        reqUseItems: JSON.parse(row.req_use_items_json),
+        stage: row.stage,
+        steel: row.steel,
+      })
+      if (row.key === canonicalKey) {
+        continue
+      }
+
+      const target = findByKey.get(canonicalKey) as
+        (ItemImprovementCostMigrationRow & Record<string, any>) | undefined
+      if (target == null) {
+        updateKey.run(canonicalKey, row.id)
+        continue
+      }
+      if (target.id === row.id) {
+        continue
+      }
+
+      mergeIntoTarget.run(
+        JSON.stringify(
+          mergeJsonNumberArray(
+            target.observed_flagship_ids_json,
+            JSON.parse(row.observed_flagship_ids_json),
+          ),
+        ),
+        JSON.stringify(mergeJsonStringArray(target.sources_json, JSON.parse(row.sources_json))),
+        Math.min(target.first_reported, row.first_reported),
+        Math.max(target.last_reported, row.last_reported),
+        Math.min(target.first_client_observed_at, row.first_client_observed_at),
+        Math.max(target.last_client_observed_at, row.last_client_observed_at),
+        target.count + row.count,
+        target.id,
+      )
+      deleteById.run(row.id)
+    }
+  })
+  migrate.immediate()
+}
+
+export const initializeSqliteOperationalStorage = async (db: string) => {
   closeSqliteOperationalStorage()
   const sqlitePath = stripSqliteDatabaseUrl(db)
   fs.mkdirSync(path.dirname(sqlitePath), { recursive: true })
   const nextOperationalDb = new Database(sqlitePath)
   try {
-    ensureOperationalSchema(nextOperationalDb)
+    const migrationLock = await acquireOperationalMigrationLock(sqlitePath)
+    try {
+      ensureOperationalSchema(nextOperationalDb)
+      migrateQuestUniqueness(nextOperationalDb)
+      migrateItemImprovementCostKeys(nextOperationalDb)
+    } finally {
+      await migrationLock.release()
+    }
   } catch (err) {
     nextOperationalDb.close()
     throw err
@@ -174,8 +326,9 @@ export const initializeSqliteOperationalStorage = (db: string) => {
 }
 
 export const closeSqliteOperationalStorage = () => {
-  operationalDb?.close()
+  const db = operationalDb
   operationalDb = undefined
+  db?.close()
 }
 
 const getOperationalDb = () => {
@@ -393,17 +546,10 @@ export const insertOperationalRecord = (
 }
 
 export const upsertItemImprovementAvailabilityFact = (
-  record: Record<string, any>,
+  record: ItemImprovementAvailabilityKeyFields & Record<string, any>,
   lastReported = Date.now(),
 ) => {
-  const key = [
-    'v1',
-    'availability',
-    record.recipeId,
-    record.itemId,
-    record.day,
-    record.observedSecondShipId,
-  ].join('|')
+  const key = createItemImprovementAvailabilityKey(record)
   const db = getOperationalDb()
   const existing = db
     .prepare(
@@ -458,30 +604,10 @@ export const upsertItemImprovementAvailabilityFact = (
 }
 
 export const upsertItemImprovementCostFact = (
-  record: Record<string, any>,
+  record: ItemImprovementCostKeyFields & Record<string, any>,
   lastReported = Date.now(),
 ) => {
-  const key = [
-    'v1',
-    'cost',
-    record.recipeId,
-    record.itemId,
-    record.itemLevel,
-    record.stage,
-    record.day,
-    record.observedSecondShipId,
-    record.fuel,
-    record.ammo,
-    record.steel,
-    record.bauxite,
-    record.buildkit,
-    record.remodelkit,
-    record.certainBuildkit,
-    record.certainRemodelkit,
-    JSON.stringify(record.reqSlotItems || []),
-    JSON.stringify(record.reqUseItems || []),
-    record.changeFlag,
-  ].join('|')
+  const key = createItemImprovementCostKey(record)
   const db = getOperationalDb()
   const existing = db
     .prepare(
@@ -562,20 +688,10 @@ export const upsertItemImprovementCostFact = (
 }
 
 export const upsertItemImprovementUpdateFact = (
-  record: Record<string, any>,
+  record: ItemImprovementUpdateKeyFields & Record<string, any>,
   lastReported = Date.now(),
 ) => {
-  const key = [
-    'v1',
-    'update',
-    record.recipeId,
-    record.itemId,
-    record.itemLevel,
-    record.day,
-    record.observedSecondShipId,
-    record.upgradeToItemId,
-    record.upgradeToItemLevel,
-  ].join('|')
+  const key = createItemImprovementUpdateKey(record)
   const db = getOperationalDb()
   const existing = db
     .prepare(
@@ -645,6 +761,14 @@ interface ExportFactCursor {
 
 const parseAfterId = (afterId: string | undefined) => (afterId == null ? 0 : parseInt(afterId, 16))
 
+const getExportCursorPredicate = (afterId: string | undefined) =>
+  afterId == null ? 'last_reported > ?' : '(last_reported > ? OR (last_reported = ? AND id > ?))'
+
+const getExportCursorParameters = (cursor: ExportFactCursor) =>
+  cursor.afterId == null
+    ? [cursor.updatedAfter, cursor.limit]
+    : [cursor.updatedAfter, cursor.updatedAfter, parseAfterId(cursor.afterId), cursor.limit]
+
 export const getItemImprovementAvailabilityFacts = ({
   afterId,
   limit,
@@ -655,6 +779,7 @@ export const getItemImprovementAvailabilityFacts = ({
       `
         SELECT
           id,
+          key,
           schema_version,
           recipe_id,
           item_id,
@@ -668,20 +793,19 @@ export const getItemImprovementAvailabilityFacts = ({
           last_client_observed_at,
           count
         FROM item_improvement_availability_facts
-        WHERE
-          last_reported > ?
-          OR (last_reported = ? AND id > ?)
+        WHERE ${getExportCursorPredicate(afterId)}
         ORDER BY last_reported, id
         LIMIT ?
       `,
     )
-    .all(updatedAfter, updatedAfter, parseAfterId(afterId), limit) as Array<{
+    .all(...getExportCursorParameters({ afterId, limit, updatedAfter })) as Array<{
     count: number
     day: number
     first_client_observed_at: number
     first_reported: number
     id: number
     item_id: number
+    key: string
     last_client_observed_at: number
     last_reported: number
     observed_flagship_ids_json: string
@@ -697,19 +821,12 @@ export const getItemImprovementCostFacts = (cursor: ExportFactCursor) =>
       `
         SELECT *
         FROM item_improvement_cost_facts
-        WHERE
-          last_reported > ?
-          OR (last_reported = ? AND id > ?)
+        WHERE ${getExportCursorPredicate(cursor.afterId)}
         ORDER BY last_reported, id
         LIMIT ?
       `,
     )
-    .all(
-      cursor.updatedAfter,
-      cursor.updatedAfter,
-      parseAfterId(cursor.afterId),
-      cursor.limit,
-    ) as Array<Record<string, any>>
+    .all(...getExportCursorParameters(cursor)) as Array<Record<string, any>>
 
 export const getItemImprovementUpdateFacts = (cursor: ExportFactCursor) =>
   getOperationalDb()
@@ -717,23 +834,16 @@ export const getItemImprovementUpdateFacts = (cursor: ExportFactCursor) =>
       `
         SELECT *
         FROM item_improvement_update_facts
-        WHERE
-          last_reported > ?
-          OR (last_reported = ? AND id > ?)
+        WHERE ${getExportCursorPredicate(cursor.afterId)}
         ORDER BY last_reported, id
         LIMIT ?
       `,
     )
-    .all(
-      cursor.updatedAfter,
-      cursor.updatedAfter,
-      parseAfterId(cursor.afterId),
-      cursor.limit,
-    ) as Array<Record<string, any>>
+    .all(...getExportCursorParameters(cursor)) as Array<Record<string, any>>
 
-const estimateRows = (table: string) =>
+const countRows = (table: string) =>
   (
-    getOperationalDb().prepare(`SELECT COALESCE(MAX(id), 0) AS count FROM ${table}`).get() as {
+    getOperationalDb().prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as {
       count: number
     }
   ).count
@@ -747,12 +857,12 @@ const countOperationalRecords = (kind: string) =>
 
 export const getOperationalSqliteCounts = (): Record<string, number> => ({
   BattleAPI: countOperationalRecords('battle_api'),
-  EnemyInfo: estimateRows('enemy_infos'),
+  EnemyInfo: countRows('enemy_infos'),
   PassEventRecord: countOperationalRecords('pass_event'),
-  Quest: estimateRows('quests'),
-  QuestReward: estimateRows('quest_rewards'),
-  RecipeRecord: estimateRows('recipe_records'),
+  Quest: countRows('quests'),
+  QuestReward: countRows('quest_rewards'),
+  RecipeRecord: countRows('recipe_records'),
   RemodelItemRecord: countOperationalRecords('remodel_item'),
-  SelectRankRecord: estimateRows('select_rank_records'),
-  ShipStat: estimateRows('ship_stats'),
+  SelectRankRecord: countRows('select_rank_records'),
+  ShipStat: countRows('ship_stats'),
 })

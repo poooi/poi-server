@@ -12,6 +12,9 @@ import {
   ItemImprovementRecipeAvailabilityFact,
   ItemImprovementRecipeCostFact,
   ItemImprovementRecipeUpdateFact,
+  createItemImprovementAvailabilityKey,
+  createItemImprovementCostKey,
+  createItemImprovementUpdateKey,
   type QuestPayload,
   type QuestRewardPayload,
   Quest,
@@ -412,55 +415,6 @@ const normalizeItemImprovementRecipeRecord = (
   }
 }
 
-const serializeRequiredItems = (items: RequiredItem[]) =>
-  items.length > 0 ? items.map(({ id, count }) => `${id}:${count}`).join(',') : '-'
-
-const createAvailabilityKey = (record: ItemImprovementRecipeListRecord): string =>
-  [
-    'v1',
-    'availability',
-    record.recipeId,
-    record.itemId,
-    record.day,
-    record.observedSecondShipId,
-  ].join('|')
-
-const createCostKey = (record: ItemImprovementRecipeDetailRecord): string =>
-  [
-    'v1',
-    'cost',
-    record.recipeId,
-    record.itemId,
-    record.itemLevel,
-    record.stage,
-    record.day,
-    record.observedSecondShipId,
-    record.fuel,
-    record.ammo,
-    record.steel,
-    record.bauxite,
-    record.buildkit,
-    record.remodelkit,
-    record.certainBuildkit,
-    record.certainRemodelkit,
-    serializeRequiredItems(record.reqSlotItems),
-    serializeRequiredItems(record.reqUseItems),
-    record.changeFlag,
-  ].join('|')
-
-const createUpdateKey = (record: ItemImprovementRecipeExecutionRecord): string =>
-  [
-    'v1',
-    'update',
-    record.recipeId,
-    record.itemId,
-    record.itemLevel,
-    record.day,
-    record.observedSecondShipId,
-    record.upgradeToItemId,
-    record.upgradeToItemLevel,
-  ].join('|')
-
 const createItemImprovementFactUpdate = (
   stableFields: Record<string, unknown>,
   record: ItemImprovementRecipeRecord,
@@ -501,7 +455,7 @@ const saveItemImprovementRecipeRecord = async (
   lastReported: number,
 ): Promise<void> => {
   if (record.source === 'list') {
-    const key = createAvailabilityKey(record)
+    const key = createItemImprovementAvailabilityKey(record)
     await ItemImprovementRecipeAvailabilityFact.updateOne(
       { key },
       createItemImprovementFactUpdate(
@@ -522,7 +476,7 @@ const saveItemImprovementRecipeRecord = async (
   }
 
   if (record.source === 'detail') {
-    const key = createCostKey(record)
+    const key = createItemImprovementCostKey(record)
     await ItemImprovementRecipeCostFact.updateOne(
       { key },
       createItemImprovementFactUpdate(
@@ -555,7 +509,7 @@ const saveItemImprovementRecipeRecord = async (
     return
   }
 
-  const key = createUpdateKey(record)
+  const key = createItemImprovementUpdateKey(record)
   await ItemImprovementRecipeUpdateFact.updateOne(
     { key },
     createItemImprovementFactUpdate(

@@ -33,6 +33,8 @@ interface StartedServer {
   close: () => Promise<void>
 }
 
+let activeSqliteServerOwner: symbol | undefined
+
 const redactMongoCredentials = (message: string) =>
   message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
 
@@ -50,7 +52,7 @@ export const loadLatestCommit = () => {
 
 export const connectDatabase = async (db: string) => {
   if (isSqliteDatabaseUrl(db)) {
-    initializeSqliteOperationalStorage(db)
+    await initializeSqliteOperationalStorage(db)
     initializeSqliteAppendOnlyStorage(db)
     return
   }
@@ -71,6 +73,28 @@ export const connectDatabase = async (db: string) => {
   }
 }
 
+const closeOwnedSqliteStorage = (owner: symbol) => {
+  if (activeSqliteServerOwner !== owner) {
+    return
+  }
+  let closeError: unknown
+  try {
+    closeSqliteAppendOnlyStorage()
+  } catch (err) {
+    closeError = err
+  }
+  try {
+    closeSqliteOperationalStorage()
+  } catch (err) {
+    closeError ??= err
+  }
+  clearIdleSqliteWriteQueues()
+  activeSqliteServerOwner = undefined
+  if (closeError != null) {
+    throw closeError
+  }
+}
+
 export const startServer = async ({
   db,
   disableLogger,
@@ -79,7 +103,22 @@ export const startServer = async ({
   port,
 }: StartServerOptions): Promise<StartedServer> => {
   const backend = resolveDatabaseBackend(db)
-  await connectDatabase(db)
+  let sqliteOwner: symbol | undefined
+  if (backend === 'sqlite') {
+    if (activeSqliteServerOwner != null) {
+      throw new Error('A SQLite server is already running in this process')
+    }
+    sqliteOwner = Symbol('sqlite-server-owner')
+    activeSqliteServerOwner = sqliteOwner
+  }
+  try {
+    await connectDatabase(db)
+  } catch (err) {
+    if (sqliteOwner != null) {
+      closeOwnedSqliteStorage(sqliteOwner)
+    }
+    throw err
+  }
 
   if (isMongoDatabaseUrl(db)) {
     mongoose.connection.on('error', (err: Error) => {
@@ -93,10 +132,8 @@ export const startServer = async ({
   try {
     await app.listen({ host, port })
   } catch (err) {
-    if (backend === 'sqlite') {
-      closeSqliteAppendOnlyStorage()
-      closeSqliteOperationalStorage()
-      clearIdleSqliteWriteQueues()
+    if (sqliteOwner != null) {
+      closeOwnedSqliteStorage(sqliteOwner)
     }
     throw err
   }
@@ -112,10 +149,8 @@ export const startServer = async ({
       try {
         await app.close()
       } finally {
-        if (backend === 'sqlite') {
-          closeSqliteAppendOnlyStorage()
-          closeSqliteOperationalStorage()
-          clearIdleSqliteWriteQueues()
+        if (sqliteOwner != null) {
+          closeOwnedSqliteStorage(sqliteOwner)
         }
       }
     },

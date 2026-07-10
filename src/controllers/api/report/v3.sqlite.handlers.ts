@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import _ from 'lodash'
+import { type Document } from 'mongoose'
 
 import { withCloudflareCache } from '../../../http/cache-control'
 import { type AppRequest } from '../../../http/request'
@@ -17,7 +18,7 @@ import {
 } from '../../../db/sqlite/operational'
 import { runSqliteWrite, SqliteWriteQueueFullError } from '../../../db/sqlite/write-queue'
 import { handleReportError, parseReportInfo } from './shared'
-import { type QuestPayload, type QuestRewardPayload } from '../../../models'
+import { Quest, QuestReward, type QuestPayload, type QuestRewardPayload } from '../../../models'
 import {
   getItemImprovementRecipeValidationErrorMessage,
   isItemImprovementValidationError,
@@ -34,6 +35,14 @@ const handleSqliteReportError = (err: Error, request: AppRequest): AppResult => 
     return serviceUnavailable(err.message)
   }
   return handleReportError(err, request)
+}
+
+const normalizeSqliteRecord = (record: Document): Record<string, any> => {
+  const validationError = record.validateSync()
+  if (validationError != null) {
+    throw validationError
+  }
+  return record.toObject({ minimize: false })
 }
 
 const parseInteger = (value: unknown, fallback: number, field: string) => {
@@ -71,8 +80,8 @@ const parseExportCursor = (request: AppRequest) => {
   }
 }
 
-const createNextCursor = (records: Array<{ _id: string; lastReported: number }>, limit: number) => {
-  if (records.length < limit) {
+const createNextCursor = (records: Array<{ _id: string; lastReported: number }>) => {
+  if (records.length === 0) {
     return null
   }
   const last = records[records.length - 1]
@@ -93,11 +102,15 @@ export const knownQuests = async (request: AppRequest): Promise<AppResult> =>
 export const quest = async (request: AppRequest): Promise<AppResult> => {
   try {
     const info = parseReportInfo(request)
-    const records = _.map(info.quests, (questItem) => ({
-      ...questItem,
-      key: createQuestHash(questItem),
-      origin: info.origin,
-    }))
+    const records = _.map(info.quests, (questItem) =>
+      normalizeSqliteRecord(
+        new Quest({
+          ...questItem,
+          key: createQuestHash(questItem),
+          origin: info.origin,
+        }),
+      ),
+    )
     await runSqliteWrite('operational', () => upsertQuestRecords(records))
     return ok()
   } catch (err) {
@@ -108,12 +121,13 @@ export const quest = async (request: AppRequest): Promise<AppResult> => {
 export const questReward = async (request: AppRequest): Promise<AppResult> => {
   try {
     const info = parseReportInfo(request) as QuestRewardPayload
-    await runSqliteWrite('operational', () =>
-      upsertQuestRewardRecord({
+    const record = normalizeSqliteRecord(
+      new QuestReward({
         ...info,
         key: createQuestHash(info),
       }),
     )
+    await runSqliteWrite('operational', () => upsertQuestRewardRecord(record))
     return ok()
   } catch (err) {
     return handleSqliteReportError(err, request)
@@ -166,6 +180,7 @@ export const itemImprovementRecipeAvailability = async (
     firstClientObservedAt: row.first_client_observed_at,
     firstReported: row.first_reported,
     itemId: row.item_id,
+    key: row.key,
     lastClientObservedAt: row.last_client_observed_at,
     lastReported: row.last_reported,
     observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
@@ -178,7 +193,7 @@ export const itemImprovementRecipeAvailability = async (
     request,
     ok({
       records,
-      next: createNextCursor(records, cursor.limit),
+      next: createNextCursor(records),
     }),
   )
 }
@@ -205,6 +220,7 @@ export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<A
     fuel: row.fuel,
     itemId: row.item_id,
     itemLevel: row.item_level,
+    key: row.key,
     lastClientObservedAt: row.last_client_observed_at,
     lastReported: row.last_reported,
     observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
@@ -222,7 +238,7 @@ export const itemImprovementRecipeCosts = async (request: AppRequest): Promise<A
     request,
     ok({
       records,
-      next: createNextCursor(records, cursor.limit),
+      next: createNextCursor(records),
     }),
   )
 }
@@ -242,6 +258,7 @@ export const itemImprovementRecipeUpdates = async (request: AppRequest): Promise
     firstReported: row.first_reported,
     itemId: row.item_id,
     itemLevel: row.item_level,
+    key: row.key,
     lastClientObservedAt: row.last_client_observed_at,
     lastReported: row.last_reported,
     observedFlagshipIds: JSON.parse(row.observed_flagship_ids_json),
@@ -257,7 +274,7 @@ export const itemImprovementRecipeUpdates = async (request: AppRequest): Promise
     request,
     ok({
       records,
-      next: createNextCursor(records, cursor.limit),
+      next: createNextCursor(records),
     }),
   )
 }

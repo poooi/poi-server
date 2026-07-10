@@ -14,9 +14,10 @@ export const stripSqliteDatabaseUrl = (db: string) => {
   if (!isSqliteDatabaseUrl(db)) {
     return db
   }
-  const path = db.startsWith('sqlite://')
-    ? db.slice('sqlite://'.length)
-    : db.slice('sqlite:'.length)
+  let path = db.startsWith('sqlite://') ? db.slice('sqlite://'.length) : db.slice('sqlite:'.length)
+  if (process.platform === 'win32' && /^\/[a-z]:[\\/]/i.test(path)) {
+    path = path.slice(1)
+  }
   if (path === '') {
     throw new Error('SQLite database URL must include a path')
   }
