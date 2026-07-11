@@ -37,12 +37,19 @@ describe('monthly dump cron scripts', () => {
     expect(installer).toContain('POI_DUMP_CRON_TIMEOUT')
   })
 
-  test('rejects leading-dash paths and validates direct runner overrides', () => {
-    const safePathPattern = String.raw`safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'`
-    expect(installer).toContain(safePathPattern)
-    expect(runner).toContain(safePathPattern)
-    expect(runner).toContain('POI_DUMP_CRON_APP_DIR contains unsupported characters')
-    expect(runner).toContain('POI_DUMP_CRON_LOCK_FILE contains unsupported characters')
+  test('requires absolute paths and validates direct runner overrides', () => {
+    const absolutePathPattern = String.raw`absolute_path_pattern='^/[A-Za-z0-9_./-]*$'`
+    expect(installer).toContain(absolutePathPattern)
+    expect(runner).toContain(absolutePathPattern)
+    expect(runner).toContain(
+      'POI_DUMP_CRON_APP_DIR must be an absolute path with supported characters',
+    )
+    expect(runner).toContain(
+      'POI_DUMP_CRON_LOCK_FILE must be an absolute path with supported characters',
+    )
+    expect(installer).toContain(
+      'POI_DUMP_CRON_LOG_FILE must be an absolute path with supported characters',
+    )
     expect(runner).toContain(
       'POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d',
     )

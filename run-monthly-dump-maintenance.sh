@@ -33,10 +33,11 @@ on_error() {
 
 trap on_error ERR
 
-safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'
-[[ "$APP_DIR" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_APP_DIR contains unsupported characters"
-[[ "$LOCK_FILE" =~ $safe_path_pattern ]] ||
-  fail "POI_DUMP_CRON_LOCK_FILE contains unsupported characters"
+absolute_path_pattern='^/[A-Za-z0-9_./-]*$'
+[[ "$APP_DIR" =~ $absolute_path_pattern ]] ||
+  fail "POI_DUMP_CRON_APP_DIR must be an absolute path with supported characters"
+[[ "$LOCK_FILE" =~ $absolute_path_pattern ]] ||
+  fail "POI_DUMP_CRON_LOCK_FILE must be an absolute path with supported characters"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*[smhd]$ ]] ||
   fail "POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d"
 [[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"

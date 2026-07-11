@@ -256,6 +256,8 @@ workflows remain idempotent.
 | `POI_DUMP_CRON_LOCK_FILE` | File used by `flock` to prevent overlap.                           | Built-in lock location      |
 | `POI_DUMP_CRON_TIMEOUT`   | Maximum duration accepted by GNU `timeout`.                        | `12h`                       |
 
+Application, log, and lock path overrides must be absolute POSIX paths.
+
 Verify the installed entry and inspect its output:
 
 ```bash
