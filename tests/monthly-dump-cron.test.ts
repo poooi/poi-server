@@ -3,8 +3,8 @@ import path from 'path'
 import { describe, expect, test } from 'vitest'
 
 describe('monthly dump cron scripts', () => {
-  const installer = readFileSync(path.resolve(__dirname, '../setup-monthly-dump-cron'), 'utf8')
-  const runner = readFileSync(path.resolve(__dirname, '../run-monthly-dump-maintenance'), 'utf8')
+  const installer = readFileSync(path.resolve(__dirname, '../setup-monthly-dump-cron.sh'), 'utf8')
+  const runner = readFileSync(path.resolve(__dirname, '../run-monthly-dump-maintenance.sh'), 'utf8')
 
   test('installs an idempotent managed crontab block without discarding unrelated entries', () => {
     expect(installer).toContain('# BEGIN poi-server monthly dump')
@@ -15,11 +15,11 @@ describe('monthly dump cron scripts', () => {
 
   test('uses JST scheduling, overlap prevention, and persistent logs', () => {
     expect(installer).toContain('CRON_TZ=Asia/Tokyo')
-    expect(installer).toContain('./run-monthly-dump-maintenance')
+    expect(installer).toContain('./run-monthly-dump-maintenance.sh')
     expect(installer).toContain('>> %s 2>&1')
     expect(runner).toContain('flock -n 9')
     expect(runner).toContain('status=skipped reason=overlap')
-    expect(runner).toContain('timeout --foreground "$TIMEOUT"')
+    expect(runner).toContain('timeout --foreground -- "$TIMEOUT"')
   })
 
   test('runner records start, success, and failure context without shell tracing', () => {
@@ -27,6 +27,7 @@ describe('monthly dump cron scripts', () => {
     expect(runner).toContain('status=succeeded elapsed_seconds=$elapsed_seconds')
     expect(runner).toContain('status=failed exit_code=$exit_code elapsed_seconds=$elapsed_seconds')
     expect(runner).toContain('npm run --silent db:dumps:maintain')
+    expect(runner).toContain('cd -- "$APP_DIR"')
     expect(runner).not.toMatch(/\bset -x\b/)
   })
 
@@ -34,5 +35,16 @@ describe('monthly dump cron scripts', () => {
     expect(installer).toContain('existing monthly dump crontab markers are malformed')
     expect(installer).toContain('if [ ! -d "$(dirname "$LOCK_FILE")" ]')
     expect(installer).toContain('POI_DUMP_CRON_TIMEOUT')
+  })
+
+  test('rejects leading-dash paths and validates direct runner overrides', () => {
+    const safePathPattern = String.raw`safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'`
+    expect(installer).toContain(safePathPattern)
+    expect(runner).toContain(safePathPattern)
+    expect(runner).toContain('POI_DUMP_CRON_APP_DIR contains unsupported characters')
+    expect(runner).toContain('POI_DUMP_CRON_LOCK_FILE contains unsupported characters')
+    expect(runner).toContain(
+      'POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d',
+    )
   })
 })

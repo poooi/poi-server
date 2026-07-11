@@ -131,11 +131,11 @@ that Dump Month. Current State, Aggregate, Definition, and Item-improvement Fact
 
 Automated maintenance has three layers:
 
-| Entry point                    | Purpose                                                              |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `npm run db:dumps:maintain`    | Runs the TypeScript maintenance command directly.                    |
-| `run-monthly-dump-maintenance` | Adds locking, timeout enforcement, and timestamped operational logs. |
-| `setup-monthly-dump-cron`      | Installs or updates the managed crontab entry.                       |
+| Entry point                       | Purpose                                                              |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `npm run db:dumps:maintain`       | Runs the TypeScript maintenance command directly.                    |
+| `run-monthly-dump-maintenance.sh` | Adds locking, timeout enforcement, and timestamped operational logs. |
+| `setup-monthly-dump-cron.sh`      | Installs or updates the managed crontab entry.                       |
 
 #### Maintenance command
 
@@ -165,7 +165,7 @@ file. It refuses non-PostgreSQL database URLs.
 Run the operational wrapper as the service user:
 
 ```bash
-./run-monthly-dump-maintenance
+./run-monthly-dump-maintenance.sh
 ```
 
 The runner:
@@ -190,11 +190,11 @@ cron implementation supporting `CRON_TZ`. Run it as root from the application ch
 sudo env \
   POI_DUMP_CRON_APP_DIR=<application-directory> \
   POI_DUMP_CRON_USER=<service-user> \
-  ./setup-monthly-dump-cron
+  ./setup-monthly-dump-cron.sh
 ```
 
-The application checkout, `run-monthly-dump-maintenance`, `fnm-exec`, and ignored `.env` file must be
-readable by the selected service user. The installer:
+The application checkout, `run-monthly-dump-maintenance.sh`, `fnm-exec`, and ignored `.env` file must
+be readable by the selected service user. The installer:
 
 1. Validates the user, five-field schedule, paths, timeout, and required executables.
 2. Creates the log and lock files with service-user ownership.

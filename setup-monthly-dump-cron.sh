@@ -15,7 +15,7 @@ fail() {
   exit 1
 }
 
-safe_path_pattern='^[A-Za-z0-9_./-]+$'
+safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'
 [[ "$APP_DIR" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_APP_DIR contains unsupported characters"
 [[ "$LOG_FILE" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_LOG_FILE contains unsupported characters"
 [[ "$LOCK_FILE" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_LOCK_FILE contains unsupported characters"
@@ -24,8 +24,8 @@ safe_path_pattern='^[A-Za-z0-9_./-]+$'
   fail "POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d"
 [[ "$CRON_SCHEDULE" =~ ^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+$ ]] ||
   fail "POI_DUMP_CRON_SCHEDULE must contain exactly five cron fields"
-[[ -x "$APP_DIR/run-monthly-dump-maintenance" ]] ||
-  fail "$APP_DIR/run-monthly-dump-maintenance is not executable"
+[[ -x "$APP_DIR/run-monthly-dump-maintenance.sh" ]] ||
+  fail "$APP_DIR/run-monthly-dump-maintenance.sh is not executable"
 command -v crontab >/dev/null || fail "crontab is required"
 command -v flock >/dev/null || fail "flock is required"
 command -v timeout >/dev/null || fail "timeout is required"
@@ -75,7 +75,7 @@ fi
   printf '%s\n' "$BEGIN_MARKER"
   printf '%s\n' '# Runs at 00:30 JST by default; the maintenance command is idempotent and retry-safe.'
   printf '%s\n' 'CRON_TZ=Asia/Tokyo'
-  printf '%s cd %s && POI_DUMP_CRON_LOCK_FILE=%s POI_DUMP_CRON_TIMEOUT=%s ./run-monthly-dump-maintenance >> %s 2>&1\n' \
+  printf '%s cd %s && POI_DUMP_CRON_LOCK_FILE=%s POI_DUMP_CRON_TIMEOUT=%s ./run-monthly-dump-maintenance.sh >> %s 2>&1\n' \
     "$CRON_SCHEDULE" "$APP_DIR" "$LOCK_FILE" "$TIMEOUT" "$LOG_FILE"
   printf '%s\n' "$END_MARKER"
 } >"$new_crontab"

@@ -14,6 +14,4 @@
 .gitignore text eol=lf
 github-master-hook text eol=lf
 fnm-exec text eol=lf
-run-monthly-dump-maintenance text eol=lf
-setup-monthly-dump-cron text eol=lf
 supervisior.conf text eol=lf

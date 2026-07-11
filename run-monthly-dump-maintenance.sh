@@ -6,6 +6,11 @@ LOCK_FILE="${POI_DUMP_CRON_LOCK_FILE:-/var/lock/poi-server-monthly-dump.lock}"
 TIMEOUT="${POI_DUMP_CRON_TIMEOUT:-12h}"
 started_epoch="$(date +%s)"
 
+fail() {
+  printf '[poi-dump-maintenance] error: %s\n' "$*" >&2
+  exit 1
+}
+
 log_maintenance() {
   printf '[poi-dump-maintenance] timestamp=%s %s\n' "$(date --iso-8601=seconds)" "$*"
 }
@@ -19,6 +24,13 @@ on_error() {
 
 trap on_error ERR
 
+safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'
+[[ "$APP_DIR" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_APP_DIR contains unsupported characters"
+[[ "$LOCK_FILE" =~ $safe_path_pattern ]] ||
+  fail "POI_DUMP_CRON_LOCK_FILE contains unsupported characters"
+[[ "$TIMEOUT" =~ ^[1-9][0-9]*[smhd]$ ]] ||
+  fail "POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d"
+
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log_maintenance "status=skipped reason=overlap"
@@ -26,7 +38,7 @@ if ! flock -n 9; then
 fi
 
 log_maintenance "status=started"
-cd "$APP_DIR"
-timeout --foreground "$TIMEOUT" ./fnm-exec npm run --silent db:dumps:maintain
+cd -- "$APP_DIR"
+timeout --foreground -- "$TIMEOUT" ./fnm-exec npm run --silent db:dumps:maintain
 elapsed_seconds=$(( $(date +%s) - started_epoch ))
 log_maintenance "status=succeeded elapsed_seconds=$elapsed_seconds"
