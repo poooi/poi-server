@@ -4,7 +4,8 @@ dotenv.config()
 
 void import('./sentry-bootstrap')
   .then(async ({ initSentry }) => {
-    initSentry()
+    const { config } = await import('./config')
+    initSentry(config.db)
     await import('./app')
   })
   .catch(async (err) => {
