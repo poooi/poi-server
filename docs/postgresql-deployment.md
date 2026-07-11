@@ -70,9 +70,42 @@ classifications.
 
 ## Community Dumps
 
-Configure `POI_SERVER_DUMP_R2_ENDPOINT`, `POI_SERVER_DUMP_R2_BUCKET`,
-`POI_SERVER_DUMP_R2_ACCESS_KEY_ID`, and `POI_SERVER_DUMP_R2_SECRET_ACCESS_KEY`. Optional settings are
-`POI_SERVER_DUMP_R2_REGION` and `POI_SERVER_DUMP_R2_FORCE_PATH_STYLE`.
+### Cloudflare R2 credentials
+
+Community Dump publication uses Cloudflare R2's S3-compatible API. It requires R2 S3 credentials, not
+a general Cloudflare API token:
+
+1. Create or select the target R2 bucket.
+2. In the R2 API Tokens page, create a user or account API token with **Object Read & Write**
+   permission, scoped to that bucket only.
+3. Save the generated Access Key ID and Secret Access Key when Cloudflare displays them. The secret
+   is shown only once.
+4. Put the credentials and bucket configuration in the deployment machine's ignored `.env` file:
+
+```dotenv
+POI_SERVER_DUMP_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+POI_SERVER_DUMP_R2_BUCKET=<bucket-name>
+POI_SERVER_DUMP_R2_ACCESS_KEY_ID=<access-key-id>
+POI_SERVER_DUMP_R2_SECRET_ACCESS_KEY=<secret-access-key>
+POI_SERVER_DUMP_R2_REGION=auto
+POI_SERVER_DUMP_R2_FORCE_PATH_STYLE=true
+```
+
+Use the endpoint shown for the bucket in Cloudflare if it differs from the standard account endpoint.
+See Cloudflare's [R2 authentication](https://developers.cloudflare.com/r2/api/tokens/) and
+[S3 API](https://developers.cloudflare.com/r2/get-started/s3/) documentation.
+
+Both read and write access are required: publication uploads each immutable object and immediately
+reads it back to verify its byte count and SHA-256; cleanup later reads every object again before
+dropping database partitions.
+
+The cron installer does not create, copy, or print credentials. The maintenance TypeScript entrypoint
+loads the ignored `.env` file at runtime under the configured service user. Keep the file readable
+only by the deployment and service accounts, and never commit these values or store them in CI.
+
+The four endpoint, bucket, access-key, and secret-key variables are required.
+`POI_SERVER_DUMP_R2_REGION` and `POI_SERVER_DUMP_R2_FORCE_PATH_STYLE` are optional and default to
+`auto` and `true`.
 
 Publish a closed JST Dump Month:
 
