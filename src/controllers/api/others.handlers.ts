@@ -4,101 +4,23 @@ import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
-import { type DatabaseStatus, legacyMongoEpoch } from '../../contracts/database'
+import { type DatabaseStatus } from '../../contracts/database'
 import { ok, type AppResult } from '../../http/result'
-import {
-  AACIRecord,
-  BattleAPI,
-  CreateItemRecord,
-  CreateShipRecord,
-  DropShipRecord,
-  EnemyInfo,
-  ItemImprovementRecipeAvailabilityFact,
-  ItemImprovementRecipeCostFact,
-  ItemImprovementRecipeUpdateFact,
-  NightBattleCI,
-  NightContactRecord,
-  PassEventRecord,
-  Quest,
-  QuestReward,
-  RecipeRecord,
-  RemodelItemRecord,
-  SelectRankRecord,
-  ShipStat,
-} from '../../models'
+import { getMongoDatabaseStatus } from './others.mongo.status'
 
-export const getStatus = async (): Promise<AppResult> => {
-  const dsk = await df()
-  const [
-    createShipObservations,
-    createItemObservations,
-    remodelItemObservations,
-    dropShipObservations,
-    passEventObservations,
-    battleApiObservations,
-    nightContactObservations,
-    aaciObservations,
-    nightBattleCiObservations,
-    selectRankStates,
-    recipeAggregates,
-    shipStatAggregates,
-    enemyInfoAggregates,
-    questDefinitions,
-    questRewardDefinitions,
-    itemImprovementAvailabilityFacts,
-    itemImprovementCostFacts,
-    itemImprovementUpdateFacts,
-  ] = await Promise.all([
-    CreateShipRecord.estimatedDocumentCount().exec(),
-    CreateItemRecord.estimatedDocumentCount().exec(),
-    RemodelItemRecord.estimatedDocumentCount().exec(),
-    DropShipRecord.estimatedDocumentCount().exec(),
-    PassEventRecord.estimatedDocumentCount().exec(),
-    BattleAPI.estimatedDocumentCount().exec(),
-    NightContactRecord.estimatedDocumentCount().exec(),
-    AACIRecord.estimatedDocumentCount().exec(),
-    NightBattleCI.estimatedDocumentCount().exec(),
-    SelectRankRecord.estimatedDocumentCount().exec(),
-    RecipeRecord.estimatedDocumentCount().exec(),
-    ShipStat.estimatedDocumentCount().exec(),
-    EnemyInfo.estimatedDocumentCount().exec(),
-    Quest.estimatedDocumentCount().exec(),
-    QuestReward.estimatedDocumentCount().exec(),
-    ItemImprovementRecipeAvailabilityFact.estimatedDocumentCount().exec(),
-    ItemImprovementRecipeCostFact.estimatedDocumentCount().exec(),
-    ItemImprovementRecipeUpdateFact.estimatedDocumentCount().exec(),
-  ])
-  const database: DatabaseStatus = {
-    backend: 'mongodb',
-    status: 'up',
-    epoch: legacyMongoEpoch,
-    estimatedCounts: {
-      createShipObservations,
-      createItemObservations,
-      remodelItemObservations,
-      dropShipObservations,
-      passEventObservations,
-      battleApiObservations,
-      nightContactObservations,
-      aaciObservations,
-      nightBattleCiObservations,
-      selectRankStates,
-      recipeAggregates,
-      shipStatAggregates,
-      enemyInfoAggregates,
-      questDefinitions,
-      questRewardDefinitions,
-      itemImprovementAvailabilityFacts,
-      itemImprovementCostFacts,
-      itemImprovementUpdateFacts,
-    },
+export const createGetStatus =
+  (getDatabaseStatus: () => Promise<DatabaseStatus> = getMongoDatabaseStatus) =>
+  async (): Promise<AppResult> => {
+    const dsk = await df()
+    const database = await getDatabaseStatus()
+    return ok({
+      env: process.env.NODE_ENV,
+      disk: dsk.filter((e) => e.mountpoint == '/'),
+      database,
+    })
   }
-  return ok({
-    env: process.env.NODE_ENV,
-    disk: dsk.filter((e) => e.mountpoint == '/'),
-    database,
-  })
-}
+
+export const getStatus = createGetStatus()
 
 export const runGithubMasterHook = async (): Promise<AppResult> => {
   const update = childProcess.spawn(path.resolve(config.root, '../github-master-hook'), [])

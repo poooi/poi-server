@@ -1,8 +1,10 @@
 import { isString } from 'lodash'
+import semver from 'semver'
 
 import {
   logReportValidationIssues,
   normalizeReportPayload,
+  rejectReportPayload,
   type ReportPayloadSchema,
 } from '../../../contracts/report-validation'
 import { ReportPayloadValidationError } from '../../../contracts/report-errors'
@@ -43,6 +45,29 @@ export const parseReportInfo = (
     info.origin = getHeader(request, 'x-reporter') || getHeader(request, 'user-agent')
   }
   return schema == null ? info : normalizeReportPayload(info, schema, request)
+}
+
+// Shared AACI persistence gate: identical semver/version checks on both backends. Values must
+// already be normalized through `aaciReportSchema`.
+export const resolveAaciPersistence = (
+  request: AppRequest,
+  poiVersionText: string,
+  origin: string,
+): boolean => {
+  const poiVersion =
+    semver.valid(poiVersionText) ||
+    rejectReportPayload(request, 'poiVersion', 'semantic version', poiVersionText)
+  const reporterVersion = origin.startsWith('Reporter ')
+    ? semver.valid(origin.slice('Reporter '.length)) ||
+      rejectReportPayload(request, 'origin', 'Reporter <semantic version>', origin)
+    : null
+
+  return (
+    semver.gt(poiVersion, '7.9.1') &&
+    origin.startsWith('Reporter ') &&
+    reporterVersion != null &&
+    semver.gte(reporterVersion, '3.6.0')
+  )
 }
 
 export const handleReportError = (err: Error, request: AppRequest): AppResult => {

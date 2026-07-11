@@ -1,16 +1,26 @@
 import { type FastifyPluginAsync } from 'fastify'
 
+import { type DatabaseStatus } from '../../contracts/database'
 import { sendResult } from '../../http/fastify'
 import {
+  createGetStatus,
   getLatestCommit,
   getServiceStatusBadge,
   getServiceVersionBadge,
-  getStatus,
   runGithubMasterHook,
   svgHeaders,
 } from './others.handlers'
 
-export const registerOtherApiRoutes: FastifyPluginAsync = async (app) => {
+interface OtherApiRouteOptions {
+  getDatabaseStatus?: () => Promise<DatabaseStatus>
+}
+
+export const registerOtherApiRoutes: FastifyPluginAsync<OtherApiRouteOptions> = async (
+  app,
+  options,
+) => {
+  const getStatus = createGetStatus(options.getDatabaseStatus)
+
   app.get('/status', async (_request, reply) => sendResult(reply, await getStatus()))
   app.post('/github-master-hook', async (_request, reply) =>
     sendResult(reply, await runGithubMasterHook()),

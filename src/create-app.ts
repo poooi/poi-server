@@ -3,10 +3,10 @@ import { randomUUID } from 'crypto'
 
 import { config } from './config'
 import './models'
-import { registerRoutes } from './controllers'
+import { registerRoutes, type RegisterRoutesOptions } from './controllers'
 import { registerSentryHooks } from './sentry'
 
-interface CreateAppOptions {
+interface CreateAppOptions extends RegisterRoutesOptions {
   disableLogger?: boolean
 }
 
@@ -71,6 +71,9 @@ const createLoggerOptions = (disableLogger: boolean) =>
 
 export const createApp = ({
   disableLogger = Boolean(config.disableLogger),
+  getDatabaseStatus,
+  reportV2Actions,
+  reportV3Actions,
 }: CreateAppOptions = {}) => {
   const app = Fastify({
     bodyLimit: 1024 * 1024,
@@ -93,7 +96,7 @@ export const createApp = ({
     return reply.code(statusCode).send(statusCode >= 500 ? undefined : { error: message })
   })
 
-  void app.register(registerRoutes)
+  void app.register(registerRoutes, { getDatabaseStatus, reportV2Actions, reportV3Actions })
 
   return app
 }

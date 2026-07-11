@@ -1,5 +1,4 @@
 import mongoose from 'mongoose'
-import semver from 'semver'
 import { flatMap, drop } from 'lodash'
 
 import {
@@ -17,13 +16,13 @@ import {
   selectRankReportSchema,
   shipStatReportSchema,
 } from '../../../contracts/v2-report'
-import { rejectReportPayload, type ReportPayloadSchema } from '../../../contracts/report-validation'
+import { type ReportPayloadSchema } from '../../../contracts/report-validation'
 import { withCloudflareCache } from '../../../http/cache-control'
 import { type AppRequest } from '../../../http/request'
 import { internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
 import { DropShipRecord, SelectRankRecord } from '../../../models'
-import { handleReportError, parseReportInfo } from './shared'
+import { handleReportError, parseReportInfo, resolveAaciPersistence } from './shared'
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
 const CreateItemRecord = mongoose.model('CreateItemRecord')
@@ -121,19 +120,7 @@ export const nightContact = (request: AppRequest) =>
 export const aaci = async (request: AppRequest): Promise<AppResult> => {
   try {
     const info = parseReportInfo(request, aaciReportSchema)
-    const poiVersion =
-      semver.valid(info.poiVersion) ||
-      rejectReportPayload(request, 'poiVersion', 'semantic version', info.poiVersion)
-    const reporterVersion = info.origin.startsWith('Reporter ')
-      ? semver.valid(info.origin.slice('Reporter '.length)) ||
-        rejectReportPayload(request, 'origin', 'Reporter <semantic version>', info.origin)
-      : null
-    if (
-      semver.gt(poiVersion, '7.9.1') &&
-      info.origin.startsWith('Reporter ') &&
-      reporterVersion != null &&
-      semver.gte(reporterVersion, '3.6.0')
-    ) {
+    if (resolveAaciPersistence(request, info.poiVersion, info.origin)) {
       const record = new AACIRecord(info)
       await record.save()
     }
