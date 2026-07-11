@@ -15,6 +15,8 @@
     "db:migrate": "tsx scripts/postgres-migrate.ts",
     "db:partitions:create-upcoming": "tsx scripts/postgres-create-upcoming-month-partitions.ts",
     "db:partitions:repair": "tsx scripts/postgres-repair-monthly-partition.ts",
+    "db:dumps:publish": "tsx scripts/postgres-dump-publish.ts",
+    "db:dumps:cleanup": "tsx scripts/postgres-dump-cleanup.ts",
     "build": "npm run type-check && node --check scripts/smoke-server.cjs",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
