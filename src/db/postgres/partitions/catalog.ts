@@ -26,7 +26,7 @@ import { PartitionCatalogMismatchError, PartitionMaintenanceError } from './erro
 const catalogQuerySql = `
 select
   parent.relname as parent_table,
-  coalesce(pg_get_expr(c.relpartbound, c.oid, true) = 'FOR VALUES DEFAULT', false) as is_default_partition,
+  coalesce(pg_get_expr(c.relpartbound, c.oid, true) in ('DEFAULT', 'FOR VALUES DEFAULT'), false) as is_default_partition,
   pg_get_expr(c.relpartbound, c.oid, true) as bound_expression,
   (regexp_match(
     pg_get_expr(c.relpartbound, c.oid, true),
@@ -103,14 +103,14 @@ export const assertExactMonthlyPartitionBounds = (
   if (!info.relationExists) {
     throw new PartitionCatalogMismatchError(`Relation "${relationName}" does not exist`)
   }
-  if (info.isDefaultPartition) {
-    throw new PartitionCatalogMismatchError(
-      `Relation "${relationName}" is the DEFAULT partition of "${info.parentTable ?? 'unknown'}", not an exact monthly partition`,
-    )
-  }
   if (info.parentTable !== expected.parentTable) {
     throw new PartitionCatalogMismatchError(
       `Relation "${relationName}" is attached to parent "${info.parentTable ?? '<none>'}", expected "${expected.parentTable}"`,
+    )
+  }
+  if (info.isDefaultPartition) {
+    throw new PartitionCatalogMismatchError(
+      `Relation "${relationName}" is the DEFAULT partition of "${info.parentTable ?? 'unknown'}", not an exact monthly partition`,
     )
   }
   if (info.lowerBoundUtc === null || info.upperBoundUtc === null) {

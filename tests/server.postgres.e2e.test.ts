@@ -1565,11 +1565,8 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
 
       // Pre-create a same-named relation attached to the right parent, but with the *next*
       // month's bounds instead of mismatchDumpMonth's — a real, catalog-verifiable mismatch.
-      const wrongLower = new Date(
-        Date.UTC(lowerBoundUtc.getUTCFullYear(), lowerBoundUtc.getUTCMonth() + 1, 1, -9),
-      )
-      const wrongUpper = new Date(
-        Date.UTC(lowerBoundUtc.getUTCFullYear(), lowerBoundUtc.getUTCMonth() + 2, 1, -9),
+      const { lowerBoundUtc: wrongLower, upperBoundUtc: wrongUpper } = computeDumpMonthBoundsUtc(
+        parseDumpMonth('2099-04'),
       )
       await verificationPool.query(
         `create table "${partitionName}" partition of "${mismatchTable}" ` +

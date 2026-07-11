@@ -72,6 +72,8 @@ const lockPattern =
 const dropIfExistsPattern = /^drop table if exists "([a-z_][a-z0-9_]*)"$/i
 const createLikePattern =
   /^create table "([a-z_][a-z0-9_]*)" \(like "([a-z_][a-z0-9_]*)" including all\)$/i
+const dropIdentityPattern =
+  /^alter table "([a-z_][a-z0-9_]*)" alter column id drop identity if exists$/i
 const addConstraintPattern =
   /^alter table "([a-z_][a-z0-9_]*)" add constraint "([a-z_][a-z0-9_]*)" check/i
 const countNoWherePattern = /^select count\(\*\)::text as count from only "([a-z_][a-z0-9_]*)"$/i
@@ -141,6 +143,10 @@ const createFakeRepairDatabase = (options: {
       const createLike = createLikePattern.exec(normalized)
       if (createLike) {
         database.tables.set(createLike[1], { rows: [] })
+        return emptyResult
+      }
+
+      if (dropIdentityPattern.test(normalized)) {
         return emptyResult
       }
 
@@ -291,6 +297,9 @@ describe('repairMonthlyPartition', () => {
     const normalized = calls.map((call) => call.trim())
     expect(normalized).toContain(`drop table if exists "${pendingName}"`)
     expect(normalized).toContain(`create table "${pendingName}" (like "${table}" including all)`)
+    expect(normalized).toContain(
+      `alter table "${pendingName}" alter column id drop identity if exists`,
+    )
     expect(
       normalized.some((call) => call.startsWith(`alter table "${pendingName}" add constraint`)),
     ).toBe(true)

@@ -122,6 +122,9 @@ export const repairMonthlyPartition = async (
           `create table ${quoteIdentifier(pendingName)} (like ${quoteIdentifier(table)} including all)`,
         )
         await client.query(
+          `alter table ${quoteIdentifier(pendingName)} alter column id drop identity if exists`,
+        )
+        await client.query(
           `alter table ${quoteIdentifier(pendingName)} add constraint ${quoteIdentifier(pendingCheckConstraintName)} ` +
             `check (ingested_at >= ${toTimestampLiteral(lowerBoundUtc)} and ingested_at < ${toTimestampLiteral(upperBoundUtc)})`,
         )
