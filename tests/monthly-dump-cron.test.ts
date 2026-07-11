@@ -56,4 +56,17 @@ describe('monthly dump cron scripts', () => {
       '[[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"',
     )
   })
+
+  test('validates the exact GNU and util-linux capabilities used by cron', () => {
+    for (const script of [installer, runner]) {
+      expect(script).toContain(
+        'date --iso-8601=seconds >/dev/null 2>&1 || fail "GNU date with --iso-8601=seconds is required"',
+      )
+      expect(script).toContain(
+        'flock --version >/dev/null 2>&1 || fail "util-linux flock is required"',
+      )
+      expect(script).toContain('timeout --foreground -- 1s true >/dev/null 2>&1')
+      expect(script).toContain('fail "GNU timeout with --foreground is required"')
+    }
+  })
 })

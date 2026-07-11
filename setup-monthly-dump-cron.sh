@@ -28,8 +28,13 @@ safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'
   fail "$APP_DIR/run-monthly-dump-maintenance.sh is not executable"
 [[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"
 command -v crontab >/dev/null || fail "crontab is required"
+command -v date >/dev/null || fail "date is required"
 command -v flock >/dev/null || fail "flock is required"
 command -v timeout >/dev/null || fail "timeout is required"
+date --iso-8601=seconds >/dev/null 2>&1 || fail "GNU date with --iso-8601=seconds is required"
+flock --version >/dev/null 2>&1 || fail "util-linux flock is required"
+timeout --foreground -- 1s true >/dev/null 2>&1 ||
+  fail "GNU timeout with --foreground is required"
 id "$CRON_USER" >/dev/null 2>&1 || fail "user $CRON_USER does not exist"
 
 cron_group="$(id -gn "$CRON_USER")"

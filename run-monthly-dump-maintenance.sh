@@ -4,12 +4,21 @@ set -Eeuo pipefail
 APP_DIR="${POI_DUMP_CRON_APP_DIR:-$(cd "$(dirname "$0")" && pwd)}"
 LOCK_FILE="${POI_DUMP_CRON_LOCK_FILE:-/var/lock/poi-server-monthly-dump.lock}"
 TIMEOUT="${POI_DUMP_CRON_TIMEOUT:-12h}"
-started_epoch="$(date +%s)"
 
 fail() {
   printf '[poi-dump-maintenance] error: %s\n' "$*" >&2
   exit 1
 }
+
+command -v date >/dev/null || fail "date is required"
+command -v flock >/dev/null || fail "flock is required"
+command -v timeout >/dev/null || fail "timeout is required"
+date --iso-8601=seconds >/dev/null 2>&1 || fail "GNU date with --iso-8601=seconds is required"
+flock --version >/dev/null 2>&1 || fail "util-linux flock is required"
+timeout --foreground -- 1s true >/dev/null 2>&1 ||
+  fail "GNU timeout with --foreground is required"
+
+started_epoch="$(date +%s)"
 
 log_maintenance() {
   printf '[poi-dump-maintenance] timestamp=%s %s\n' "$(date --iso-8601=seconds)" "$*"
