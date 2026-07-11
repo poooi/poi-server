@@ -61,4 +61,6 @@ Setup:
 
 Validation commands are `npm test`, `npm run type-check`, and `npm run lint`. PostgreSQL deployment,
 partition maintenance, and Community Dump commands are documented in
-[`docs/postgresql-deployment.md`](docs/postgresql-deployment.md).
+[`docs/postgresql-deployment.md`](docs/postgresql-deployment.md). The current persisted report
+datasets and their retention classifications are listed in
+[`docs/report-data.md`](docs/report-data.md).

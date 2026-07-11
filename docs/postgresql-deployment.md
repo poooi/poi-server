@@ -45,7 +45,8 @@ rehearsed backup/restore procedure.
 
 ## Monthly partitions
 
-Create all nine upcoming Observation partitions before the month boundary:
+Create the upcoming monthly partition for every registered Observation dataset before the month
+boundary:
 
 ```powershell
 npm run db:partitions:create-upcoming -- 2026-08
@@ -60,6 +61,13 @@ npm run db:partitions:repair -- create_ship_records 2026-08
 
 Both commands are idempotent and reject catalog or boundary mismatches.
 
+Each registered dataset has a separate PostgreSQL parent table, so one target month needs one child
+partition per dataset. There are currently nine registered Observation datasets, which means the
+command currently creates nine child partitions **for the same month**. This is not nine months of
+partitions, and the count should be expected to follow the Community Dump registry if datasets are
+added or removed. See the [report data catalog](report-data.md) for the current datasets and their
+classifications.
+
 ## Community Dumps
 
 Configure `POI_SERVER_DUMP_R2_ENDPOINT`, `POI_SERVER_DUMP_R2_BUCKET`,
@@ -72,9 +80,9 @@ Publish a closed JST Dump Month:
 npm run db:dumps:publish -- 2026-07
 ```
 
-The command streams and verifies all nine partitions, uploads immutable data objects, then uploads
-the verified manifest as the publication commit point. It is safe to retry and never overwrites an
-existing object.
+The command streams and verifies the target month's partition for every registered Observation
+dataset, uploads immutable data objects, then uploads the verified manifest as the publication commit
+point. It is safe to retry and never overwrites an existing object.
 
 After the seven-day grace period, clean one exact run ID:
 
@@ -83,8 +91,107 @@ npm run db:dumps:cleanup -- 42
 ```
 
 Cleanup re-verifies the manifest, every data object, metadata, and partition bounds before
-transactionally detaching and dropping exactly nine Observation partitions. Current State,
-Aggregate, Definition, and Item-improvement Fact tables are retained.
+transactionally detaching and dropping the complete registered set of Observation partitions for
+that Dump Month. Current State, Aggregate, Definition, and Item-improvement Fact tables are retained.
+
+### Scheduled maintenance
+
+Automated maintenance has three layers:
+
+| Entry point                    | Purpose                                                              |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `npm run db:dumps:maintain`    | Runs the TypeScript maintenance command directly.                    |
+| `run-monthly-dump-maintenance` | Adds locking, timeout enforcement, and timestamped operational logs. |
+| `setup-monthly-dump-cron`      | Installs or updates the managed crontab entry.                       |
+
+#### Maintenance command
+
+Run the underlying command manually from the application checkout:
+
+```bash
+npm run db:dumps:maintain
+```
+
+The command derives calendar months from the current JST date and:
+
+1. Creates one partition for each registered Observation dataset for the next JST Dump Month.
+2. Idempotently publishes the previous, fully closed Dump Month.
+3. Finds cleanup candidates using the PostgreSQL clock and cleans every run whose seven-day grace
+   period has elapsed.
+
+The three phases are attempted independently. A partition-creation failure does not prevent
+publication or eligible cleanup, and one failed cleanup does not prevent later candidates from being
+attempted. Any failure produces a nonzero exit after all possible work has completed. A successful
+run prints a JSON summary.
+
+The command loads the database and R2 settings from the process environment and the ignored `.env`
+file. It refuses non-PostgreSQL database URLs.
+
+#### Maintenance runner
+
+Run the operational wrapper as the service user:
+
+```bash
+./run-monthly-dump-maintenance
+```
+
+The runner:
+
+- takes a non-blocking `flock`; an overlapping invocation logs `status=skipped reason=overlap` and
+  exits successfully;
+- terminates maintenance after the configured timeout so a hung process cannot block future runs;
+- logs start, success, failure, exit code, and elapsed time without shell tracing or environment
+  values;
+- delegates Node.js selection to `fnm-exec`.
+
+`POI_DUMP_CRON_APP_DIR`, `POI_DUMP_CRON_LOCK_FILE`, and `POI_DUMP_CRON_TIMEOUT` may be set when
+running the wrapper manually; direct invocations use GNU `timeout` duration syntax. The installer
+accepts positive integers followed by `s`, `m`, `h`, or `d`, such as `90m` or `12h`.
+
+#### Cron installer
+
+The installer requires Linux, Bash, `crontab`, GNU `date`, GNU `timeout`, util-linux `flock`, and a
+cron implementation supporting `CRON_TZ`. Run it as root from the application checkout:
+
+```bash
+sudo env \
+  POI_DUMP_CRON_APP_DIR=<application-directory> \
+  POI_DUMP_CRON_USER=<service-user> \
+  ./setup-monthly-dump-cron
+```
+
+The application checkout, `run-monthly-dump-maintenance`, `fnm-exec`, and ignored `.env` file must be
+readable by the selected service user. The installer:
+
+1. Validates the user, five-field schedule, paths, timeout, and required executables.
+2. Creates the log and lock files with service-user ownership.
+3. Reads the selected user's existing crontab.
+4. Preserves all unrelated entries and replaces only the block between
+   `# BEGIN poi-server monthly dump` and `# END poi-server monthly dump`.
+5. Rejects malformed or duplicated managed markers instead of discarding surrounding entries.
+
+Re-running the installer is the supported way to change the schedule or paths. By default the job
+runs daily at 00:30 JST. Daily execution provides automatic retries while the publish and cleanup
+workflows remain idempotent.
+
+| Variable                  | Meaning                                                            | Default                     |
+| ------------------------- | ------------------------------------------------------------------ | --------------------------- |
+| `POI_DUMP_CRON_APP_DIR`   | Application checkout containing both shell scripts and `fnm-exec`. | Built-in deployment default |
+| `POI_DUMP_CRON_USER`      | User whose crontab runs maintenance.                               | `poi`                       |
+| `POI_DUMP_CRON_SCHEDULE`  | Five-field cron expression interpreted in `Asia/Tokyo`.            | `30 0 * * *`                |
+| `POI_DUMP_CRON_LOG_FILE`  | Combined runner and maintenance output.                            | Built-in log location       |
+| `POI_DUMP_CRON_LOCK_FILE` | File used by `flock` to prevent overlap.                           | Built-in lock location      |
+| `POI_DUMP_CRON_TIMEOUT`   | Maximum duration accepted by GNU `timeout`.                        | `12h`                       |
+
+Verify the installed entry and inspect its output:
+
+```bash
+sudo crontab -u <service-user> -l
+sudo tail -n 100 <log-file>
+```
+
+To disable automation, remove the complete managed marker block from the selected user's crontab.
+Removing the block does not delete published objects, database metadata, logs, or lock files.
 
 ## Operational checks
 

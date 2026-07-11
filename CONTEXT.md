@@ -13,6 +13,10 @@ _Avoid_: Report record
 A single accepted report retained independently rather than combined with prior reports.
 _Avoid_: Append-only report, report record
 
+**Observation Dataset**:
+A named kind of Observation whose Reports share the same meaning and Community Dump shape.
+_Avoid_: Partition, record type
+
 **Current State**:
 The most recently accepted value for a stable identity, replacing the previously known value.
 _Avoid_: Aggregate

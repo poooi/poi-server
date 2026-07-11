@@ -12,6 +12,7 @@ import {
 } from '../src/db/postgres/dumps/errors'
 import {
   findOrCreateDumpRun,
+  listCleanupEligibleDumpRuns,
   listDumpFilesByRunId,
   listDumpFilesByRunIdForUpdate,
   loadDatabaseNow,
@@ -165,6 +166,49 @@ describe('loadDumpRunById', () => {
     const result = await loadDumpRunById(client, 999)
 
     expect(result).toBeNull()
+  })
+})
+
+describe('listCleanupEligibleDumpRuns', () => {
+  test('uses the database clock and returns eligible published runs in cleanup order', async () => {
+    const firstEligibleAt = new Date('2024-02-08T00:00:00.000Z')
+    const secondEligibleAt = new Date('2024-03-08T00:00:00.000Z')
+    const client = createFakeClient(async () => ({
+      rows: [
+        runRow({
+          id: '7',
+          status: 'published',
+          cleanup_eligible_at: firstEligibleAt,
+        }),
+        runRow({
+          id: '8',
+          dump_month: '2024-02',
+          status: 'cleanup_eligible',
+          cleanup_eligible_at: secondEligibleAt,
+        }),
+      ],
+      rowCount: 2,
+    }))
+
+    const result = await listCleanupEligibleDumpRuns(client)
+
+    const [sql, values] = vi.mocked(client.query).mock.calls[0]
+    expect(sql).toContain("status in ('published', 'cleanup_eligible')")
+    expect(sql).toContain('cleanup_eligible_at <= clock_timestamp()')
+    expect(sql).toContain('order by cleanup_eligible_at, id')
+    expect(values).toBeUndefined()
+    expect(result).toEqual([
+      expectedRunRow({
+        status: 'published',
+        cleanupEligibleAt: firstEligibleAt,
+      }),
+      expectedRunRow({
+        id: 8,
+        dumpMonth: '2024-02',
+        status: 'cleanup_eligible',
+        cleanupEligibleAt: secondEligibleAt,
+      }),
+    ])
   })
 })
 

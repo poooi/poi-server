@@ -12,22 +12,14 @@ import {
 } from '../object-store/r2-object-store'
 
 /**
- * Shared plumbing for the Community Dump publish/cleanup CLI commands
- * (docs/postgresql-migration-plan.md lines 622-811): both `runPublishDumpMonthCommand`
- * (postgres-dump-publish-command.ts) and `runCleanupDumpRunCommand`
- * (postgres-dump-cleanup-command.ts) validate their one CLI argument first, then require a
- * PostgreSQL backend, then load `POI_SERVER_DUMP_R2_*` config, then wire an offline pg `Pool`
- * through the `DumpPool` adapter — in that exact order, so a malformed argument or a non-Postgres
- * backend never causes a database connection or an R2 client to be created. This module holds
- * every piece of that sequencing that both commands share; each command module adds only its own
- * workflow function (`publishDumpMonth`/`cleanupDumpRun`) to `DumpCommandDeps`.
+ * Shared plumbing for the Community Dump publish, cleanup, and scheduled-maintenance CLI commands
+ * (docs/postgresql-migration-plan.md lines 622-811). They validate argv first, require a PostgreSQL
+ * backend, load `POI_SERVER_DUMP_R2_*` config, and wire an offline pg `Pool` through the `DumpPool`
+ * adapter in that order, so malformed arguments or a non-Postgres backend never create database or
+ * R2 clients. Each command module adds only its own workflow dependencies to `DumpCommandDeps`.
  *
- * Every dependency the two commands need is injectable via `DumpCommandDeps` specifically so
- * `runPublishDumpMonthCommand`/`runCleanupDumpRunCommand` are unit-testable end to end with plain
- * fakes (tests/postgres-dump-publish-command.test.ts, tests/postgres-dump-cleanup-command.test.ts)
- * — no test in this repository spawns either CLI script as a child process, and the scripts
- * themselves (scripts/postgres-dump-publish.ts, scripts/postgres-dump-cleanup.ts) stay thin argv/
- * env/exit-code wiring with no logic of their own.
+ * Every dependency is injectable via `DumpCommandDeps` so command sequencing remains unit-testable
+ * with plain fakes. The scripts themselves stay thin argv/env/exit-code wiring with no logic.
  */
 export type CliEnv = Partial<Record<string, string>>
 
@@ -59,6 +51,12 @@ export const requireExactlyOneArg = (args: readonly string[], usage: string): st
     throw new Error(`Usage: ${usage}`)
   }
   return only
+}
+
+export const requireNoArgs = (args: readonly string[], usage: string): void => {
+  if (args.length > 0) {
+    throw new Error(`Usage: ${usage}`)
+  }
 }
 
 const extractDatabaseUrlPassword = (databaseUrl: string): string | null => {

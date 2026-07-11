@@ -1,0 +1,85 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+APP_DIR="${POI_DUMP_CRON_APP_DIR:-/srv/poi}"
+CRON_USER="${POI_DUMP_CRON_USER:-poi}"
+CRON_SCHEDULE="${POI_DUMP_CRON_SCHEDULE:-30 0 * * *}"
+LOG_FILE="${POI_DUMP_CRON_LOG_FILE:-/var/log/poi-server/monthly-dump.log}"
+LOCK_FILE="${POI_DUMP_CRON_LOCK_FILE:-/var/lock/poi-server-monthly-dump.lock}"
+TIMEOUT="${POI_DUMP_CRON_TIMEOUT:-12h}"
+BEGIN_MARKER="# BEGIN poi-server monthly dump"
+END_MARKER="# END poi-server monthly dump"
+
+fail() {
+  printf '[poi-dump-cron] error: %s\n' "$*" >&2
+  exit 1
+}
+
+safe_path_pattern='^[A-Za-z0-9_./-]+$'
+[[ "$APP_DIR" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_APP_DIR contains unsupported characters"
+[[ "$LOG_FILE" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_LOG_FILE contains unsupported characters"
+[[ "$LOCK_FILE" =~ $safe_path_pattern ]] || fail "POI_DUMP_CRON_LOCK_FILE contains unsupported characters"
+[[ "$CRON_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || fail "POI_DUMP_CRON_USER is invalid"
+[[ "$TIMEOUT" =~ ^[1-9][0-9]*[smhd]$ ]] ||
+  fail "POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d"
+[[ "$CRON_SCHEDULE" =~ ^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+$ ]] ||
+  fail "POI_DUMP_CRON_SCHEDULE must contain exactly five cron fields"
+[[ -x "$APP_DIR/run-monthly-dump-maintenance" ]] ||
+  fail "$APP_DIR/run-monthly-dump-maintenance is not executable"
+command -v crontab >/dev/null || fail "crontab is required"
+command -v flock >/dev/null || fail "flock is required"
+command -v timeout >/dev/null || fail "timeout is required"
+id "$CRON_USER" >/dev/null 2>&1 || fail "user $CRON_USER does not exist"
+
+cron_group="$(id -gn "$CRON_USER")"
+install -d -o "$CRON_USER" -g "$cron_group" -m 0750 "$(dirname "$LOG_FILE")"
+if [ ! -d "$(dirname "$LOCK_FILE")" ]; then
+  install -d -o "$CRON_USER" -g "$cron_group" -m 0750 "$(dirname "$LOCK_FILE")"
+fi
+touch "$LOG_FILE" "$LOCK_FILE"
+chown "$CRON_USER:$cron_group" "$LOG_FILE" "$LOCK_FILE"
+chmod 0640 "$LOG_FILE"
+chmod 0600 "$LOCK_FILE"
+
+current_crontab="$(mktemp)"
+filtered_crontab="$(mktemp)"
+new_crontab="$(mktemp)"
+trap 'rm -f "$current_crontab" "$filtered_crontab" "$new_crontab"' EXIT
+
+crontab -u "$CRON_USER" -l >"$current_crontab" 2>/dev/null || true
+if ! awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '
+  $0 == begin {
+    if (managed || seen) exit 42
+    managed = 1
+    seen = 1
+    next
+  }
+  $0 == end {
+    if (!managed) exit 42
+    managed = 0
+    next
+  }
+  !managed { print }
+  END {
+    if (managed) exit 42
+  }
+' "$current_crontab" >"$filtered_crontab"; then
+  fail "existing monthly dump crontab markers are malformed"
+fi
+
+{
+  cat "$filtered_crontab"
+  if [ -s "$filtered_crontab" ]; then
+    printf '\n'
+  fi
+  printf '%s\n' "$BEGIN_MARKER"
+  printf '%s\n' '# Runs at 00:30 JST by default; the maintenance command is idempotent and retry-safe.'
+  printf '%s\n' 'CRON_TZ=Asia/Tokyo'
+  printf '%s cd %s && POI_DUMP_CRON_LOCK_FILE=%s POI_DUMP_CRON_TIMEOUT=%s ./run-monthly-dump-maintenance >> %s 2>&1\n' \
+    "$CRON_SCHEDULE" "$APP_DIR" "$LOCK_FILE" "$TIMEOUT" "$LOG_FILE"
+  printf '%s\n' "$END_MARKER"
+} >"$new_crontab"
+
+crontab -u "$CRON_USER" "$new_crontab"
+printf '[poi-dump-cron] installed user=%s schedule="%s" log=%s\n' \
+  "$CRON_USER" "$CRON_SCHEDULE" "$LOG_FILE"

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { observationParentTables } from '../src/db/postgres/partitions/observation-tables'
 import {
   computeDumpMonthBoundsUtc,
+  deriveAdjacentJstDumpMonths,
   deriveDefaultPartitionName,
   deriveMonthlyPartitionName,
   derivePendingPartitionName,
@@ -42,6 +43,23 @@ describe('parseDumpMonth', () => {
   ])('rejects the malformed Dump Month %s (%s)', (value) => {
     expect(() => parseDumpMonth(value)).toThrow(PartitionMaintenanceError)
     expect(() => parseDumpMonth(value)).toThrow(/YYYY-MM/)
+  })
+})
+
+describe('deriveAdjacentJstDumpMonths', () => {
+  test.each([
+    ['2026-07-31T14:59:59.999Z', '2026-06', '2026-08'],
+    ['2026-07-31T15:00:00.000Z', '2026-07', '2026-09'],
+    ['2026-12-31T15:00:00.000Z', '2026-12', '2027-02'],
+    ['2026-01-01T00:00:00.000Z', '2025-12', '2026-02'],
+  ])('derives the previous closed and next upcoming JST months at %s', (now, previous, next) => {
+    expect(deriveAdjacentJstDumpMonths(new Date(now))).toEqual({ previous, next })
+  })
+
+  test('rejects an invalid date', () => {
+    expect(() => deriveAdjacentJstDumpMonths(new Date(Number.NaN))).toThrow(
+      PartitionMaintenanceError,
+    )
   })
 })
 

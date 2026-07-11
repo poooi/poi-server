@@ -239,6 +239,26 @@ export const loadDumpRunById = async (
 }
 
 /**
+ * Lists only runs whose database-clock grace period has elapsed. The maintenance command still
+ * sends each exact id through cleanupDumpRun, which re-verifies eligibility and all destructive
+ * preconditions under its own locks before dropping anything.
+ */
+export const listCleanupEligibleDumpRuns = async (
+  client: PartitionQueryClient,
+): Promise<readonly DumpRunRow[]> => {
+  const result = await client.query(
+    `
+select ${dumpRunColumns}
+from data_dump_runs
+where status in ('published', 'cleanup_eligible')
+  and cleanup_eligible_at <= clock_timestamp()
+order by cleanup_eligible_at, id
+`.trim(),
+  )
+  return result.rows.map(mapDumpRunRow)
+}
+
+/**
  * Identical to {@link loadDumpRunById}, except it takes a `for update` row lock. Reserved for the
  * cleanup workflow's final destructive transaction (docs/postgresql-migration-plan.md lines
  * 759, 762-764), immediately before it re-proves the run's metadata/status has not changed since
