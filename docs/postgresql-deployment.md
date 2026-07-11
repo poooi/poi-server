@@ -157,6 +157,10 @@ publication or eligible cleanup, and one failed cleanup does not prevent later c
 attempted. Any failure produces a nonzero exit after all possible work has completed. A successful
 run prints a JSON summary.
 
+R2 initialization happens after the database-only partition phase. Missing or invalid R2
+configuration is reported as a maintenance failure and skips publication and cleanup, but it does not
+prevent creation of the upcoming partitions.
+
 The command loads the database and R2 settings from the process environment and the ignored `.env`
 file. It refuses non-PostgreSQL database URLs.
 

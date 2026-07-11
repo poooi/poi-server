@@ -61,10 +61,6 @@ export const runDumpMaintenanceCommand = async (
     collectDatabaseUrlSecret(databaseUrl, secrets)
     requirePostgresBackend(databaseUrl, deps, 'Community Dump maintenance')
 
-    const r2Config = deps.loadR2Config(env)
-    collectR2Secrets(r2Config, secrets)
-    const objectStore = deps.createObjectStore(r2Config)
-
     const pool = deps.createOfflineDumpPool(databaseUrl)
     try {
       const dumpPool = deps.createDumpPoolFromPgPool(pool)
@@ -82,35 +78,48 @@ export const runDumpMaintenanceCommand = async (
         )
       }
 
+      let objectStore: ReturnType<DumpCommandDeps['createObjectStore']> | undefined
       try {
-        publishedRun = await deps.publishDumpMonth(dumpPool, objectStore, previous)
+        const r2Config = deps.loadR2Config(env)
+        collectR2Secrets(r2Config, secrets)
+        objectStore = deps.createObjectStore(r2Config)
       } catch (error) {
         failures.push(
-          `publish Dump Month ${previous}: ${error instanceof Error ? error.message : String(error)}`,
+          `initialize R2 object store: ${error instanceof Error ? error.message : String(error)}`,
         )
       }
 
-      let eligibleRuns: readonly DumpRunRow[] = []
-      try {
-        const client = await dumpPool.connect()
+      if (objectStore !== undefined) {
         try {
-          eligibleRuns = await deps.listCleanupEligibleDumpRuns(client)
-        } finally {
-          client.release()
-        }
-      } catch (error) {
-        failures.push(
-          `discover cleanup-eligible runs: ${error instanceof Error ? error.message : String(error)}`,
-        )
-      }
-
-      for (const run of eligibleRuns) {
-        try {
-          cleanups.push(await deps.cleanupDumpRun(dumpPool, objectStore, run.id))
+          publishedRun = await deps.publishDumpMonth(dumpPool, objectStore, previous)
         } catch (error) {
           failures.push(
-            `clean dump run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
+            `publish Dump Month ${previous}: ${error instanceof Error ? error.message : String(error)}`,
           )
+        }
+
+        let eligibleRuns: readonly DumpRunRow[] = []
+        try {
+          const client = await dumpPool.connect()
+          try {
+            eligibleRuns = await deps.listCleanupEligibleDumpRuns(client)
+          } finally {
+            client.release()
+          }
+        } catch (error) {
+          failures.push(
+            `discover cleanup-eligible runs: ${error instanceof Error ? error.message : String(error)}`,
+          )
+        }
+
+        for (const run of eligibleRuns) {
+          try {
+            cleanups.push(await deps.cleanupDumpRun(dumpPool, objectStore, run.id))
+          } catch (error) {
+            failures.push(
+              `clean dump run ${run.id}: ${error instanceof Error ? error.message : String(error)}`,
+            )
+          }
         }
       }
 

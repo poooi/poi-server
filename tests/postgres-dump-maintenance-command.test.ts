@@ -140,11 +140,11 @@ describe('runDumpMaintenanceCommand', () => {
     expect(calls).toEqual([
       'resolveDatabaseUrl',
       'resolveDatabaseBackend',
-      'loadR2Config',
-      'createObjectStore',
       'createOfflineDumpPool',
       'createDumpPoolFromPgPool',
       'createUpcomingMonthPartitions:2026-09',
+      'loadR2Config',
+      'createObjectStore',
       'publishDumpMonth:2026-07',
       'connect',
       'listCleanupEligibleDumpRuns',
@@ -177,6 +177,29 @@ describe('runDumpMaintenanceCommand', () => {
       /requires a postgres: or postgresql: database URL/,
     )
     expect(calls).toEqual(['resolveDatabaseUrl', 'resolveDatabaseBackend'])
+  })
+
+  test('still creates upcoming partitions when R2 configuration is unavailable', async () => {
+    const createPartitions = vi.fn(async () => [])
+    const publish = vi.fn(async () => publishedRun)
+    const discover = vi.fn(async () => eligibleRuns)
+    const { deps, pool } = makeFakeDeps({
+      createUpcomingMonthPartitions: createPartitions,
+      loadR2Config: () => {
+        throw new Error('R2 credentials are missing')
+      },
+      publishDumpMonth: publish,
+      listCleanupEligibleDumpRuns: discover,
+    })
+
+    await expect(runDumpMaintenanceCommand([], {}, deps)).rejects.toThrow(
+      /initialize R2 object store: R2 credentials are missing/,
+    )
+
+    expect(createPartitions).toHaveBeenCalledWith(pool, '2026-09')
+    expect(publish).not.toHaveBeenCalled()
+    expect(discover).not.toHaveBeenCalled()
+    expect(pool.end).toHaveBeenCalledOnce()
   })
 
   test('releases the listing client and ends the pool when cleanup discovery fails', async () => {
