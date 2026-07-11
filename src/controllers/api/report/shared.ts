@@ -1,10 +1,16 @@
 import { isString } from 'lodash'
 
+import {
+  logReportValidationIssues,
+  normalizeReportPayload,
+  type ReportPayloadSchema,
+} from '../../../contracts/report-validation'
+import { ReportPayloadValidationError } from '../../../contracts/report-errors'
 import { getHeader, type AppRequest } from '../../../http/request'
 import { badRequest, internalServerError, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
 
-export class ReportPayloadValidationError extends Error {}
+export { ReportPayloadValidationError } from '../../../contracts/report-errors'
 
 export const getRequestData = (body: unknown) =>
   body != null && typeof body === 'object' && !Array.isArray(body) && 'data' in body
@@ -23,7 +29,10 @@ export const parseJsonData = (data: unknown) => {
   }
 }
 
-export const parseReportInfo = (request: AppRequest): Record<string, any> => {
+export const parseReportInfo = (
+  request: AppRequest,
+  schema?: ReportPayloadSchema,
+): Record<string, any> => {
   const data = parseJsonData(getRequestData(request.body))
   if (data == null || typeof data !== 'object' || Array.isArray(data)) {
     throw new ReportPayloadValidationError('data must be a JSON object')
@@ -33,11 +42,18 @@ export const parseReportInfo = (request: AppRequest): Record<string, any> => {
   if (info.origin == null) {
     info.origin = getHeader(request, 'x-reporter') || getHeader(request, 'user-agent')
   }
-  return info
+  return schema == null ? info : normalizeReportPayload(info, schema, request)
 }
 
 export const handleReportError = (err: Error, request: AppRequest): AppResult => {
   if (err instanceof ReportPayloadValidationError) {
+    if (!err.logged) {
+      logReportValidationIssues(
+        request,
+        [{ code: 'invalid_payload', message: err.message, path: ['data'] }],
+        { data: getRequestData(request.body) },
+      )
+    }
     return badRequest(err.message)
   }
 

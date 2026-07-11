@@ -7,6 +7,8 @@ import { z, ZodError } from 'zod'
 import { withCloudflareCache } from '../../../http/cache-control'
 import { legacyMongoEpoch } from '../../../contracts/database'
 import { canonicalizeObjectIdCursor } from '../../../contracts/item-improvement'
+import { logReportValidationIssues } from '../../../contracts/report-validation'
+import { normalizeQuestReport, normalizeQuestRewardReport } from '../../../contracts/v3-report'
 import { getHeader, type AppRequest } from '../../../http/request'
 import { badRequest, internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
@@ -25,8 +27,10 @@ import { getRequestData, handleReportError, parseReportInfo } from './shared'
 
 const createHash = _.memoize((text) => crypto.createHash('md5').update(text).digest('hex'))
 
-const createQuestHash = ({ title, detail }: QuestPayload | QuestRewardPayload) =>
-  createHash(`${title}${detail}`)
+const createQuestHash = ({
+  title,
+  detail,
+}: Pick<QuestPayload | QuestRewardPayload, 'title' | 'detail'>) => createHash(`${title}${detail}`)
 
 type ItemImprovementRecipeSource = 'list' | 'detail' | 'execution'
 
@@ -125,9 +129,20 @@ const normalizeRequiredItems = (items: RequiredItem[]) => {
     .map((id) => ({ id, count: counts.get(id) as number }))
 }
 
-const integerSchema = z
-  .union([z.number().int(), z.string().regex(/^-?\d+$/)])
-  .transform((value) => (typeof value === 'number' ? value : parseInt(value, 10)))
+const numericIntegerSchema = z
+  .union([z.number(), z.string().regex(/^-?\d+$/), z.boolean()])
+  .transform(Number)
+  .refine(Number.isInteger, { message: 'must be an integer' })
+
+const integerSchema = numericIntegerSchema.refine(
+  (value) => value >= -2147483648 && value <= 2147483647,
+  { message: 'must be a signed 32-bit integer' },
+)
+
+const safeIntegerSchema = numericIntegerSchema.refine(
+  (value) => Number.isSafeInteger(value) && value >= 0,
+  { message: 'must be a non-negative safe integer' },
+)
 
 const positiveIntSchema = integerSchema.refine((value) => value > 0, {
   message: 'must be a positive integer',
@@ -142,7 +157,7 @@ const daySchema = integerSchema.refine((value) => value >= 0 && value <= 6, {
 })
 
 const createClientObservedAtSchema = (serverReceivedAt: number) =>
-  integerSchema.refine(
+  safeIntegerSchema.refine(
     (value) =>
       value >= ITEM_IMPROVEMENT_RECIPE_MIN_TIMESTAMP &&
       value <= serverReceivedAt + ITEM_IMPROVEMENT_RECIPE_MAX_FUTURE_SKEW,
@@ -324,7 +339,7 @@ const itemImprovementRecipeDataSchema = z
 
 const exportCursorSchema = z
   .object({
-    updatedAfter: integerSchema.optional().default(0),
+    updatedAfter: safeIntegerSchema.optional().default(0),
     afterId: z.string().optional(),
     limit: integerSchema.optional().default(ITEM_IMPROVEMENT_RECIPE_DEFAULT_EXPORT_LIMIT),
   })
@@ -638,6 +653,11 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
     )
   } catch (err) {
     if (isItemImprovementValidationError(err)) {
+      logReportValidationIssues(
+        request,
+        err instanceof ZodError ? err.issues : [{ message: err.message }],
+        request.query,
+      )
       return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
     }
 
@@ -664,6 +684,11 @@ export const itemImprovementRecipe = async (request: AppRequest): Promise<AppRes
     return ok({ records: records.length })
   } catch (err) {
     if (isItemImprovementValidationError(err)) {
+      logReportValidationIssues(
+        request,
+        err instanceof ZodError ? err.issues : [{ message: err.message }],
+        getRequestData(request.body),
+      )
       return badRequest(getItemImprovementRecipeValidationErrorMessage(err))
     }
 
@@ -696,7 +721,7 @@ export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
 
 export const quest = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = normalizeQuestReport(parseReportInfo(request), request)
     const records = _.map(info.quests, (questItem) => ({
       ...questItem,
       key: createQuestHash(questItem),
@@ -723,7 +748,7 @@ export const quest = async (request: AppRequest): Promise<AppResult> => {
 
 export const questReward = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request) as QuestRewardPayload
+    const info = normalizeQuestRewardReport(parseReportInfo(request), request)
     const key = createQuestHash(info)
 
     await QuestReward.updateOne(

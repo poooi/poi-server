@@ -44,6 +44,7 @@ const createRequest = (
 ): AppRequest => ({
   body,
   headers,
+  log: { warn: vi.fn() },
   method: 'POST',
   params: {},
   path: '',
@@ -80,6 +81,7 @@ const invokeAvailabilityExport = async (query: Record<string, string | undefined
   return itemImprovementRecipeAvailability({
     body: { data: {} },
     headers: {},
+    log: { warn: vi.fn() },
     method: 'GET',
     params: {},
     path,

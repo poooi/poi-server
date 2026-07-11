@@ -23,6 +23,7 @@ const normalizeQuery = (query: unknown): Record<string, string | undefined> => {
 export const toAppRequest = (request: FastifyRequest): AppRequest => ({
   body: request.body,
   headers: request.headers,
+  log: request.log,
   method: request.method,
   params: request.params as Record<string, string | undefined>,
   path: request.url.split('?')[0] || request.url,

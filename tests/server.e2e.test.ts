@@ -735,6 +735,51 @@ describe('v2 report endpoints', () => {
     expect(nonObjectResponse.body).toEqual({ error: 'data must be a JSON object' })
     expect(await CreateShipRecord.countDocuments().exec()).toBe(0)
   })
+
+  test('applies shared casting, integer bounds, identity, and AACI semver validation', async () => {
+    const castResponse = await postReport('/api/report/v2/create_item', {
+      items: '7',
+      itemId: '8',
+      successful: 'yes',
+    })
+    const fractionalResponse = await postReport('/api/report/v2/create_item', {
+      itemId: 1.5,
+    })
+    const outOfRangeResponse = await postReport('/api/report/v2/create_item', {
+      items: [2147483648],
+    })
+    const missingIdentityResponse = await postReport('/api/report/v2/select_rank', {
+      teitokuLv: 120,
+    })
+    const invalidPoiVersionResponse = await postReport('/api/report/v2/aaci', {
+      poiVersion: 'not-semver',
+    })
+    const invalidReporterVersionResponse = await postReport(
+      '/api/report/v2/aaci',
+      { poiVersion: '8.0.0' },
+      { 'x-reporter': 'Reporter not-semver' },
+    )
+
+    expect(castResponse.status).toBe(200)
+    expect(await CreateItemRecord.findOne().select('-_id -__v').lean().exec()).toMatchObject({
+      items: [7],
+      itemId: 8,
+      successful: true,
+    })
+    expect(fractionalResponse).toMatchObject({
+      status: 400,
+      body: { error: 'itemId: expected signed 32-bit integer' },
+    })
+    expect(outOfRangeResponse).toMatchObject({
+      status: 400,
+      body: { error: 'items.0: expected signed 32-bit integer' },
+    })
+    expect(missingIdentityResponse.status).toBe(400)
+    expect(invalidPoiVersionResponse.status).toBe(400)
+    expect(invalidReporterVersionResponse.status).toBe(400)
+    expect(await CreateItemRecord.countDocuments().exec()).toBe(1)
+    expect(await AACIRecord.countDocuments().exec()).toBe(0)
+  })
 })
 
 describe('v3 report endpoints', () => {
@@ -806,7 +851,14 @@ describe('v3 report endpoints', () => {
 
     expect(firstPage.status).toBe(200)
     expect(secondPage.status).toBe(200)
-    expect(secondPage.body).toEqual({ records: [], next: null })
+    expect(secondPage.body).toEqual({
+      epoch: {
+        id: 'legacy-mongodb',
+        startedAt: null,
+      },
+      records: [],
+      next: null,
+    })
   })
 
   test('returns 400 for invalid item improvement payloads and cursors', async () => {
@@ -818,9 +870,17 @@ describe('v3 report endpoints', () => {
     const oversizedBatchResponse = await postReport('/api/report/v3/item_improvement_recipe', {
       records: Array.from({ length: 101 }, () => itemImprovementRecords[0]),
     })
+    const outOfRangeRecordResponse = await postReport('/api/report/v3/item_improvement_recipe', {
+      ...itemImprovementRecords[0],
+      recipeId: 2147483648,
+    })
     const invalidCursorResponse = await request(
       'GET',
       '/api/report/v3/item_improvement_recipes/availability?afterId=invalid-object-id',
+    )
+    const unsafeTimestampCursorResponse = await request(
+      'GET',
+      '/api/report/v3/item_improvement_recipes/availability?updatedAfter=9007199254740992',
     )
 
     expect(malformedResponse.status).toBe(400)
@@ -833,8 +893,10 @@ describe('v3 report endpoints', () => {
     expect(oversizedBatchResponse.body).toEqual({
       error: 'records: Too big: expected array to have <=100 items',
     })
+    expect(outOfRangeRecordResponse.status).toBe(400)
     expect(invalidCursorResponse.status).toBe(400)
     expect(invalidCursorResponse.body).toEqual({ error: 'afterId: must be a valid ObjectId' })
+    expect(unsafeTimestampCursorResponse.status).toBe(400)
   })
 
   test('upserts quests, exposes known quest prefixes, and stores quest rewards', async () => {
@@ -887,11 +949,22 @@ describe('v3 report endpoints', () => {
   test('returns 400 for malformed and missing v3 report payloads', async () => {
     const malformedResponse = await postReport('/api/report/v3/quest', '{')
     const missingResponse = await request('POST', '/api/report/v3/quest', {}, getReportHeaders())
+    const missingQuestIdentityResponse = await postReport('/api/report/v3/quest', {
+      quests: [{ questId: 1, category: 2, detail: 'detail without a title' }],
+    })
+    const missingRewardIdentityResponse = await postReport('/api/report/v3/quest_reward', {
+      questId: 1,
+      title: 'title',
+      detail: 'detail',
+      selections: [1],
+    })
 
     expect(malformedResponse.status).toBe(400)
     expect(malformedResponse.body).toEqual({ error: 'data must be valid JSON' })
     expect(missingResponse.status).toBe(400)
     expect(missingResponse.body).toEqual({ error: 'data must be a JSON object' })
+    expect(missingQuestIdentityResponse.status).toBe(400)
+    expect(missingRewardIdentityResponse.status).toBe(400)
     expect(await Quest.countDocuments().exec()).toBe(0)
   })
 })
