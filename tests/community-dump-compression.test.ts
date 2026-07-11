@@ -1,9 +1,11 @@
 import { createHash } from 'crypto'
+import { once } from 'events'
 
 import { describe, expect, test } from 'vitest'
 
 import {
   compressCommunityDumpBuffer,
+  createCommunityDumpCompressStream,
   decompressCommunityDumpBuffer,
   hasZstdContentChecksum,
 } from '../src/dumps/community-dump-compression'
@@ -73,5 +75,75 @@ describe('hasZstdContentChecksum', () => {
 
   test('returns false for a buffer with the wrong magic number', () => {
     expect(hasZstdContentChecksum(Buffer.from([0, 0, 0, 0, 0]))).toBe(false)
+  })
+})
+
+/** Writes every chunk in `inputs` into `stream`, ends it, and collects the compressed output. */
+const drainCompressStream = async (
+  stream: ReturnType<typeof createCommunityDumpCompressStream>,
+  inputs: readonly Buffer[],
+): Promise<Buffer> => {
+  const chunks: Buffer[] = []
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk)
+  })
+  const ended = once(stream, 'end')
+  for (const input of inputs) {
+    stream.write(input)
+  }
+  stream.end()
+  await ended
+  return Buffer.concat(chunks)
+}
+
+describe('createCommunityDumpCompressStream', () => {
+  test('streams a standard Zstandard frame with content checksums enabled', async () => {
+    const compressed = await drainCompressStream(createCommunityDumpCompressStream(), [
+      sampleJsonLines,
+    ])
+
+    expect(compressed.subarray(0, 4)).toEqual(Buffer.from([0x28, 0xb5, 0x2f, 0xfd]))
+    expect(hasZstdContentChecksum(compressed)).toBe(true)
+  })
+
+  test('round-trips through decompression back to the exact original bytes', async () => {
+    const compressed = await drainCompressStream(createCommunityDumpCompressStream(), [
+      sampleJsonLines,
+    ])
+
+    expect(Buffer.compare(decompressCommunityDumpBuffer(compressed), sampleJsonLines)).toBe(0)
+  })
+
+  test('reassembles many small incremental writes into one valid frame', async () => {
+    const rowLines = Array.from(
+      { length: 50 },
+      (_, index) => JSON.stringify({ observationId: String(index) }) + '\n',
+    )
+    const inputs = rowLines.map((line) => Buffer.from(line, 'utf8'))
+    const expected = Buffer.concat(inputs)
+
+    const compressed = await drainCompressStream(createCommunityDumpCompressStream(), inputs)
+
+    expect(Buffer.compare(decompressCommunityDumpBuffer(compressed), expected)).toBe(0)
+    expect(hasZstdContentChecksum(compressed)).toBe(true)
+  })
+
+  test('produces byte-identical, deterministic output across separate stream instances', async () => {
+    const first = await drainCompressStream(createCommunityDumpCompressStream(), [sampleJsonLines])
+    const second = await drainCompressStream(createCommunityDumpCompressStream(), [
+      Buffer.from(sampleJsonLines),
+    ])
+
+    expect(Buffer.compare(first, second)).toBe(0)
+    expect(createHash('sha256').update(first).digest('hex')).toBe(
+      createHash('sha256').update(second).digest('hex'),
+    )
+  })
+
+  test('streams an empty input into a valid, round-trippable empty frame', async () => {
+    const compressed = await drainCompressStream(createCommunityDumpCompressStream(), [])
+
+    expect(hasZstdContentChecksum(compressed)).toBe(true)
+    expect(decompressCommunityDumpBuffer(compressed).length).toBe(0)
   })
 })

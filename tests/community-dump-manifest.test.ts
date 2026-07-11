@@ -5,6 +5,7 @@ import { communityDumpDatasetNames } from '../src/dumps/community-dump-registry'
 import {
   communityDumpManifestSchemaVersion,
   communityDumpManifestTimezone,
+  parseCommunityDumpManifestV1,
   serializeCommunityDumpManifestV1,
   type CommunityDumpManifestFileInput,
 } from '../src/dumps/community-dump-manifest'
@@ -213,5 +214,184 @@ describe('serializeCommunityDumpManifestV1', () => {
       files: [...communityDumpDatasetNames].reverse().map((dataset) => makeFile(dataset)),
     })
     expect(JSON.stringify(forward)).toBe(JSON.stringify(reversed))
+  })
+})
+
+/**
+ * `parseCommunityDumpManifestV1` re-validates untrusted manifest bytes (read back from the
+ * object store during cleanup's re-verification step, docs/postgresql-migration-plan.md lines
+ * 754-756) by delegating structural/semantic validation back into
+ * `serializeCommunityDumpManifestV1` — this module never duplicates that validator, it only
+ * narrows raw JSON into the shape that validator already expects.
+ */
+describe('parseCommunityDumpManifestV1', () => {
+  const toBuffer = (value: unknown): Buffer => Buffer.from(JSON.stringify(value), 'utf8')
+
+  test('round-trips exactly what serializeCommunityDumpManifestV1 produced', () => {
+    const manifest = serializeCommunityDumpManifestV1(validInput)
+    const parsed = parseCommunityDumpManifestV1(toBuffer(manifest))
+    expect(parsed).toEqual(manifest)
+  })
+
+  test('round-trips a null epoch.startedAt', () => {
+    const manifest = serializeCommunityDumpManifestV1({ ...validInput, epochStartedAt: null })
+    const parsed = parseCommunityDumpManifestV1(toBuffer(manifest))
+    expect(parsed.epoch.startedAt).toBeNull()
+  })
+
+  test.each([
+    ['missing schemaVersion', { schemaVersion: undefined }],
+    ['wrong schemaVersion', { schemaVersion: 2 }],
+    ['missing timezone', { timezone: undefined }],
+    ['wrong timezone', { timezone: 'UTC' }],
+  ])('rejects %s', (_label, override) => {
+    const manifest = serializeCommunityDumpManifestV1(validInput)
+    const raw: Record<string, unknown> = { ...manifest, ...override }
+    if ('schemaVersion' in override && override.schemaVersion === undefined) {
+      delete raw.schemaVersion
+    }
+    if ('timezone' in override && override.timezone === undefined) {
+      delete raw.timezone
+    }
+
+    expect(() => parseCommunityDumpManifestV1(toBuffer(raw))).toThrow(CommunityDumpError)
+  })
+
+  test('rejects bytes that are not valid JSON, without throwing an uncaught SyntaxError', () => {
+    expect(() => parseCommunityDumpManifestV1(Buffer.from('{not valid json', 'utf8'))).toThrow(
+      CommunityDumpError,
+    )
+  })
+
+  test('rejects a JSON array at the top level', () => {
+    expect(() => parseCommunityDumpManifestV1(toBuffer([1, 2, 3]))).toThrow(CommunityDumpError)
+  })
+
+  test('rejects a JSON scalar at the top level', () => {
+    expect(() => parseCommunityDumpManifestV1(toBuffer('just a string'))).toThrow(
+      CommunityDumpError,
+    )
+  })
+
+  test.each([
+    ['missing epoch', { dumpMonth: '2024-01', publishedAt: '2024-02-01T00:00:00.000Z', files: [] }],
+    [
+      'epoch not an object',
+      { epoch: 'nope', dumpMonth: '2024-01', publishedAt: '2024-02-01T00:00:00.000Z', files: [] },
+    ],
+    [
+      'epoch missing id',
+      {
+        epoch: { startedAt: '2023-01-01T00:00:00.000Z' },
+        dumpMonth: '2024-01',
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: [],
+      },
+    ],
+    [
+      'epoch.id not a string',
+      {
+        epoch: { id: 42, startedAt: '2023-01-01T00:00:00.000Z' },
+        dumpMonth: '2024-01',
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: [],
+      },
+    ],
+    [
+      'epoch missing startedAt',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111' },
+        dumpMonth: '2024-01',
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: [],
+      },
+    ],
+    [
+      'missing dumpMonth',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: [],
+      },
+    ],
+    [
+      'dumpMonth not a string',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+        dumpMonth: 202401,
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: [],
+      },
+    ],
+    [
+      'missing publishedAt',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+        dumpMonth: '2024-01',
+        files: [],
+      },
+    ],
+    [
+      'missing files',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+        dumpMonth: '2024-01',
+        publishedAt: '2024-02-01T00:00:00.000Z',
+      },
+    ],
+    [
+      'files not an array',
+      {
+        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+        dumpMonth: '2024-01',
+        publishedAt: '2024-02-01T00:00:00.000Z',
+        files: 'nope',
+      },
+    ],
+  ])('rejects a structurally invalid manifest (%s)', (_label, raw) => {
+    expect(() => parseCommunityDumpManifestV1(toBuffer(raw))).toThrow(CommunityDumpError)
+  })
+
+  const validRawFile = {
+    dataset: 'createShipObservations',
+    objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+    rowCount: 10,
+    compressedBytes: 1024,
+    sha256: sha256Hex,
+  }
+
+  test.each([
+    ['file missing dataset', { ...validRawFile, dataset: undefined }],
+    ['file dataset not a string', { ...validRawFile, dataset: 42 }],
+    ['file missing objectKey', { ...validRawFile, objectKey: undefined }],
+    ['file objectKey not a string', { ...validRawFile, objectKey: 42 }],
+    ['file missing rowCount', { ...validRawFile, rowCount: undefined }],
+    ['file missing compressedBytes', { ...validRawFile, compressedBytes: undefined }],
+    ['file missing sha256', { ...validRawFile, sha256: undefined }],
+    ['file sha256 not a string', { ...validRawFile, sha256: 42 }],
+    ['file not an object', 'not-an-object'],
+  ])('rejects a structurally invalid file entry (%s)', (_label, rawFile) => {
+    const raw = {
+      epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+      dumpMonth: '2024-01',
+      publishedAt: '2024-02-01T00:00:00.000Z',
+      files: communityDumpDatasetNames.map((dataset) =>
+        dataset === 'createShipObservations' ? rawFile : makeFile(dataset),
+      ),
+    }
+    expect(() => parseCommunityDumpManifestV1(toBuffer(raw))).toThrow(CommunityDumpError)
+  })
+
+  test('delegates dataset-completeness validation to serializeCommunityDumpManifestV1 (rejects a missing dataset)', () => {
+    const raw = {
+      epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
+      dumpMonth: '2024-01',
+      publishedAt: '2024-02-01T00:00:00.000Z',
+      files: validInput.files
+        .filter((file) => file.dataset !== 'aaciObservations')
+        .map((file) => ({ ...file })),
+    }
+    expect(() => parseCommunityDumpManifestV1(toBuffer(raw))).toThrow(CommunityDumpError)
+    expect(() => parseCommunityDumpManifestV1(toBuffer(raw))).toThrow(/aaciObservations/)
   })
 })
