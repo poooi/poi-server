@@ -22,6 +22,22 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: poi-e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POI_SERVER_POSTGRES_E2E_URL: postgres://postgres:postgres@127.0.0.1:5432/poi-e2e
 
     steps:
       - uses: actions/checkout@v4
@@ -34,10 +50,23 @@ jobs:
       - run: npm run lint
       - run: npm run type-check
       - run: npm run test:unit
-      - name: Run e2e tests
+      - name: Run Mongo e2e tests
         run: npm run test:e2e
         env:
           POI_SERVER_DB: mongodb://127.0.0.1:27017/poi-e2e
+      - name: Apply PostgreSQL migrations to the e2e database
+        run: npm run db:migrate
+        env:
+          POI_SERVER_DATABASE_URL: ${{ env.POI_SERVER_POSTGRES_E2E_URL }}
+      - name: Create the PostgreSQL e2e Data Epoch
+        run: npm run db:create-epoch -- 2024-01-01T00:00:00.000Z
+        env:
+          POI_SERVER_DATABASE_URL: ${{ env.POI_SERVER_POSTGRES_E2E_URL }}
+      - name: Run PostgreSQL e2e tests
+        run: npm run test:e2e:postgres
+        env:
+          POI_SERVER_POSTGRES_E2E_URL: ${{ env.POI_SERVER_POSTGRES_E2E_URL }}
+          CI: true
       - run: npm run build
       - run: npm run smoke
       - name: Validate deploy hooks
