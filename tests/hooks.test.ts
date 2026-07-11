@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import ChildProcess from 'child_process'
-import fs from 'fs'
+import { readFileSync } from 'fs'
 import { type FastifyInstance } from 'fastify'
 import path from 'path'
 import { EventEmitter } from 'events'
@@ -57,7 +57,7 @@ describe('poi hook server', () => {
   })
 
   test('prepares the selected database before pruning dependencies and restarting', () => {
-    const hook = fs.readFileSync(path.resolve(__dirname, '../github-master-hook'), 'utf8')
+    const hook = readFileSync(path.resolve(__dirname, '../github-master-hook'), 'utf8')
     const installIndex = hook.indexOf('npm ci')
     const databaseMigrationIndex = hook.indexOf('npm run db:migrate')
     const pruneIndex = hook.indexOf('npm prune --omit=dev')
@@ -70,7 +70,7 @@ describe('poi hook server', () => {
   })
 
   test('logs deploy stages and failure context without shell tracing', () => {
-    const hook = fs.readFileSync(path.resolve(__dirname, '../github-master-hook'), 'utf8')
+    const hook = readFileSync(path.resolve(__dirname, '../github-master-hook'), 'utf8')
 
     expect(hook).toContain('trap on_deploy_error ERR')
     expect(hook).toContain('status=failed exit_code=$exit_code elapsed_seconds=$elapsed_seconds')
