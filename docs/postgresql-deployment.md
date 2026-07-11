@@ -182,8 +182,8 @@ The runner:
 - delegates Node.js selection to `fnm-exec`.
 
 `POI_DUMP_CRON_APP_DIR`, `POI_DUMP_CRON_LOCK_FILE`, and `POI_DUMP_CRON_TIMEOUT` may be set when
-running the wrapper manually; direct invocations use GNU `timeout` duration syntax. The installer
-accepts positive integers followed by `s`, `m`, `h`, or `d`, such as `90m` or `12h`.
+running the wrapper manually. Both the runner and installer accept a positive integer followed by one
+of `s`, `m`, `h`, or `d`, such as `90m` or `12h`.
 
 #### Cron installer
 
