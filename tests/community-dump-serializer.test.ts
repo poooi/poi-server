@@ -166,6 +166,27 @@ describe('serializeCommunityDumpRecord', () => {
     expect(typeof record.time).toBe('number')
   })
 
+  test('serializes a null night_battle_cis.time (a nullable safeInteger-encoded column) as JSON null', () => {
+    const row = {
+      ...baseRow,
+      ...sampleValuesByDataset.nightBattleCiObservations,
+      time: null,
+    }
+    const parsed = JSON.parse(
+      serializeCommunityDumpRecord('nightBattleCiObservations', row),
+    ) as Record<string, unknown>
+    expect(parsed.time).toBeNull()
+  })
+
+  test('treats an omitted night_battle_cis.time the same as an explicit SQL null', () => {
+    const row = { ...baseRow, ...sampleValuesByDataset.nightBattleCiObservations }
+    delete (row as Record<string, unknown>).time
+    const parsed = JSON.parse(
+      serializeCommunityDumpRecord('nightBattleCiObservations', row),
+    ) as Record<string, unknown>
+    expect(parsed.time).toBeNull()
+  })
+
   test('serializes SQL null as JSON null for scalar and array columns', () => {
     const row = {
       ...baseRow,

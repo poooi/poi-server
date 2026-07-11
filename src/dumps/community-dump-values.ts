@@ -48,6 +48,23 @@ export const encodeNonNegativeSafeInteger = (value: unknown, fieldName: string):
   return Number(integer)
 }
 
+/**
+ * Like {@link encodeNonNegativeSafeInteger}, but first maps SQL null (and the equivalent
+ * `undefined` for an omitted/missing column) to JSON `null`, exactly like every other Community
+ * Dump field already does via `normalizeCommunityDumpJsonValue`. `night_battle_cis.time`
+ * (the only registry field using the `'safeInteger'` encoding, see
+ * `dumps/community-dump-registry.ts`) is a nullable PostgreSQL column — the report payload's
+ * `time` field is optional (`contracts/v2-report.ts`) — so a real row can legitimately have no
+ * `time` value; without this, `serializeCommunityDumpRecord` would throw for such a row and
+ * abort the entire monthly export instead of emitting `"time":null`.
+ */
+export const encodeNullableSafeInteger = (value: unknown, fieldName: string): number | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+  return encodeNonNegativeSafeInteger(value, fieldName)
+}
+
 /** Encodes a `Date`, ISO-8601 string, or epoch-millisecond number as a UTC ISO-8601 timestamp. */
 export const encodeIsoMillisecondTimestampUtc = (value: unknown, fieldName: string): string => {
   let date: Date

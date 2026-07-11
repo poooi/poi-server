@@ -7,7 +7,7 @@ import { getCommunityDumpDataset } from './community-dump-registry'
 import {
   encodeIsoMillisecondTimestampUtc,
   encodeNonNegativeDecimal,
-  encodeNonNegativeSafeInteger,
+  encodeNullableSafeInteger,
 } from './community-dump-values'
 
 /**
@@ -42,7 +42,7 @@ export const serializeCommunityDumpRecord = (
   for (const fieldDefinition of definition.fields) {
     record[fieldDefinition.apiKey] =
       fieldDefinition.encoding === 'safeInteger'
-        ? encodeNonNegativeSafeInteger(row[fieldDefinition.sourceColumn], fieldDefinition.apiKey)
+        ? encodeNullableSafeInteger(row[fieldDefinition.sourceColumn], fieldDefinition.apiKey)
         : normalizeCommunityDumpJsonValue(row[fieldDefinition.sourceColumn], fieldDefinition.apiKey)
   }
 
