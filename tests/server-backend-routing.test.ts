@@ -79,10 +79,8 @@ describe('startServer backend routing', () => {
   test('routes PostgreSQL URLs through connectPostgres and injects PostgreSQL v2/v3 action sets', async () => {
     const poolEnd = vi.fn(() => Promise.resolve())
     const fakeDb = { fake: 'db' }
-    const fakeEpoch = { id: 'epoch-1', startedAt: null }
     postgresMocks.connectPostgres.mockResolvedValue({
       db: fakeDb,
-      epoch: fakeEpoch,
       pool: { end: poolEnd },
     })
 
@@ -103,7 +101,7 @@ describe('startServer backend routing', () => {
     const options = createAppMock.mock.calls[0][0]
     expect(options.getDatabaseStatus).toBeTypeOf('function')
     expect(options.reportV2Actions).toBeDefined()
-    expect(v3ActionsMocks.createPostgresV3Actions).toHaveBeenCalledWith(fakeDb, fakeEpoch)
+    expect(v3ActionsMocks.createPostgresV3Actions).toHaveBeenCalledWith(fakeDb)
     expect(options.reportV3Actions).toEqual({ marker: 'postgres-v3-actions' })
 
     await started.close()
@@ -132,7 +130,6 @@ describe('startServer backend routing', () => {
     const poolEnd = vi.fn(() => Promise.resolve())
     postgresMocks.connectPostgres.mockResolvedValue({
       db: { fake: 'db' },
-      epoch: { id: 'epoch-1', startedAt: null },
       pool: { end: poolEnd },
     })
     fakeApp.listen.mockRejectedValueOnce(new Error('listen failed'))

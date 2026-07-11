@@ -26,7 +26,6 @@ export type DumpRunStatus =
 
 export interface DumpRunRow {
   readonly id: number
-  readonly epochId: string
   readonly dumpMonth: string
   readonly schemaVersion: number
   readonly status: DumpRunStatus
@@ -53,7 +52,6 @@ export interface DumpFileRow {
 
 const dumpRunColumns = `
   id,
-  epoch_id,
   to_char(dump_month, 'YYYY-MM') as dump_month,
   schema_version,
   status,
@@ -136,7 +134,6 @@ const mapDumpRunRow = (row: Record<string, unknown>): DumpRunRow => {
   }
   return {
     id: encodeNonNegativeSafeInteger(row.id, 'data_dump_runs.id'),
-    epochId: asStringNotNull(row.epoch_id, 'data_dump_runs.epoch_id'),
     dumpMonth: row.dump_month,
     schemaVersion: encodeNonNegativeSafeInteger(
       row.schema_version,
@@ -196,7 +193,6 @@ const singleRowOrThrow = (
 }
 
 export interface FindOrCreateDumpRunInput {
-  readonly epochId: string
   readonly dumpMonth: DumpMonthParts
   readonly schemaVersion: number
 }
@@ -205,7 +201,7 @@ const dumpMonthDateLiteral = (parts: DumpMonthParts): string =>
   `${parts.year.toString().padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-01`
 
 /**
- * Finds or creates the one `data_dump_runs` row for `(epochId, dumpMonth, schemaVersion)`
+ * Finds or creates the one `data_dump_runs` row for `(dumpMonth, schemaVersion)`
  * (plan lines 736-739, 761-762: "Persist/resume one unique data_dump_runs row"). A fresh row
  * starts at `status = 'pending'`; resuming an existing row leaves every already-persisted column
  * untouched (only `updated_at` moves), so a retry continues from wherever the previous attempt
@@ -217,13 +213,13 @@ export const findOrCreateDumpRun = async (
 ): Promise<DumpRunRow> => {
   const result = await client.query(
     `
-insert into data_dump_runs (epoch_id, dump_month, schema_version, status)
-values ($1, $2, $3, 'pending')
-on conflict (epoch_id, dump_month, schema_version)
+insert into data_dump_runs (dump_month, schema_version, status)
+values ($1, $2, 'pending')
+on conflict (dump_month, schema_version)
 do update set updated_at = clock_timestamp()
 returning ${dumpRunColumns}
 `.trim(),
-    [input.epochId, dumpMonthDateLiteral(input.dumpMonth), input.schemaVersion],
+    [dumpMonthDateLiteral(input.dumpMonth), input.schemaVersion],
   )
   return mapDumpRunRow(
     singleRowOrThrow(result.rows, 'findOrCreateDumpRun: insert...on conflict returned no row'),

@@ -7,7 +7,7 @@ import { CommunityDumpError } from './community-dump-errors'
  * - `observationId`, `rowCount`, and `compressedBytes` must be non-negative integers,
  *   encoded as decimal strings so 64-bit values never lose precision in JSON (plan
  *   lines 631-632, 684).
- * - `ingestedAt` and `publishedAt`/`epoch.startedAt` must be valid instants, encoded as
+ * - `ingestedAt` and `publishedAt` must be valid instants, encoded as
  *   UTC ISO-8601 timestamps with millisecond precision (plan lines 631-632, 653-664).
  */
 

@@ -36,11 +36,11 @@ describe('isObservationParentTable', () => {
     'create_ship_records_default',
     'create_ship_records_2026_07',
     'schema_metadata',
-    'data_epochs',
+    'data_dump_runs',
     'quests',
     'item_improvement_cost_facts',
     '',
-    'create_ship_records; drop table data_epochs;',
+    'create_ship_records; drop table schema_metadata;',
     'CREATE_SHIP_RECORDS',
     'create_ship_records ',
   ])('rejects the non-allowlisted identifier %s', (table) => {
@@ -56,7 +56,7 @@ describe('assertObservationParentTable', () => {
   test.each([
     'create_ship_records_default',
     'nonexistent_table',
-    "create_ship_records'; drop table data_epochs; --",
+    "create_ship_records'; drop table schema_metadata; --",
   ])('throws a PartitionMaintenanceError for %s', (table) => {
     expect(() => assertObservationParentTable(table)).toThrow(PartitionMaintenanceError)
     expect(() => assertObservationParentTable(table)).toThrow(/allowlisted/)

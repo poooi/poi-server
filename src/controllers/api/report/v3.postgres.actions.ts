@@ -4,7 +4,6 @@ import { type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { ZodError } from 'zod'
 
-import { type DataEpoch } from '../../../contracts/database'
 import {
   createAvailabilityKey,
   createCostKey,
@@ -298,7 +297,7 @@ const assertDefinitionIdentity = (
   }
 }
 
-export const createPostgresV3Actions = (db: PostgresDb, epoch: DataEpoch): ReportV3Actions => {
+export const createPostgresV3Actions = (db: PostgresDb): ReportV3Actions => {
   const saveAvailabilityFact = async (record: ItemImprovementRecipeListRecord): Promise<void> => {
     const key = createAvailabilityKey(record)
     const origins = record.origin != null ? [record.origin] : []
@@ -513,7 +512,6 @@ export const createPostgresV3Actions = (db: PostgresDb, epoch: DataEpoch): Repor
     withCloudflareCache(
       request,
       ok({
-        epoch,
         records,
         next:
           lastRow == null

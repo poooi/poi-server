@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { type NodePgDatabase } from 'drizzle-orm/node-postgres'
 
-import { type DataEpoch, type DatabaseStatus } from '../../contracts/database'
+import { type DatabaseStatus } from '../../contracts/database'
 import type * as schema from '../../db/postgres/schema'
 
 type PostgresDb = NodePgDatabase<typeof schema>
@@ -68,7 +68,7 @@ const toClampedCount = (estimate: number | string): number =>
   Math.max(0, Math.round(Number(estimate)))
 
 export const createPostgresDatabaseStatus =
-  (db: PostgresDb, epoch: DataEpoch): (() => Promise<DatabaseStatus>) =>
+  (db: PostgresDb): (() => Promise<DatabaseStatus>) =>
   async () => {
     const { rows } = await db.execute<DatasetEstimateRow>(buildEstimateQuery())
     const estimateByDataset = new Map(rows.map((row) => [row.dataset, row.estimate]))
@@ -83,7 +83,6 @@ export const createPostgresDatabaseStatus =
     return {
       backend: 'postgresql',
       status: 'up',
-      epoch,
       estimatedCounts,
     }
   }

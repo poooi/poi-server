@@ -15,7 +15,6 @@ import {
   text,
   timestamp,
   unique,
-  uuid,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -48,28 +47,10 @@ export const schemaMetadata = pgTable(
   (t) => [check('schema_metadata_singleton_true', sql`${t.singleton} = true`)],
 )
 
-// ---------------------------------------------------------------------------------------
-// Control tables
-// ---------------------------------------------------------------------------------------
-
-export const dataEpochs = pgTable(
-  'data_epochs',
-  {
-    singleton: boolean().primaryKey().default(true),
-    id: uuid().notNull().unique(),
-    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(clockTimestamp),
-  },
-  (t) => [check('data_epochs_singleton_true', sql`${t.singleton} = true`)],
-)
-
 export const dataDumpRuns = pgTable(
   'data_dump_runs',
   {
     id: bigint({ mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    epochId: uuid('epoch_id')
-      .notNull()
-      .references(() => dataEpochs.id),
     dumpMonth: date('dump_month', { mode: 'string' }).notNull(),
     schemaVersion: integer('schema_version').notNull(),
     status: text().notNull(),
@@ -84,7 +65,7 @@ export const dataDumpRuns = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(clockTimestamp),
   },
   (t) => [
-    unique('data_dump_runs_epoch_month_version_key').on(t.epochId, t.dumpMonth, t.schemaVersion),
+    unique('data_dump_runs_month_version_key').on(t.dumpMonth, t.schemaVersion),
     check(
       'data_dump_runs_status_check',
       sql`${t.status} in ('pending', 'exporting', 'uploaded', 'published', 'cleanup_eligible', 'cleaned', 'failed')`,

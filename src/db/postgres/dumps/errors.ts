@@ -19,8 +19,8 @@ export class CommunityDumpWorkflowError extends Error {}
 /**
  * Raised when a precondition required before starting or continuing publish/cleanup is not met,
  * and nothing has been changed as a result. Examples: the requested Dump Month is not yet closed
- * (open/current/future JST month); the epoch/schema state is not exactly one Data Epoch on
- * schema v1; a default Observation partition already holds rows for the target month; the
+ * (open/current/future JST month); the database schema is incompatible; a default Observation
+ * partition already holds rows for the target month; the
  * referenced `data_dump_runs` row does not exist or is not in a status that allows the requested
  * operation; cleanup was requested before `cleanup_eligible_at`.
  */

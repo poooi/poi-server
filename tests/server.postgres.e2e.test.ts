@@ -8,12 +8,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi 
 //
 //   POI_SERVER_POSTGRES_E2E_URL=postgres://postgres:postgres@localhost:5432/poi-e2e
 //
-// Before running this file, the target database must already have the Drizzle migrations and
-// exactly one Data Epoch applied through the explicit CI/local commands (never automatically by
-// the application):
+// Before running this file, the target database must already have the Drizzle migrations applied
+// through the explicit CI/local command (never automatically by the application):
 //
 //   POI_SERVER_DATABASE_URL=$POI_SERVER_POSTGRES_E2E_URL npm run db:migrate
-//   POI_SERVER_DATABASE_URL=$POI_SERVER_POSTGRES_E2E_URL npm run db:create-epoch -- 2024-01-01T00:00:00.000Z
 //
 // When POI_SERVER_POSTGRES_E2E_URL is unset, this suite skips cleanly (see describe.skipIf below).
 // In CI, the variable is always set, so the suite always runs there.
@@ -51,7 +49,7 @@ vi.mock('@sindresorhus/df', () => ({
 import { type AddressInfo } from 'net'
 import { Pool } from 'pg'
 
-import { estimatedCountsSchema, type DataEpoch } from '../src/contracts/database'
+import { estimatedCountsSchema } from '../src/contracts/database'
 import {
   createUpcomingMonthPartitions,
   type CreateUpcomingMonthPartitionOutcome,
@@ -148,7 +146,6 @@ interface TestResponse {
 let baseUrl: string
 let closeServer: (() => Promise<void>) | undefined
 let verificationPool: Pool
-let epoch: DataEpoch
 
 const request = async (
   method: string,
@@ -316,20 +313,6 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
     assertPostgresE2eUrl(postgresE2eUrl)
     verificationPool = new Pool({ connectionString: postgresE2eUrl, max: 5 })
 
-    const epochRows = await verificationPool.query<{ id: string; started_at: Date }>(
-      'select id, started_at from data_epochs limit 1',
-    )
-    if (epochRows.rows.length !== 1) {
-      throw new Error(
-        'PostgreSQL e2e database has no Data Epoch. Run "npm run db:migrate" and ' +
-          '"npm run db:create-epoch -- <timestamp>" against POI_SERVER_POSTGRES_E2E_URL before running this suite.',
-      )
-    }
-    epoch = {
-      id: epochRows.rows[0].id,
-      startedAt: epochRows.rows[0].started_at.toISOString(),
-    }
-
     const started = await startServer({
       db: postgresE2eUrl,
       disableLogger: true,
@@ -368,7 +351,7 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
   })
 
   describe('database status', () => {
-    test('reports the backend-neutral shape with all 18 estimated counts and the created Data Epoch', async () => {
+    test('reports the backend-neutral shape with all 18 estimated counts', async () => {
       await postReport('/api/report/v2/create_ship', createShipPayload)
 
       const response = await request('GET', '/api/status')
@@ -379,7 +362,6 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
         database: {
           backend: 'postgresql',
           status: 'up',
-          epoch,
         },
       })
       expect(response.body).not.toHaveProperty('mongo')
@@ -1176,13 +1158,13 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
     describe.each(settledWindowCases)(
       '$kind item-improvement export settled window',
       ({ table, exportPath, record }) => {
-        test('excludes a fresh fact from export until manually aged past 30 seconds, then includes it with epoch/id set and origins omitted', async () => {
+        test('excludes a fresh fact from export until manually aged past 30 seconds, then includes it with id set and origins omitted', async () => {
           const ingest = await postReport('/api/report/v3/item_improvement_recipe', record)
           expect(ingest.status).toBe(200)
 
           const fresh = await request('GET', `${exportPath}?updatedAfter=0`)
           expect(fresh.status).toBe(200)
-          expect(fresh.body).toEqual({ epoch, records: [], next: null })
+          expect(fresh.body).toEqual({ records: [], next: null })
 
           // Manually age the fact past the 30-second settled window instead of sleeping.
           await verificationPool.query(
@@ -1192,11 +1174,9 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
           const settled = await request('GET', `${exportPath}?updatedAfter=0`)
           expect(settled.status).toBe(200)
           const body = settled.body as {
-            epoch: DataEpoch
             records: Array<Record<string, unknown>>
             next: { updatedAfter: number; afterId: string } | null
           }
-          expect(body.epoch).toEqual(epoch)
           expect(body.records).toHaveLength(1)
           expect(body.records[0]).not.toHaveProperty('origins')
           expect(body.records[0]._id).toMatch(/^[0-9a-f]{24}$/)
@@ -1370,7 +1350,7 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
   // create-upcoming-month and repair commands against a real PostgreSQL 18 catalog, using
   // `verificationPool` directly as the `PartitionPool` (a real `pg.Pool` satisfies that
   // interface structurally, with no adapter/cast needed). Every Dump Month used here is far in
-  // the future so it can never collide with a real Data Epoch or with any other test in this
+  // the future so it can never collide with production Dump Months or with any other test in this
   // file, and every partition/pending table this suite creates is dropped before and after each
   // test so the suite is safe to rerun any number of times against a persistent e2e database.
   describe('Community Dump monthly partition maintenance/repair', () => {

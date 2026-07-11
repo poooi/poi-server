@@ -78,15 +78,14 @@ const startPostgresServer = async ({
   host,
   port,
 }: Omit<StartServerOptions, 'loadLatestCommit'>): Promise<StartedServer> => {
-  // connectPostgres never auto-migrates; it only verifies the schema version and
-  // reads the single Data Epoch row, throwing if either check fails.
+  // connectPostgres never auto-migrates; it only verifies the schema version.
   const postgres = await connectPostgres(db)
 
   const app = createApp({
     disableLogger,
-    getDatabaseStatus: createPostgresDatabaseStatus(postgres.db, postgres.epoch),
+    getDatabaseStatus: createPostgresDatabaseStatus(postgres.db),
     reportV2Actions: createPostgresV2Actions(postgres.db),
-    reportV3Actions: createPostgresV3Actions(postgres.db, postgres.epoch),
+    reportV3Actions: createPostgresV3Actions(postgres.db),
   })
   try {
     await app.listen({ host, port })

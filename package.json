@@ -10,7 +10,6 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "webpack-dev-server --content-base public/ --config webpack.config.dev.js --colors --watch --inline --progress --hot",
-    "db:create-epoch": "tsx scripts/postgres-create-epoch.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/postgres-migrate.ts",
     "db:partitions:create-upcoming": "tsx scripts/postgres-create-upcoming-month-partitions.ts",

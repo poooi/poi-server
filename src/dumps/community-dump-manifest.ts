@@ -23,8 +23,6 @@ export interface CommunityDumpManifestFileInput {
 }
 
 export interface CommunityDumpManifestInput {
-  readonly epochId: string
-  readonly epochStartedAt: unknown
   readonly dumpMonth: string
   readonly publishedAt: unknown
   readonly files: readonly CommunityDumpManifestFileInput[]
@@ -40,10 +38,6 @@ export interface CommunityDumpManifestFileV1 {
 
 export interface CommunityDumpManifestV1 {
   readonly schemaVersion: 1
-  readonly epoch: {
-    readonly id: string
-    readonly startedAt: string | null
-  }
   readonly dumpMonth: string
   readonly timezone: 'Asia/Tokyo'
   readonly publishedAt: string
@@ -69,9 +63,6 @@ const encodeSha256 = (value: string | Buffer): string => {
 export const serializeCommunityDumpManifestV1 = (
   input: CommunityDumpManifestInput,
 ): CommunityDumpManifestV1 => {
-  if (typeof input.epochId !== 'string' || input.epochId.length === 0) {
-    throw new CommunityDumpError('epoch.id: expected a non-empty string')
-  }
   if (!dumpMonthPattern.test(input.dumpMonth)) {
     throw new CommunityDumpError('dumpMonth: expected a YYYY-MM string')
   }
@@ -117,13 +108,6 @@ export const serializeCommunityDumpManifestV1 = (
 
   return {
     schemaVersion: communityDumpManifestSchemaVersion,
-    epoch: {
-      id: input.epochId,
-      startedAt:
-        input.epochStartedAt === null
-          ? null
-          : encodeIsoMillisecondTimestampUtc(input.epochStartedAt, 'epoch.startedAt'),
-    },
     dumpMonth: input.dumpMonth,
     timezone: communityDumpManifestTimezone,
     publishedAt: encodeIsoMillisecondTimestampUtc(input.publishedAt, 'publishedAt'),
@@ -193,12 +177,6 @@ export const parseCommunityDumpManifestV1 = (rawBytes: Buffer): CommunityDumpMan
   }
 
   assertJsonObject(parsed, 'manifest')
-  assertHasKey(parsed, 'epoch', 'manifest')
-  assertJsonObject(parsed.epoch, 'manifest.epoch')
-  assertHasKey(parsed.epoch, 'id', 'manifest.epoch')
-  assertIsString(parsed.epoch.id, 'manifest.epoch.id')
-  assertHasKey(parsed.epoch, 'startedAt', 'manifest.epoch')
-
   assertHasKey(parsed, 'dumpMonth', 'manifest')
   assertIsString(parsed.dumpMonth, 'manifest.dumpMonth')
 
@@ -210,8 +188,6 @@ export const parseCommunityDumpManifestV1 = (rawBytes: Buffer): CommunityDumpMan
   }
 
   const manifest = serializeCommunityDumpManifestV1({
-    epochId: parsed.epoch.id,
-    epochStartedAt: parsed.epoch.startedAt,
     dumpMonth: parsed.dumpMonth,
     publishedAt: parsed.publishedAt,
     files: parsed.files.map((file: unknown, index: number) => parseManifestFileInput(file, index)),

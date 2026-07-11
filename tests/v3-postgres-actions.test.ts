@@ -50,8 +50,6 @@ const compile = (query: SQL) => {
   return { params: compiled.params, sql: normalizeSql(compiled.sql) }
 }
 
-const epoch = { id: 'postgres-epoch-1', startedAt: '2026-01-01T00:00:00.000Z' }
-
 const createRequest = (overrides: Partial<AppRequest> = {}): AppRequest => ({
   body: {},
   headers: {},
@@ -291,7 +289,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('normalizes a single availability record into one insert/onConflictDoUpdate write', async () => {
     const { db, insert, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipe(postBody(availabilityPayload))
 
@@ -349,7 +347,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('includes the x-reporter origin in both insert values and the append-if-absent union', async () => {
     const { db, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     await actions.itemImprovementRecipe(
       postBody(availabilityPayload, { 'x-reporter': 'Reporter/1.0.0' }),
@@ -365,7 +363,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('normalizes a detail record into a cost fact write with all declared cost columns', async () => {
     const { db, insert, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipe(
       postBody({
@@ -415,7 +413,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('normalizes an execution record into an update fact write with upgrade fields', async () => {
     const { db, insert, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipe(
       postBody({
@@ -457,7 +455,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('writes a mixed batch with per-record concurrency 5', async () => {
     const { db, insert } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipe(
       postBody({
@@ -477,7 +475,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('rejects a batch of 101 records with 400 and performs no writes', async () => {
     const { db, insert } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
     const records = Array.from({ length: 101 }, () => availabilityPayload)
 
     const result = await actions.itemImprovementRecipe(postBody({ records }))
@@ -488,7 +486,7 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
 
   test('rejects an invalid record with 400 and does not write', async () => {
     const { db, insert } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipe(
       postBody({ ...availabilityPayload, recipeId: -1 }),
@@ -519,7 +517,7 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
 
   test('runs the availability export query and shapes the public response', async () => {
     const { db, execute } = createFakeDb({ executeRows: [rawRow] })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipeAvailability(
       getExport('/api/report/v3/item_improvement_recipes/availability', {
@@ -534,7 +532,6 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
     )
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
-      epoch,
       next: { afterId: '00000000000000000001a2b3', updatedAfter: 2500 },
       records: [
         {
@@ -560,7 +557,7 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
 
   test('passes the afterId cursor through to the compiled query', async () => {
     const { db, execute } = createFakeDb({ executeRows: [] })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     await actions.itemImprovementRecipeAvailability(
       getExport('/api/report/v3/item_improvement_recipes/availability', {
@@ -580,7 +577,7 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
 
   test('returns an empty page with a null cursor and never calls execute for an invalid afterId', async () => {
     const { db, execute } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const invalidResult = await actions.itemImprovementRecipeAvailability(
       getExport('/api/report/v3/item_improvement_recipes/availability', {
@@ -617,7 +614,7 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
         },
       ],
     })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipeCosts(
       getExport('/api/report/v3/item_improvement_recipes/costs'),
@@ -657,7 +654,7 @@ describe('createPostgresV3Actions: item-improvement exports', () => {
         },
       ],
     })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.itemImprovementRecipeUpdates(
       getExport('/api/report/v3/item_improvement_recipes/updates'),
@@ -688,7 +685,7 @@ describe('createPostgresV3Actions: knownQuests', () => {
         { key: 'aaaaaaaacccccccccccccccccccccccc' },
       ],
     })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.knownQuests(getExport('/api/report/v3/known_quests'))
 
@@ -703,7 +700,7 @@ describe('createPostgresV3Actions: knownQuests', () => {
 describe('createPostgresV3Actions: quest', () => {
   test('inserts every quest with an MD5 title/detail key and insert-only conflict handling', async () => {
     const { db, insert, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.quest(
       postBody(
@@ -743,7 +740,7 @@ describe('createPostgresV3Actions: quest', () => {
 
   test('produces the same key for identical title/detail pairs regardless of questId', async () => {
     const { db, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     await actions.quest(
       postBody({
@@ -763,7 +760,7 @@ describe('createPostgresV3Actions: quest', () => {
 describe('createPostgresV3Actions: questReward', () => {
   test('accepts legacy bounsCount and stores it via the bonusCount schema field', async () => {
     const { db, insert, insertChains } = createFakeDb()
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.questReward(
       postBody({
@@ -808,7 +805,7 @@ describe('createPostgresV3Actions: questReward', () => {
 
   test('rejects a quest reward hash collision without accepting the conflicting definition', async () => {
     const { db } = createFakeDb({ definitionReturningRows: [] })
-    const actions = createPostgresV3Actions(db as never, epoch)
+    const actions = createPostgresV3Actions(db as never)
 
     const result = await actions.questReward(
       postBody({

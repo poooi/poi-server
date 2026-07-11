@@ -1,4 +1,4 @@
-import { type DatabaseStatus, legacyMongoEpoch } from '../../contracts/database'
+import { type DatabaseStatus } from '../../contracts/database'
 import {
   AACIRecord,
   BattleAPI,
@@ -64,7 +64,6 @@ export const getMongoDatabaseStatus = async (): Promise<DatabaseStatus> => {
   return {
     backend: 'mongodb',
     status: 'up',
-    epoch: legacyMongoEpoch,
     estimatedCounts: {
       createShipObservations,
       createItemObservations,

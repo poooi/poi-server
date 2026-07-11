@@ -1,4 +1,3 @@
-import { type DataEpoch } from '../../../contracts/database'
 import { CommunityDumpError } from '../../../dumps/community-dump-errors'
 import {
   parseCommunityDumpManifestV1,
@@ -16,7 +15,7 @@ import {
 } from '../../../dumps/community-dump-registry'
 import { encodeNonNegativeSafeInteger } from '../../../dumps/community-dump-values'
 import { verifyStoredObjectMatches, type ObjectStore } from '../../../object-store/object-store'
-import { verifyPostgresDatabase, type PostgresQueryClient } from '../lifecycle'
+import { verifyPostgresSchema, type PostgresQueryClient } from '../lifecycle'
 import { type PartitionPool, type PartitionQueryClient } from '../partitions/adapter'
 import {
   assertExactMonthlyPartitionBounds,
@@ -45,15 +44,15 @@ import { CommunityDumpPreconditionError, CommunityDumpVerificationMismatchError 
 
 /**
  * Community Dump cleanup workflow (docs/postgresql-migration-plan.md lines 754-765): "The cleanup
- * command must require one exact `data_dump_runs.id`, verify that run's epoch, Dump Month, schema
+ * command must require one exact `data_dump_runs.id`, verify that run's Dump Month, schema
  * version, manifest object key, manifest digest, and published/eligible state, and refuse
  * wildcard or broad-table cleanup." `runId` is deliberately typed `unknown` (not `number`), the
  * same convention `CommunityDumpManifestFileInput`'s fields already use, so this function itself
  * refuses a wildcard/table-name/malformed id rather than trusting a caller-side cast.
  *
  * Three phases, matching plan steps 8-10 exactly:
- *  1. A read-only verification pass (one plain connection): confirms the current Data
- *     Epoch/schema, loads the exact run and its nine `data_dump_files` rows, checks status and
+ *  1. A read-only verification pass (one plain connection): confirms the current schema, loads
+ *     the exact run and its nine `data_dump_files` rows, checks status and
  *     manifest-metadata presence, checks the grace period against the database's own clock
  *     (never `Date.now()` — contrast with `publish-dump-month.ts`'s deliberate use of it), then
  *     re-reads and re-verifies the manifest object and every one of the nine data objects.
@@ -77,7 +76,7 @@ export interface CleanupDumpRunResult {
 }
 
 /**
- * `verifyPostgresDatabase` (db/postgres/lifecycle.ts) declares its `PostgresQueryClient` port's
+ * `verifyPostgresSchema` (db/postgres/lifecycle.ts) declares its `PostgresQueryClient` port's
  * `rows` as a mutable `Array<...>`, while `PartitionQueryClient` (this workflow's own port)
  * declares `rows` as `ReadonlyArray<...>` — structurally incompatible by TypeScript's array
  * variance rules even though every real implementation already returns a genuine mutable array at
@@ -134,13 +133,12 @@ function assertDumpRunHasCleanupMetadata(
  * Proves `files` is exactly the nine `data_dump_files` rows this run's manifest must reference:
  * no duplicate or unknown dataset, no missing dataset, every row already R2-verified, and every
  * row's `objectKey`/`partitionName` exactly matches what the registry deterministically derives
- * for this epoch/Dump Month. "Extra" rows are structurally impossible to slip past this: a tenth
+ * for this Dump Month. "Extra" rows are structurally impossible to slip past this: a tenth
  * row can only repeat a known dataset (caught as a duplicate) or use an unknown one (caught
  * below), since there are exactly nine known dataset names in total.
  */
 const assertExactDumpFiles = (
   runId: number,
-  epochId: string,
   parts: DumpMonthParts,
   files: readonly DumpFileRow[],
 ): void => {
@@ -184,7 +182,7 @@ const assertExactDumpFiles = (
         `cleanupDumpRun: run ${runId}'s data_dump_files row for dataset "${dataset}" has never been verified`,
       )
     }
-    const expectedObjectKey = deriveCommunityDumpDataObjectKey(epochId, parts.text, dataset)
+    const expectedObjectKey = deriveCommunityDumpDataObjectKey(parts.text, dataset)
     if (file.objectKey !== expectedObjectKey) {
       throw new CommunityDumpVerificationMismatchError(
         `cleanupDumpRun: run ${runId}'s data_dump_files row for dataset "${dataset}" has object key ` +
@@ -205,7 +203,7 @@ const assertExactDumpFiles = (
 /**
  * Proves the manifest re-read from the object store (already byte/hash-verified by
  * `verifyStoredObjectMatches` and structurally validated by `parseCommunityDumpManifestV1`)
- * actually describes this run: same epoch identity, same Dump Month, same publication instant,
+ * actually describes this run: same Dump Month, same publication instant,
  * and every one of its nine file entries exactly matches the corresponding `data_dump_files` row
  * (`assertExactDumpFiles` already proved `files` has exactly one row per dataset).
  */
@@ -213,21 +211,8 @@ const assertManifestMatchesRun = (
   runId: number,
   manifest: CommunityDumpManifestV1,
   run: CleanupReadyDumpRun,
-  epoch: DataEpoch,
   files: readonly DumpFileRow[],
 ): void => {
-  if (manifest.epoch.id !== epoch.id) {
-    throw new CommunityDumpVerificationMismatchError(
-      `cleanupDumpRun: run ${runId}'s manifest epoch id "${manifest.epoch.id}" does not match the ` +
-        `current Data Epoch "${epoch.id}"`,
-    )
-  }
-  if (manifest.epoch.startedAt !== epoch.startedAt) {
-    throw new CommunityDumpVerificationMismatchError(
-      `cleanupDumpRun: run ${runId}'s manifest epoch startedAt "${String(manifest.epoch.startedAt)}" ` +
-        `does not match the current Data Epoch's "${String(epoch.startedAt)}"`,
-    )
-  }
   if (manifest.dumpMonth !== run.dumpMonth) {
     throw new CommunityDumpVerificationMismatchError(
       `cleanupDumpRun: run ${runId}'s manifest Dump Month "${manifest.dumpMonth}" does not match ` +
@@ -277,7 +262,6 @@ const assertRunSnapshotUnchanged = (
   runId: number,
 ): void => {
   const changed =
-    expected.epochId !== actual.epochId ||
     expected.dumpMonth !== actual.dumpMonth ||
     expected.schemaVersion !== actual.schemaVersion ||
     expected.status !== actual.status ||
@@ -342,11 +326,10 @@ export const cleanupDumpRun = async (
 
   const client = await pool.connect()
   let run: CleanupReadyDumpRun
-  let epoch: DataEpoch
   let files: readonly DumpFileRow[]
   let parts: DumpMonthParts
   try {
-    epoch = await verifyPostgresDatabase(toPostgresQueryClient(client))
+    await verifyPostgresSchema(toPostgresQueryClient(client))
 
     const loadedRun = await loadDumpRunById(client, id)
     if (!loadedRun) {
@@ -355,12 +338,6 @@ export const cleanupDumpRun = async (
       )
     }
 
-    if (loadedRun.epochId !== epoch.id) {
-      throw new CommunityDumpPreconditionError(
-        `cleanupDumpRun: run ${id} belongs to Data Epoch "${loadedRun.epochId}", but the current ` +
-          `Data Epoch is "${epoch.id}"`,
-      )
-    }
     if (loadedRun.schemaVersion !== communityDumpManifestSchemaVersion) {
       throw new CommunityDumpPreconditionError(
         `cleanupDumpRun: run ${id} was recorded under schema version ${loadedRun.schemaVersion}, ` +
@@ -369,7 +346,7 @@ export const cleanupDumpRun = async (
     }
 
     parts = parseDumpMonth(loadedRun.dumpMonth)
-    const expectedManifestObjectKey = deriveCommunityDumpManifestObjectKey(epoch.id, parts.text)
+    const expectedManifestObjectKey = deriveCommunityDumpManifestObjectKey(parts.text)
     if (
       loadedRun.manifestObjectKey !== null &&
       loadedRun.manifestObjectKey !== expectedManifestObjectKey
@@ -383,7 +360,7 @@ export const cleanupDumpRun = async (
 
     if (loadedRun.status === 'cleaned') {
       assertDumpRunHasCleanupMetadata(loadedRun, id)
-      assertExactDumpFiles(id, epoch.id, parts, files)
+      assertExactDumpFiles(id, parts, files)
       return { runId: id, action: 'already-cleaned', partitionsDropped: [] }
     }
 
@@ -396,7 +373,7 @@ export const cleanupDumpRun = async (
     assertDumpRunHasCleanupMetadata(loadedRun, id)
     run = loadedRun
 
-    assertExactDumpFiles(id, epoch.id, parts, files)
+    assertExactDumpFiles(id, parts, files)
 
     const now = await loadDatabaseNow(client)
     if (now.getTime() < run.cleanupEligibleAt.getTime()) {
@@ -411,7 +388,7 @@ export const cleanupDumpRun = async (
       sha256Hex: run.manifestSha256,
     })
     const manifest = parseCommunityDumpManifestV1(manifestBytes)
-    assertManifestMatchesRun(id, manifest, run, epoch, files)
+    assertManifestMatchesRun(id, manifest, run, files)
 
     for (const file of files) {
       await verifyStoredObjectMatches(objectStore, file.objectKey, {

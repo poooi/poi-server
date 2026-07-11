@@ -43,8 +43,3 @@ _Avoid_: UTC month
 **Community Dump**:
 A verified monthly publication of Observations for community use.
 _Avoid_: Database backup
-
-**Data Epoch**:
-A continuous period in which Current State, Aggregates, Definitions, and Item-improvement Facts share
-one persistence history.
-_Avoid_: Deployment, schema version

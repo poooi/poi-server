@@ -16,7 +16,6 @@ describe('createGetStatus', () => {
     const database: DatabaseStatus = {
       backend: 'postgresql',
       status: 'up',
-      epoch: { id: 'epoch-1', startedAt: null },
       estimatedCounts: {
         createShipObservations: 1,
         createItemObservations: 0,

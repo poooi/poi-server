@@ -2,7 +2,6 @@ import { createHash } from 'crypto'
 
 import { describe, expect, test, vi } from 'vitest'
 
-import { type DataEpoch } from '../src/contracts/database'
 import { cleanupDumpRun } from '../src/db/postgres/dumps/cleanup-dump-run'
 import {
   CommunityDumpPreconditionError,
@@ -44,11 +43,6 @@ import { ObjectNotFoundError, ObjectVerificationError } from '../src/object-stor
  */
 
 const runId = 42
-const epoch: DataEpoch = {
-  id: '10000000-0000-4000-8000-000000000001',
-  startedAt: '2024-01-01T00:00:00.000Z',
-}
-const otherEpochId = '20000000-0000-4000-8000-000000000002'
 const dumpMonth = '2024-01'
 const parts = parseDumpMonth(dumpMonth)
 const bounds = computeDumpMonthBoundsUtc(parts)
@@ -88,7 +82,7 @@ const dataFileFixtures: readonly DataFileFixture[] = communityDumpDatasets.map((
     dataset: definition.dataset,
     table: definition.table,
     partitionName: deriveMonthlyPartitionName(definition.table, parts),
-    objectKey: deriveCommunityDumpDataObjectKey(epoch.id, dumpMonth, definition.dataset),
+    objectKey: deriveCommunityDumpDataObjectKey(dumpMonth, definition.dataset),
     compressed,
     sha256Hex: createHash('sha256').update(compressed).digest('hex'),
     rowCount: 3,
@@ -105,8 +99,6 @@ const manifestFilesInput: CommunityDumpManifestFileInput[] = dataFileFixtures.ma
 }))
 
 interface ManifestVariantOverrides {
-  readonly epochId?: string
-  readonly epochStartedAt?: unknown
   readonly dumpMonth?: string
   readonly publishedAt?: unknown
   readonly files?: readonly CommunityDumpManifestFileInput[]
@@ -114,8 +106,6 @@ interface ManifestVariantOverrides {
 
 const buildManifestBytes = (overrides: ManifestVariantOverrides = {}) => {
   const manifest = serializeCommunityDumpManifestV1({
-    epochId: overrides.epochId ?? epoch.id,
-    epochStartedAt: overrides.epochStartedAt ?? epoch.startedAt,
     dumpMonth: overrides.dumpMonth ?? dumpMonth,
     publishedAt: overrides.publishedAt ?? publishedAt,
     files: overrides.files ?? manifestFilesInput,
@@ -125,11 +115,10 @@ const buildManifestBytes = (overrides: ManifestVariantOverrides = {}) => {
 }
 
 const happyManifest = buildManifestBytes()
-const manifestObjectKey = deriveCommunityDumpManifestObjectKey(epoch.id, dumpMonth)
+const manifestObjectKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
 
 interface FakeRunRow {
   id: number
-  epochId: string
   dumpMonth: string
   schemaVersion: number
   status: string
@@ -156,7 +145,6 @@ interface FakeFileRow {
 
 const buildHappyRun = (overrides: Partial<FakeRunRow> = {}): FakeRunRow => ({
   id: runId,
-  epochId: epoch.id,
   dumpMonth,
   schemaVersion: communityDumpManifestSchemaVersion,
   status: 'cleanup_eligible',
@@ -185,7 +173,6 @@ const buildHappyFiles = (): FakeFileRow[] =>
 
 const rawRunRow = (run: FakeRunRow): Record<string, unknown> => ({
   id: String(run.id),
-  epoch_id: run.epochId,
   dump_month: run.dumpMonth,
   schema_version: run.schemaVersion,
   status: run.status,
@@ -218,7 +205,6 @@ interface FakePartitionInfo {
 
 interface FakeDatabase {
   schemaVersion: number
-  epoch: DataEpoch | null
   run: FakeRunRow | null
   files: FakeFileRow[]
   now: Date
@@ -270,8 +256,7 @@ const createFakeCleanupDatabase = (
   clients: Array<{ release: ReturnType<typeof vi.fn> }>
 } => {
   const database: FakeDatabase = {
-    schemaVersion: 1,
-    epoch,
+    schemaVersion: 2,
     run: options.run === undefined ? buildHappyRun() : options.run,
     files: options.files ?? buildHappyFiles(),
     now: options.now ?? cleanupEligibleAt,
@@ -294,16 +279,6 @@ const createFakeCleanupDatabase = (
 
       if (lower === 'select version from schema_metadata where singleton = true') {
         return { rows: [{ version: database.schemaVersion }], rowCount: 1 }
-      }
-      if (lower === 'select id, started_at from data_epochs order by created_at limit 2') {
-        return database.epoch
-          ? {
-              rows: [
-                { id: database.epoch.id, started_at: new Date(String(database.epoch.startedAt)) },
-              ],
-              rowCount: 1,
-            }
-          : emptyResult
       }
       if (lower === 'select clock_timestamp() as now') {
         return { rows: [{ now: database.now }], rowCount: 1 }
@@ -408,15 +383,6 @@ describe('cleanupDumpRun', () => {
     )
   })
 
-  test('rejects when the run belongs to a different Data Epoch than the current one', async () => {
-    const { pool } = createFakeCleanupDatabase({ run: buildHappyRun({ epochId: otherEpochId }) })
-    const objectStore = buildHappyObjectStore()
-
-    await expect(cleanupDumpRun(pool, objectStore, runId)).rejects.toThrow(
-      CommunityDumpPreconditionError,
-    )
-  })
-
   test('rejects when the run was recorded under a different schema version', async () => {
     const { pool } = createFakeCleanupDatabase({ run: buildHappyRun({ schemaVersion: 2 }) })
     const objectStore = buildHappyObjectStore()
@@ -453,9 +419,9 @@ describe('cleanupDumpRun', () => {
     )
   })
 
-  test('rejects a run whose manifest object key is not the deterministic key for its epoch and month', async () => {
+  test('rejects a run whose manifest object key is not the deterministic key for its month', async () => {
     const { pool } = createFakeCleanupDatabase({
-      run: buildHappyRun({ manifestObjectKey: 'epochs/wrong/manifest.json' }),
+      run: buildHappyRun({ manifestObjectKey: 'months/wrong/manifest.json' }),
     })
 
     await expect(cleanupDumpRun(pool, buildHappyObjectStore(), runId)).rejects.toThrow(
@@ -545,7 +511,7 @@ describe('cleanupDumpRun', () => {
 
   test('rejects when a data_dump_files row has the wrong immutable object key', async () => {
     const files = buildHappyFiles()
-    files[0] = { ...files[0], objectKey: 'epochs/wrong/months/2024-01/v1/wrong.jsonl.zst' }
+    files[0] = { ...files[0], objectKey: 'months/2024-01/v1/wrong.jsonl.zst' }
     const { pool } = createFakeCleanupDatabase({ files })
     const objectStore = buildHappyObjectStore()
 
@@ -627,8 +593,6 @@ describe('cleanupDumpRun', () => {
   })
 
   test.each([
-    ['epoch id', { epochId: otherEpochId }],
-    ['epoch startedAt', { epochStartedAt: '2024-01-02T00:00:00.000Z' }],
     ['dumpMonth', { dumpMonth: '2024-02' }],
     ['publishedAt', { publishedAt: new Date('2024-03-01T00:00:00.000Z') }],
   ])('rejects when the manifest %s does not match the run', async (_label, overrides) => {
@@ -854,21 +818,6 @@ describe('cleanupDumpRun', () => {
 
     await expect(cleanupDumpRun(pool, objectStore, runId)).rejects.toThrow(
       CommunityDumpVerificationMismatchError,
-    )
-  })
-
-  test('rejects an already-cleaned run under the wrong Data Epoch', async () => {
-    const { pool } = createFakeCleanupDatabase({
-      run: buildHappyRun({
-        status: 'cleaned',
-        cleanedAt: new Date('2024-02-20T00:00:00.000Z'),
-        epochId: otherEpochId,
-      }),
-    })
-    const objectStore = buildHappyObjectStore()
-
-    await expect(cleanupDumpRun(pool, objectStore, runId)).rejects.toThrow(
-      CommunityDumpPreconditionError,
     )
   })
 })

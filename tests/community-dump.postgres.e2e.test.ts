@@ -10,19 +10,16 @@ import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 //
 //   POI_SERVER_POSTGRES_E2E_URL=******localhost:5432/poi-e2e
 //
-// Before running this file, the target database must already have the Drizzle migrations and
-// exactly one Data Epoch applied through the explicit CI/local commands (never automatically by
-// the application):
+// Before running this file, the target database must already have the Drizzle migrations applied
+// through the explicit CI/local command (never automatically by the application):
 //
 //   POI_SERVER_DATABASE_URL=$POI_SERVER_POSTGRES_E2E_URL npm run db:migrate
-//   POI_SERVER_DATABASE_URL=$POI_SERVER_POSTGRES_E2E_URL npm run db:create-epoch -- 2024-01-01T00:00:00.000Z
 //
 // When POI_SERVER_POSTGRES_E2E_URL is unset, this suite skips cleanly (see describe.skipIf below).
 // In CI, the variable is always set, so the suite always runs there.
 
 import { Pool } from 'pg'
 
-import { type DataEpoch } from '../src/contracts/database'
 import { type DumpPool } from '../src/db/postgres/dumps/adapter'
 import { cleanupDumpRun } from '../src/db/postgres/dumps/cleanup-dump-run'
 import { CommunityDumpPreconditionError } from '../src/db/postgres/dumps/errors'
@@ -97,7 +94,6 @@ const assertPostgresE2eUrl = (rawUrl: string): void => {
 
 let verificationPool: Pool
 let dumpPool: DumpPool
-let epoch: DataEpoch
 
 /** `data_dump_runs.dump_month` is a `date` column; this is its literal `YYYY-MM-01` text form. */
 const dumpMonthDateLiteral = (dumpMonth: string): string => `${dumpMonth}-01`
@@ -443,12 +439,12 @@ const ingestedAtFor = (dumpMonth: string): Date => {
 }
 
 /**
- * Clears every `data_dump_files`/`data_dump_runs` row for this exact `(epoch, dumpMonth,
+ * Clears every `data_dump_files`/`data_dump_runs` row for this exact `(dumpMonth,
  * schemaVersion)` natural key (FK-safe order), drops any monthly/pending partition artifact for
  * all nine Observation parents for `dumpMonth`, and clears any stray DEFAULT-partition rows for
  * the same month. Called both before and after every test so a prior interrupted run can never
  * leak into the next one, and so this suite never leaves state behind afterward. Never touches
- * `data_epochs`/`schema_metadata`.
+ * `schema_metadata`.
  */
 const resetDumpMonthArtifacts = async (dumpMonth: string): Promise<void> => {
   const parts = parseDumpMonth(dumpMonth)
@@ -459,14 +455,14 @@ const resetDumpMonthArtifacts = async (dumpMonth: string): Promise<void> => {
     `delete from data_dump_files
      where dump_run_id in (
        select id from data_dump_runs
-       where epoch_id = $1 and dump_month = $2::date and schema_version = $3
+       where dump_month = $1::date and schema_version = $2
      )`,
-    [epoch.id, dumpMonthDate, communityDumpManifestSchemaVersion],
+    [dumpMonthDate, communityDumpManifestSchemaVersion],
   )
   await verificationPool.query(
     `delete from data_dump_runs
-     where epoch_id = $1 and dump_month = $2::date and schema_version = $3`,
-    [epoch.id, dumpMonthDate, communityDumpManifestSchemaVersion],
+     where dump_month = $1::date and schema_version = $2`,
+    [dumpMonthDate, communityDumpManifestSchemaVersion],
   )
 
   for (const table of observationParentTables) {
@@ -510,13 +506,12 @@ const insertRepresentativeRows = async (
  */
 const assertPublishedRecord = async (
   store: ObjectStore,
-  epochId: string,
   dumpMonth: string,
   fixture: RepresentativeRowFixture,
   expectedObservationId: string,
   expectedIngestedAtIso: string,
 ): Promise<Record<string, unknown>> => {
-  const objectKey = deriveCommunityDumpDataObjectKey(epochId, dumpMonth, fixture.dataset)
+  const objectKey = deriveCommunityDumpDataObjectKey(dumpMonth, fixture.dataset)
   const compressed = await store.getObject(objectKey)
   const decompressed = decompressCommunityDumpBuffer(compressed)
   const lines = decompressed
@@ -542,20 +537,6 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
     assertPostgresE2eUrl(postgresE2eUrl)
     verificationPool = new Pool({ connectionString: postgresE2eUrl, max: 5 })
     dumpPool = createDumpPoolFromPgPool(verificationPool)
-
-    const epochRows = await verificationPool.query<{ id: string; started_at: Date }>(
-      'select id, started_at from data_epochs limit 1',
-    )
-    if (epochRows.rows.length !== 1) {
-      throw new Error(
-        'PostgreSQL e2e database has no Data Epoch. Run "npm run db:migrate" and ' +
-          '"npm run db:create-epoch -- <timestamp>" against POI_SERVER_POSTGRES_E2E_URL before running this suite.',
-      )
-    }
-    epoch = {
-      id: epochRows.rows[0].id,
-      startedAt: epochRows.rows[0].started_at.toISOString(),
-    }
   })
 
   afterAll(async () => {
@@ -592,7 +573,7 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
       const puttedKeys = new Set(putSpy.mock.calls.map((call) => call[0]))
       expect(puttedKeys.size).toBe(10)
 
-      const manifestKey = deriveCommunityDumpManifestObjectKey(epoch.id, dumpMonth)
+      const manifestKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
       const manifestBytes = await store.getObject(manifestKey)
       const manifest = parseCommunityDumpManifestV1(manifestBytes)
       expect(manifest.files).toHaveLength(9)
@@ -602,7 +583,7 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
         if (expectedId === undefined) {
           throw new Error(`insertRepresentativeRows did not record an id for ${fixture.dataset}`)
         }
-        await assertPublishedRecord(store, epoch.id, dumpMonth, fixture, expectedId, ingestedAtIso)
+        await assertPublishedRecord(store, dumpMonth, fixture, expectedId, ingestedAtIso)
       }
 
       const beforeRetryBytes = new Map<string, Buffer>()
@@ -640,11 +621,7 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
       if (!firstFixture) {
         throw new Error(`no representative row fixture for the first dataset ${firstDatasetName}`)
       }
-      const firstDataObjectKey = deriveCommunityDumpDataObjectKey(
-        epoch.id,
-        dumpMonth,
-        firstFixture.dataset,
-      )
+      const firstDataObjectKey = deriveCommunityDumpDataObjectKey(dumpMonth, firstFixture.dataset)
 
       const store = new InMemoryObjectStore()
       const getObjectSpy = vi
@@ -657,13 +634,13 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
 
       const failedRunRows = await verificationPool.query<{ id: string; status: string }>(
         `select id, status from data_dump_runs
-         where epoch_id = $1 and dump_month = $2::date and schema_version = $3`,
-        [epoch.id, dumpMonthDateLiteral(dumpMonth), communityDumpManifestSchemaVersion],
+         where dump_month = $1::date and schema_version = $2`,
+        [dumpMonthDateLiteral(dumpMonth), communityDumpManifestSchemaVersion],
       )
       expect(failedRunRows.rows).toHaveLength(1)
       expect(failedRunRows.rows[0].status).toBe('failed')
 
-      const manifestKey = deriveCommunityDumpManifestObjectKey(epoch.id, dumpMonth)
+      const manifestKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
       expect(store.has(manifestKey)).toBe(false)
       // The underlying PUT for the first data object succeeded; only the read-back was corrupted.
       expect(store.has(firstDataObjectKey)).toBe(true)
@@ -742,15 +719,10 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
       // touches updated_at, so this published_at survives publish untouched (reservePublicationTimestamp's coalesce).
       const stablePublishedAt = new Date('2020-01-01T00:00:00.000Z')
       const preInsert = await verificationPool.query<{ id: string }>(
-        `insert into data_dump_runs (epoch_id, dump_month, schema_version, status, published_at)
-         values ($1, $2::date, $3, 'pending', $4)
+        `insert into data_dump_runs (dump_month, schema_version, status, published_at)
+         values ($1::date, $2, 'pending', $3)
          returning id::text as id`,
-        [
-          epoch.id,
-          dumpMonthDateLiteral(dumpMonth),
-          communityDumpManifestSchemaVersion,
-          stablePublishedAt,
-        ],
+        [dumpMonthDateLiteral(dumpMonth), communityDumpManifestSchemaVersion, stablePublishedAt],
       )
       const preInsertedId = preInsert.rows[0].id
 
@@ -802,10 +774,10 @@ describe.skipIf(!hasPostgresE2eUrl)('Community Dump publish/cleanup production-p
       expect(cleanedRow.rows[0].cleaned_at).not.toBeNull()
 
       // Cleanup never touches the object store: every published object remains present.
-      const manifestKey = deriveCommunityDumpManifestObjectKey(epoch.id, dumpMonth)
+      const manifestKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
       expect(store.has(manifestKey)).toBe(true)
       for (const fixture of representativeRowFixtures) {
-        const objectKey = deriveCommunityDumpDataObjectKey(epoch.id, dumpMonth, fixture.dataset)
+        const objectKey = deriveCommunityDumpDataObjectKey(dumpMonth, fixture.dataset)
         expect(store.has(objectKey)).toBe(true)
       }
 

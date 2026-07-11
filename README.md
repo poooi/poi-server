@@ -19,8 +19,7 @@ The configured database URL selects the persistence backend:
 | `postgres:` / `postgresql:` | PostgreSQL 18 |
 
 Set `POI_SERVER_DATABASE_URL`; `POI_SERVER_DB` remains a backward-compatible fallback. PostgreSQL
-startup validates the explicit Drizzle migration version and requires exactly one Data Epoch. It
-never runs migrations automatically.
+startup validates the explicit Drizzle migration version and never runs migrations automatically.
 
 ## Development
 

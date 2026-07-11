@@ -58,10 +58,6 @@ jobs:
         run: npm run db:migrate
         env:
           POI_SERVER_DATABASE_URL: ${{ env.POI_SERVER_POSTGRES_E2E_URL }}
-      - name: Create the PostgreSQL e2e Data Epoch
-        run: npm run db:create-epoch -- 2024-01-01T00:00:00.000Z
-        env:
-          POI_SERVER_DATABASE_URL: ${{ env.POI_SERVER_POSTGRES_E2E_URL }}
       - name: Run PostgreSQL e2e tests
         run: npm run test:e2e:postgres
         env:

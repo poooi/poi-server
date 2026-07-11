@@ -1,31 +1,27 @@
 # PostgreSQL deployment
 
 poi-server selects MongoDB or PostgreSQL from `POI_SERVER_DATABASE_URL`. PostgreSQL production and CI
-target PostgreSQL 18. Application startup validates the schema and Data Epoch but never applies
-migrations.
+target PostgreSQL 18. Application startup validates the schema but never applies migrations.
 
 ## Provisioning
 
-Use a fresh database for each Data Epoch:
+Apply migrations before starting the server:
 
 ```powershell
 $env:POI_SERVER_DATABASE_URL = 'postgresql://user:password@host/poi'
 npm run db:migrate
-npm run db:create-epoch -- 2026-07-11T08:00:00.000Z
 npm start
 ```
 
-`db:create-epoch` requires the intended cutover instant and refuses to replace an existing epoch.
-Starting a new Data Epoch requires another database.
+Traffic routing and cutover timing are deployment concerns. poi-server does not persist or manage a
+traffic-switch boundary.
 
 ## Cutover
 
 1. Deploy the same release to separate MongoDB-mode and PostgreSQL-mode machines.
-2. On a disposable PostgreSQL 18 database, run migrations, create a test epoch, and run the
-   PostgreSQL HTTP and load preflight.
+2. On a disposable PostgreSQL 18 database, run migrations and the PostgreSQL HTTP and load preflight.
 3. Provision a fresh production database and run `db:migrate`.
-4. Immediately before cutover, run `db:create-epoch`, start the PostgreSQL-mode server, and inspect
-   `/api/status`.
+4. Start the PostgreSQL-mode server and inspect `/api/status`.
 5. Switch traffic routing to the PostgreSQL machine. Do not mutate the MongoDB machine in place.
 
 After PostgreSQL accepts production traffic, it is authoritative. Do not route production traffic
@@ -71,13 +67,13 @@ After the seven-day grace period, clean one exact run ID:
 npm run db:dumps:cleanup -- 42
 ```
 
-Cleanup re-verifies the manifest, every data object, metadata, epoch, and partition bounds before
+Cleanup re-verifies the manifest, every data object, metadata, and partition bounds before
 transactionally detaching and dropping exactly nine Observation partitions. Current State,
 Aggregate, Definition, and Item-improvement Fact tables are retained.
 
 ## Operational checks
 
-- `/api/status.database` reports the active backend, Data Epoch, and approximate counts.
+- `/api/status.database` reports the active backend and approximate counts.
 - Monitor validation/database errors, pool active/idle/waiting clients, lock waits, statement
   latency, CPU, and storage latency.
 - Do not store production Cloudflare credentials in CI.

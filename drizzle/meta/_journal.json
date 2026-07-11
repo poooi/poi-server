@@ -8,6 +8,13 @@
       "when": 1783757194634,
       "tag": "0000_initial_postgresql_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783790691472,
+      "tag": "0001_remove_data_epochs",
+      "breakpoints": true
     }
   ]
 }
