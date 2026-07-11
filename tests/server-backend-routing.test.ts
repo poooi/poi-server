@@ -29,8 +29,15 @@ vi.mock('../src/create-app', () => ({
   createApp: createAppMock,
 }))
 
+const v3ActionsMocks = vi.hoisted(() => ({
+  createPostgresV3Actions: vi.fn(() => ({ marker: 'postgres-v3-actions' })),
+}))
+
+vi.mock('../src/controllers/api/report/v3.postgres.actions', () => ({
+  createPostgresV3Actions: v3ActionsMocks.createPostgresV3Actions,
+}))
+
 import { startServer } from '../src/server'
-import { postgresV3ActionsUnavailable } from '../src/controllers/api/report/v3.postgres.actions'
 
 describe('startServer backend routing', () => {
   beforeEach(() => {
@@ -38,6 +45,7 @@ describe('startServer backend routing', () => {
     mongooseMocks.connect.mockClear()
     mongooseMocks.connection.on.mockClear()
     postgresMocks.connectPostgres.mockClear()
+    v3ActionsMocks.createPostgresV3Actions.mockClear()
     fakeApp.listen.mockClear()
     fakeApp.close.mockClear()
     createAppMock.mockClear()
@@ -95,7 +103,8 @@ describe('startServer backend routing', () => {
     const options = createAppMock.mock.calls[0][0]
     expect(options.getDatabaseStatus).toBeTypeOf('function')
     expect(options.reportV2Actions).toBeDefined()
-    expect(options.reportV3Actions).toBe(postgresV3ActionsUnavailable)
+    expect(v3ActionsMocks.createPostgresV3Actions).toHaveBeenCalledWith(fakeDb, fakeEpoch)
+    expect(options.reportV3Actions).toEqual({ marker: 'postgres-v3-actions' })
 
     await started.close()
     expect(fakeApp.close).toHaveBeenCalledTimes(1)

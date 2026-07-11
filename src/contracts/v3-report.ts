@@ -1,3 +1,6 @@
+import crypto from 'crypto'
+import _ from 'lodash'
+
 import { type AppRequest } from '../http/request'
 import { type QuestPayload, type QuestRewardPayload } from '../models'
 import {
@@ -37,6 +40,18 @@ const questRewardSchema: ReportPayloadSchema = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value != null && typeof value === 'object' && !Array.isArray(value)
+
+// Shared MD5 title/detail Domain Identity key, used by both the MongoDB and PostgreSQL v3
+// quest/quest_reward actions so `quest.key` and `quest_rewards.key` are byte-for-byte identical
+// across backends. Memoized because the same title/detail pair is frequently repeated within a
+// single batch report.
+const createHash = _.memoize((text: string) => crypto.createHash('md5').update(text).digest('hex'))
+
+export const createQuestHash = ({
+  title,
+  detail,
+}: Pick<QuestPayload | QuestRewardPayload, 'title' | 'detail'>): string =>
+  createHash(`${title}${detail}`)
 
 export const normalizeQuestReport = (
   info: Record<string, unknown>,

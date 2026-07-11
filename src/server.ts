@@ -6,7 +6,7 @@ import { type Server } from 'http'
 import { createApp } from './create-app'
 import { createPostgresDatabaseStatus } from './controllers/api/others.postgres.status'
 import { createPostgresV2Actions } from './controllers/api/report/v2.postgres.actions'
-import { postgresV3ActionsUnavailable } from './controllers/api/report/v3.postgres.actions'
+import { createPostgresV3Actions } from './controllers/api/report/v3.postgres.actions'
 import { redactDatabaseUrl, resolveDatabaseBackend } from './db/backend'
 import { connectPostgres } from './db/postgres/client'
 
@@ -86,7 +86,7 @@ const startPostgresServer = async ({
     disableLogger,
     getDatabaseStatus: createPostgresDatabaseStatus(postgres.db, postgres.epoch),
     reportV2Actions: createPostgresV2Actions(postgres.db),
-    reportV3Actions: postgresV3ActionsUnavailable,
+    reportV3Actions: createPostgresV3Actions(postgres.db, postgres.epoch),
   })
   try {
     await app.listen({ host, port })
