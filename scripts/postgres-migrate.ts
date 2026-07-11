@@ -2,16 +2,8 @@ import 'dotenv/config'
 import path from 'path'
 
 import { config } from '../src/config'
+import { formatMigrationError } from '../src/db/postgres/migration-error'
 import { migrateDatabase } from '../src/db/postgres/migrations'
-
-export const formatMigrationError = (error: unknown, redactedValues: readonly string[]): string => {
-  const message = error instanceof Error ? error.message : String(error)
-  return redactedValues.reduce(
-    (sanitized, value) =>
-      value.length === 0 ? sanitized : sanitized.split(value).join('<redacted>'),
-    message,
-  )
-}
 
 if (require.main === module) {
   const migrationsFolder = path.resolve(config.root, '../drizzle')

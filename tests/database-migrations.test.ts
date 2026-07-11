@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 
-import { formatMigrationError } from '../scripts/postgres-migrate'
+import { formatMigrationError } from '../src/db/postgres/migration-error'
 import { migrateDatabase } from '../src/db/postgres/migrations'
 
 describe('database migrations', () => {
