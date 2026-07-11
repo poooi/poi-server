@@ -1,6 +1,11 @@
 import { Readable } from 'stream'
 
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 
 /**
  * Cloudflare R2 object-store configuration, loaded only from `POI_SERVER_DUMP_R2_*`
@@ -28,6 +33,11 @@ export interface S3GetObjectInput {
   readonly key: string
 }
 
+export interface S3DeleteObjectInput {
+  readonly bucket: string
+  readonly key: string
+}
+
 /**
  * Minimal structural port over the two raw S3-compatible operations the Community Dump object
  * store needs. Deliberately raw: errors propagate exactly as the underlying client throws them,
@@ -41,6 +51,10 @@ export interface S3GetObjectInput {
 export interface S3ObjectClient {
   putObject(input: S3PutObjectInput): Promise<void>
   getObject(input: S3GetObjectInput): Promise<Buffer>
+}
+
+export interface S3ConnectionCheckClient extends S3ObjectClient {
+  deleteObject(input: S3DeleteObjectInput): Promise<void>
 }
 
 const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
@@ -57,7 +71,7 @@ const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
  * test or e2e test in this repository uses real R2 credentials; `InMemoryObjectStore` stands in
  * everywhere else (docs/postgresql-migration-plan.md lines 638-640).
  */
-export const createS3ObjectClient = (config: R2ObjectStoreConfig): S3ObjectClient => {
+export const createS3ObjectClient = (config: R2ObjectStoreConfig): S3ConnectionCheckClient => {
   const client = new S3Client({
     region: config.region,
     endpoint: config.endpoint,
@@ -80,6 +94,9 @@ export const createS3ObjectClient = (config: R2ObjectStoreConfig): S3ObjectClien
         throw new Error(`R2 GetObject for "${key}" did not return a Node.js Readable stream body`)
       }
       return streamToBuffer(output.Body)
+    },
+    deleteObject: async ({ bucket, key }) => {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
     },
   }
 }

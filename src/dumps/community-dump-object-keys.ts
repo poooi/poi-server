@@ -2,11 +2,11 @@ import { type CommunityDumpDatasetName } from './community-dump-dataset-name'
 import { CommunityDumpError } from './community-dump-errors'
 
 /**
- * Deterministic Community Dump v1 object key derivation
+ * Deterministic Community Dump object key derivation
  * (docs/postgresql-migration-plan.md lines 646-651):
  *
- *   months/{YYYY-MM}/v{schemaVersion}/{dataset}.jsonl.zst
- *   months/{YYYY-MM}/v{schemaVersion}/manifest.json
+ *   {YYYY-MM}/{dataset}.jsonl.zst
+ *   {YYYY-MM}/manifest.json
  *
  * Deliberately backend-neutral (no PostgreSQL import), matching every other module in this
  * directory: the R2/S3 key layout is the same regardless of which database produced the data.
@@ -16,8 +16,6 @@ import { CommunityDumpError } from './community-dump-errors'
  * equally-independent copy of the same one-line YYYY-MM regex, not a reimplementation of any
  * larger module's logic.
  */
-
-export const communityDumpDataObjectSchemaVersion = 1 as const
 
 const dumpMonthPattern = /^\d{4}-(0[1-9]|1[0-2])$/
 
@@ -33,11 +31,11 @@ export const deriveCommunityDumpDataObjectKey = (
   dataset: CommunityDumpDatasetName,
 ): string => {
   assertValidDumpMonth(dumpMonth)
-  return `months/${dumpMonth}/v${communityDumpDataObjectSchemaVersion}/${dataset}.jsonl.zst`
+  return `${dumpMonth}/${dataset}.jsonl.zst`
 }
 
 /** Object key for one Dump Month's manifest (uncompressed JSON; the publication commit point). */
 export const deriveCommunityDumpManifestObjectKey = (dumpMonth: string): string => {
   assertValidDumpMonth(dumpMonth)
-  return `months/${dumpMonth}/v${communityDumpDataObjectSchemaVersion}/manifest.json`
+  return `${dumpMonth}/manifest.json`
 }

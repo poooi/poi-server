@@ -18,7 +18,7 @@ describe('PostgreSQL startup lifecycle', () => {
 
   test.each([
     [{ rows: [] }, 'schema metadata is missing'],
-    [{ rows: [{ version: 0 }] }, 'expected schema version 2 but found 0'],
+    [{ rows: [{ version: 0 }] }, 'expected schema version 3 but found 0'],
   ])('rejects an incompatible schema', async (schemaResult, message) => {
     const client = createQueryClient([schemaResult])
 

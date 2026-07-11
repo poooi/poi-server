@@ -26,7 +26,7 @@ const publishedRun: DumpRunRow = {
   dumpMonth: '2026-07',
   schemaVersion: 1,
   status: 'published',
-  manifestObjectKey: 'months/2026-07/v1/manifest.json',
+  manifestObjectKey: '2026-07/manifest.json',
   manifestBytes: 10,
   manifestSha256: 'a'.repeat(64),
   publishedAt: new Date('2026-08-01T00:00:00.000Z'),

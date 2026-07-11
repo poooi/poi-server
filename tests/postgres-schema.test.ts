@@ -80,4 +80,16 @@ describe('PostgreSQL schema contract', () => {
       'INSERT INTO "schema_metadata" ("singleton", "version") VALUES (true, 1)',
     )
   })
+
+  test('latest migration enforces one canonical dump run per month', () => {
+    const migration = readFileSync(
+      path.resolve(__dirname, '../drizzle/0002_canonical_dump_month.sql'),
+      'utf8',
+    )
+
+    expect(migration).toContain('ADD CONSTRAINT "data_dump_runs_month_key" UNIQUE("dump_month")')
+    expect(migration).toContain('HAVING count(*) > 1')
+    expect(migration).toContain('Cannot enforce one canonical data_dump_runs row per dump_month')
+    expect(migration).toContain('SET "version" = 3')
+  })
 })

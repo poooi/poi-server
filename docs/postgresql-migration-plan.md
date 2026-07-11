@@ -41,12 +41,12 @@ const databaseUrl = process.env.POI_SERVER_DATABASE_URL ?? process.env.POI_SERVE
 
 Backend selection maps URI schemes as follows:
 
-| URI scheme | Backend |
-| --- | --- |
-| `mongodb:` | MongoDB |
-| `mongodb+srv:` | MongoDB |
-| `postgres:` | PostgreSQL |
-| `postgresql:` | PostgreSQL |
+| URI scheme     | Backend    |
+| -------------- | ---------- |
+| `mongodb:`     | MongoDB    |
+| `mongodb+srv:` | MongoDB    |
+| `postgres:`    | PostgreSQL |
+| `postgresql:`  | PostgreSQL |
 
 Unsupported schemes should fail startup with a redacted connection string. The default development
 configuration should remain MongoDB for backward compatibility.
@@ -188,12 +188,12 @@ change.
 
 Other options considered:
 
-| Option | Reason not chosen |
-| --- | --- |
-| Prisma | Excellent generated client, but PostgreSQL-specific upsert details and array set-union updates are more awkward. Generated client lifecycle is also a larger shift for this service. |
-| TypeORM | Mature, but its entity/decorator lifecycle model is heavier than needed and less aligned with explicit backend actions. |
-| Sequelize | Runtime-model oriented and weaker TypeScript/schema ergonomics for a new TypeScript migration. |
-| Kysely or raw `pg` | Good SQL control, but not an ORM in the desired sense and would require more hand-rolled schema/migration conventions. |
+| Option             | Reason not chosen                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Prisma             | Excellent generated client, but PostgreSQL-specific upsert details and array set-union updates are more awkward. Generated client lifecycle is also a larger shift for this service. |
+| TypeORM            | Mature, but its entity/decorator lifecycle model is heavier than needed and less aligned with explicit backend actions.                                                              |
+| Sequelize          | Runtime-model oriented and weaker TypeScript/schema ergonomics for a new TypeScript migration.                                                                                       |
+| Kysely or raw `pg` | Good SQL control, but not an ORM in the desired sense and would require more hand-rolled schema/migration conventions.                                                               |
 
 Raw SQL fragments are acceptable inside Drizzle expressions for small PostgreSQL-specific pieces such
 as `least`, `greatest`, JSONB/array set-union updates, or generated export IDs when Drizzle cannot
@@ -376,37 +376,38 @@ Schema conventions:
 
 `data_dump_runs`:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Primary key. |
-| `dump_month` | `date` | Not null; first JST calendar date of the Dump Month. |
-| `schema_version` | `integer` | Not null. |
-| `status` | `text` | Not null; one of `pending`, `exporting`, `uploaded`, `published`, `cleanup_eligible`, `cleaned`, `failed`. |
-| `manifest_object_key` | `text` | Nullable until upload. |
-| `manifest_bytes` | `bigint` | Nullable until publication; non-negative. |
-| `manifest_sha256` | `bytea` | Nullable until publication; exactly 32 bytes. |
-| `published_at` | `timestamptz` | Nullable. |
-| `cleanup_eligible_at` | `timestamptz` | Nullable; exactly seven days after publication. |
-| `cleaned_at` | `timestamptz` | Nullable. |
-| `error` | `text` | Nullable; last actionable failure. |
-| `created_at` | `timestamptz` | Not null, default `clock_timestamp()`. |
-| `updated_at` | `timestamptz` | Not null, default `clock_timestamp()` and updated on each state transition. |
+| Column                | Type              | Contract                                                                                                   |
+| --------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| `id`                  | `bigint identity` | Primary key.                                                                                               |
+| `dump_month`          | `date`            | Not null; first JST calendar date of the Dump Month.                                                       |
+| `schema_version`      | `integer`         | Not null.                                                                                                  |
+| `status`              | `text`            | Not null; one of `pending`, `exporting`, `uploaded`, `published`, `cleanup_eligible`, `cleaned`, `failed`. |
+| `manifest_object_key` | `text`            | Nullable until upload.                                                                                     |
+| `manifest_bytes`      | `bigint`          | Nullable until publication; non-negative.                                                                  |
+| `manifest_sha256`     | `bytea`           | Nullable until publication; exactly 32 bytes.                                                              |
+| `published_at`        | `timestamptz`     | Nullable.                                                                                                  |
+| `cleanup_eligible_at` | `timestamptz`     | Nullable; exactly seven days after publication.                                                            |
+| `cleaned_at`          | `timestamptz`     | Nullable.                                                                                                  |
+| `error`               | `text`            | Nullable; last actionable failure.                                                                         |
+| `created_at`          | `timestamptz`     | Not null, default `clock_timestamp()`.                                                                     |
+| `updated_at`          | `timestamptz`     | Not null, default `clock_timestamp()` and updated on each state transition.                                |
 
-Add a unique constraint on `(dump_month, schema_version)`.
+Add a unique constraint on `dump_month`. Each Dump Month has one canonical immutable publication;
+`schema_version` records its manifest/data format rather than creating a second publication identity.
 
 `data_dump_files`:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Primary key. |
-| `dump_run_id` | `bigint` | Not null; references `data_dump_runs(id)` with restricted delete. |
-| `dataset` | `text` | Not null; one of the nine Observation dataset names. |
-| `partition_name` | `text` | Not null. |
-| `object_key` | `text` | Not null. |
-| `row_count` | `bigint` | Not null and non-negative. |
-| `compressed_bytes` | `bigint` | Not null and non-negative. |
-| `sha256` | `bytea` | Not null; exactly 32 bytes. |
-| `verified_at` | `timestamptz` | Nullable until R2 verification. |
+| Column             | Type              | Contract                                                          |
+| ------------------ | ----------------- | ----------------------------------------------------------------- |
+| `id`               | `bigint identity` | Primary key.                                                      |
+| `dump_run_id`      | `bigint`          | Not null; references `data_dump_runs(id)` with restricted delete. |
+| `dataset`          | `text`            | Not null; one of the nine Observation dataset names.              |
+| `partition_name`   | `text`            | Not null.                                                         |
+| `object_key`       | `text`            | Not null.                                                         |
+| `row_count`        | `bigint`          | Not null and non-negative.                                        |
+| `compressed_bytes` | `bigint`          | Not null and non-negative.                                        |
+| `sha256`           | `bytea`           | Not null; exactly 32 bytes.                                       |
+| `verified_at`      | `timestamptz`     | Nullable until R2 verification.                                   |
 
 Add a unique constraint on `(dump_run_id, dataset)`.
 
@@ -414,26 +415,26 @@ Add a unique constraint on `(dump_run_id, dataset)`.
 
 Every Observation table is range-partitioned by `ingested_at` and starts with these columns:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Not null. |
-| `ingested_at` | `timestamptz` | Not null, default `clock_timestamp()`. |
+| Column        | Type              | Contract                               |
+| ------------- | ----------------- | -------------------------------------- |
+| `id`          | `bigint identity` | Not null.                              |
+| `ingested_at` | `timestamptz`     | Not null, default `clock_timestamp()`. |
 
 The primary key is `(ingested_at, id)`. Scalar payload columns below are nullable to preserve legacy
 missing fields. Array payload columns are nullable with an empty-array default, preserving current
 Mongoose omitted-array behavior.
 
-| Table | Declared payload columns |
-| --- | --- |
-| `create_ship_records` | `items integer[]`, `kdock_id integer`, `secretary integer`, `ship_id integer`, `highspeed integer`, `teitoku_lv integer`, `large_flag boolean`, `origin text` |
-| `create_item_records` | `items integer[]`, `secretary integer`, `item_id integer`, `teitoku_lv integer`, `successful boolean`, `origin text` |
-| `remodel_item_records` | `successful boolean`, `item_id integer`, `item_level integer`, `flagship_id integer`, `flagship_level integer`, `flagship_cond integer`, `consort_id integer`, `consort_level integer`, `consort_cond integer`, `teitoku_lv integer`, `certain boolean` |
-| `drop_ship_records` | `ship_id integer`, `item_id integer`, `map_id integer`, `quest text`, `cell_id integer`, `enemy text`, `rank text`, `is_boss boolean`, `teitoku_lv integer`, `map_lv integer`, `enemy_ships1 integer[]`, `enemy_ships2 integer[]`, `enemy_formation integer`, `base_exp integer`, `teitoku_id text`, `owned_ship_snapshot jsonb`, `origin text` |
-| `pass_event_records` | `teitoku_id text`, `teitoku_lv integer`, `map_id integer`, `map_lv integer`, `rewards jsonb DEFAULT '[]'`, `origin text` |
-| `battle_apis` | `origin text`, `path text`, `data jsonb` |
-| `night_contacts` | `fleet_type integer`, `ship_id integer`, `ship_lv integer`, `item_id integer`, `item_lv integer`, `contact boolean` |
-| `aaci_records` | `poi_version text`, `available integer[]`, `triggered integer`, `items integer[]`, `improvement integer[]`, `raw_luck integer`, `raw_taiku integer`, `lv integer`, `hp_percent double precision`, `pos integer`, `origin text` |
-| `night_battle_cis` | `ship_id integer`, `ci text`, `type text`, `lv integer`, `raw_luck integer`, `pos integer`, `status text`, `items integer[]`, `improvement integer[]`, `search_light boolean`, `flare integer`, `defense_id integer`, `defense_type_id integer`, `ci_type integer`, `display integer[]`, `hit_type integer[]`, `damage double precision[]`, `damage_total double precision`, `time bigint`, `origin text` |
+| Table                  | Declared payload columns                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_ship_records`  | `items integer[]`, `kdock_id integer`, `secretary integer`, `ship_id integer`, `highspeed integer`, `teitoku_lv integer`, `large_flag boolean`, `origin text`                                                                                                                                                                                                                                             |
+| `create_item_records`  | `items integer[]`, `secretary integer`, `item_id integer`, `teitoku_lv integer`, `successful boolean`, `origin text`                                                                                                                                                                                                                                                                                      |
+| `remodel_item_records` | `successful boolean`, `item_id integer`, `item_level integer`, `flagship_id integer`, `flagship_level integer`, `flagship_cond integer`, `consort_id integer`, `consort_level integer`, `consort_cond integer`, `teitoku_lv integer`, `certain boolean`                                                                                                                                                   |
+| `drop_ship_records`    | `ship_id integer`, `item_id integer`, `map_id integer`, `quest text`, `cell_id integer`, `enemy text`, `rank text`, `is_boss boolean`, `teitoku_lv integer`, `map_lv integer`, `enemy_ships1 integer[]`, `enemy_ships2 integer[]`, `enemy_formation integer`, `base_exp integer`, `teitoku_id text`, `owned_ship_snapshot jsonb`, `origin text`                                                           |
+| `pass_event_records`   | `teitoku_id text`, `teitoku_lv integer`, `map_id integer`, `map_lv integer`, `rewards jsonb DEFAULT '[]'`, `origin text`                                                                                                                                                                                                                                                                                  |
+| `battle_apis`          | `origin text`, `path text`, `data jsonb`                                                                                                                                                                                                                                                                                                                                                                  |
+| `night_contacts`       | `fleet_type integer`, `ship_id integer`, `ship_lv integer`, `item_id integer`, `item_lv integer`, `contact boolean`                                                                                                                                                                                                                                                                                       |
+| `aaci_records`         | `poi_version text`, `available integer[]`, `triggered integer`, `items integer[]`, `improvement integer[]`, `raw_luck integer`, `raw_taiku integer`, `lv integer`, `hp_percent double precision`, `pos integer`, `origin text`                                                                                                                                                                            |
+| `night_battle_cis`     | `ship_id integer`, `ci text`, `type text`, `lv integer`, `raw_luck integer`, `pos integer`, `status text`, `items integer[]`, `improvement integer[]`, `search_light boolean`, `flare integer`, `defense_id integer`, `defense_type_id integer`, `ci_type integer`, `display integer[]`, `hit_type integer[]`, `damage double precision[]`, `damage_total double precision`, `time bigint`, `origin text` |
 
 Do not add `ship_counts` to `drop_ship_records`: it exists in a TypeScript interface but is absent
 from the Mongoose schema and is currently discarded. Likewise, do not add `origin` to
@@ -443,27 +444,27 @@ from the Mongoose schema and is currently discarded. Likewise, do not add `origi
 
 `select_rank_records`:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Primary key. |
-| `teitoku_id` | `text` | Not null; Domain Identity. |
-| `maparea_id` | `integer` | Not null; Domain Identity. |
-| `teitoku_lv` | `integer` | Nullable. |
-| `rank` | `integer` | Nullable. |
-| `origin` | `text` | Nullable. |
+| Column       | Type              | Contract                   |
+| ------------ | ----------------- | -------------------------- |
+| `id`         | `bigint identity` | Primary key.               |
+| `teitoku_id` | `text`            | Not null; Domain Identity. |
+| `maparea_id` | `integer`         | Not null; Domain Identity. |
+| `teitoku_lv` | `integer`         | Nullable.                  |
+| `rank`       | `integer`         | Nullable.                  |
+| `origin`     | `text`            | Nullable.                  |
 
 Unique `(teitoku_id, maparea_id)`. On conflict, replace `teitoku_lv`, `rank`, and `origin` with the
 new Report values, preserving explicit nulls.
 
 `recipe_records`:
 
-| Column group | Type and nullability |
-| --- | --- |
-| Primary key | `id bigint identity` |
-| Domain Identity | `recipe_id integer NOT NULL`, `item_id integer NOT NULL`, `stage integer NOT NULL`, `day integer NOT NULL`, `secretary integer NOT NULL` |
+| Column group            | Type and nullability                                                                                                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary key             | `id bigint identity`                                                                                                                                                                   |
+| Domain Identity         | `recipe_id integer NOT NULL`, `item_id integer NOT NULL`, `stage integer NOT NULL`, `day integer NOT NULL`, `secretary integer NOT NULL`                                               |
 | Nullable integer values | `fuel`, `ammo`, `steel`, `bauxite`, `req_item_id`, `req_item_count`, `buildkit`, `remodelkit`, `certain_buildkit`, `certain_remodelkit`, `upgrade_to_item_id`, `upgrade_to_item_level` |
-| Other values | `key text NULL`, `origin text NULL` |
-| Accumulation | `last_reported bigint NOT NULL`, `count bigint NOT NULL DEFAULT 1` |
+| Other values            | `key text NULL`, `origin text NULL`                                                                                                                                                    |
+| Accumulation            | `last_reported bigint NOT NULL`, `count bigint NOT NULL DEFAULT 1`                                                                                                                     |
 
 Unique `(recipe_id, item_id, stage, day, secretary)`. `stage === -1` remains a successful no-op.
 Insert with `count = 1`; on conflict increment `count`, set `last_reported` from database time, and
@@ -472,25 +473,25 @@ stored value; an explicit null does.
 
 `ship_stats`:
 
-| Column group | Type and nullability |
-| --- | --- |
-| Primary key | `id bigint identity` |
+| Column group    | Type and nullability                                                                                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary key     | `id bigint identity`                                                                                                                                                                                                  |
 | Domain Identity | `ship_id integer NOT NULL`, `lv integer NOT NULL`, `los integer NOT NULL`, `los_max integer NOT NULL`, `asw integer NOT NULL`, `asw_max integer NOT NULL`, `evasion integer NOT NULL`, `evasion_max integer NOT NULL` |
-| Accumulation | `last_timestamp bigint NOT NULL`, `count bigint NOT NULL DEFAULT 1` |
+| Accumulation    | `last_timestamp bigint NOT NULL`, `count bigint NOT NULL DEFAULT 1`                                                                                                                                                   |
 
 Unique across the eight Domain Identity columns. Insert with `count = 1`; on conflict increment
 `count` and replace `last_timestamp` with database time.
 
 `enemy_infos`:
 
-| Column group | Type and nullability |
-| --- | --- |
-| Primary key | `id bigint identity` |
-| Identity digest | `identity_hash bytea NOT NULL`, exactly 32 bytes and unique |
-| Required flat arrays | `ships1 integer[]`, `levels1 integer[]`, `hp1 integer[]`, `ships2 integer[]`, `levels2 integer[]`, `hp2 integer[]` |
-| Required nested arrays | `stats1 jsonb`, `equips1 jsonb`, `stats2 jsonb`, `equips2 jsonb` |
-| Required scalar identity | `planes integer` |
-| Accumulation | `bombers_min integer NULL`, `bombers_max integer NULL`, `count bigint NOT NULL DEFAULT 1` |
+| Column group             | Type and nullability                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Primary key              | `id bigint identity`                                                                                               |
+| Identity digest          | `identity_hash bytea NOT NULL`, exactly 32 bytes and unique                                                        |
+| Required flat arrays     | `ships1 integer[]`, `levels1 integer[]`, `hp1 integer[]`, `ships2 integer[]`, `levels2 integer[]`, `hp2 integer[]` |
+| Required nested arrays   | `stats1 jsonb`, `equips1 jsonb`, `stats2 jsonb`, `equips2 jsonb`                                                   |
+| Required scalar identity | `planes integer`                                                                                                   |
+| Accumulation             | `bombers_min integer NULL`, `bombers_max integer NULL`, `count bigint NOT NULL DEFAULT 1`                          |
 
 All identity components are `NOT NULL`. Insert with `count = 1`. On conflict, verify component
 equality, increment `count`, update `bombers_min` to the greater non-null value, and update
@@ -506,36 +507,36 @@ encoding the equivalent PostgreSQL expressions.
 
 `quests`:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Primary key. |
-| `key` | `text` | Not null; 32 lowercase hexadecimal MD5 characters. |
-| `quest_id` | `integer` | Not null. |
-| `title` | `text` | Not null. |
-| `detail` | `text` | Not null. |
-| `category` | `integer` | Not null. |
-| `type` | `integer` | Nullable. |
-| `origin` | `text` | Nullable. |
+| Column     | Type              | Contract                                           |
+| ---------- | ----------------- | -------------------------------------------------- |
+| `id`       | `bigint identity` | Primary key.                                       |
+| `key`      | `text`            | Not null; 32 lowercase hexadecimal MD5 characters. |
+| `quest_id` | `integer`         | Not null.                                          |
+| `title`    | `text`            | Not null.                                          |
+| `detail`   | `text`            | Not null.                                          |
+| `category` | `integer`         | Not null.                                          |
+| `type`     | `integer`         | Nullable.                                          |
+| `origin`   | `text`            | Nullable.                                          |
 
 Unique `(key, quest_id, category)`. On conflict, verify `title` and `detail` match and otherwise do
 nothing, preserving `$setOnInsert` behavior.
 
 `quest_rewards`:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint identity` | Primary key. |
-| `key` | `text` | Not null; 32 lowercase hexadecimal MD5 characters. |
-| `quest_id` | `integer` | Not null. |
-| `title` | `text` | Not null. |
-| `detail` | `text` | Not null. |
-| `category` | `integer` | Nullable. |
-| `type` | `integer` | Nullable. |
-| `origin` | `text` | Nullable. |
-| `selections` | `integer[]` | Not null. |
-| `material` | `integer[]` | Nullable, default empty array. |
-| `bonus` | `jsonb` | Nullable, default JSON array `[]`. |
-| `bonus_count` | `integer` | Not null; parsed from legacy HTTP field `bounsCount`. |
+| Column        | Type              | Contract                                              |
+| ------------- | ----------------- | ----------------------------------------------------- |
+| `id`          | `bigint identity` | Primary key.                                          |
+| `key`         | `text`            | Not null; 32 lowercase hexadecimal MD5 characters.    |
+| `quest_id`    | `integer`         | Not null.                                             |
+| `title`       | `text`            | Not null.                                             |
+| `detail`      | `text`            | Not null.                                             |
+| `category`    | `integer`         | Nullable.                                             |
+| `type`        | `integer`         | Nullable.                                             |
+| `origin`      | `text`            | Nullable.                                             |
+| `selections`  | `integer[]`       | Not null.                                             |
+| `material`    | `integer[]`       | Nullable, default empty array.                        |
+| `bonus`       | `jsonb`           | Nullable, default JSON array `[]`.                    |
+| `bonus_count` | `integer`         | Not null; parsed from legacy HTTP field `bounsCount`. |
 
 Unique `(key, quest_id, selections, bonus_count)`. On conflict, verify `title` and `detail` match and
 otherwise do nothing.
@@ -544,24 +545,24 @@ otherwise do nothing.
 
 Create one shared sequence, `item_improvement_fact_id_seq`. Every Fact table has:
 
-| Column | Type | Contract |
-| --- | --- | --- |
-| `id` | `bigint` | Primary key, default `nextval('item_improvement_fact_id_seq')`. |
-| `export_id` | `text` | Stored generated value `lpad(to_hex(id), 24, '0')`; unique and constrained to 24 lowercase hexadecimal characters. |
-| `key` | `text` | Not null and unique. |
-| `schema_version` | `integer` | Not null. |
-| `recipe_id` | `integer` | Not null. |
-| `item_id` | `integer` | Not null. |
-| `day` | `integer` | Not null. |
-| `first_client_observed_at` | `bigint` | Not null. |
-| `last_client_observed_at` | `bigint` | Not null. |
-| `observed_second_ship_id` | `integer` | Not null. |
-| `observed_flagship_ids` | `integer[]` | Not null, default empty array. |
-| `sources` | `text[]` | Not null, default empty array. |
-| `origins` | `text[]` | Not null, default empty array; private in exports. |
-| `first_reported` | `bigint` | Not null. |
-| `last_reported` | `bigint` | Not null. |
-| `count` | `bigint` | Not null, default `1`. |
+| Column                     | Type        | Contract                                                                                                           |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `id`                       | `bigint`    | Primary key, default `nextval('item_improvement_fact_id_seq')`.                                                    |
+| `export_id`                | `text`      | Stored generated value `lpad(to_hex(id), 24, '0')`; unique and constrained to 24 lowercase hexadecimal characters. |
+| `key`                      | `text`      | Not null and unique.                                                                                               |
+| `schema_version`           | `integer`   | Not null.                                                                                                          |
+| `recipe_id`                | `integer`   | Not null.                                                                                                          |
+| `item_id`                  | `integer`   | Not null.                                                                                                          |
+| `day`                      | `integer`   | Not null.                                                                                                          |
+| `first_client_observed_at` | `bigint`    | Not null.                                                                                                          |
+| `last_client_observed_at`  | `bigint`    | Not null.                                                                                                          |
+| `observed_second_ship_id`  | `integer`   | Not null.                                                                                                          |
+| `observed_flagship_ids`    | `integer[]` | Not null, default empty array.                                                                                     |
+| `sources`                  | `text[]`    | Not null, default empty array.                                                                                     |
+| `origins`                  | `text[]`    | Not null, default empty array; private in exports.                                                                 |
+| `first_reported`           | `bigint`    | Not null.                                                                                                          |
+| `last_reported`            | `bigint`    | Not null.                                                                                                          |
+| `count`                    | `bigint`    | Not null, default `1`.                                                                                             |
 
 `item_improvement_availability_facts` adds no other columns.
 
@@ -621,8 +622,8 @@ Dump policy:
 Use object keys:
 
 ```text
-months/{YYYY-MM}/v{schemaVersion}/{dataset}.jsonl.zst
-months/{YYYY-MM}/v{schemaVersion}/manifest.json
+{YYYY-MM}/{dataset}.jsonl.zst
+{YYYY-MM}/manifest.json
 ```
 
 Manifest schema version 1:
@@ -657,16 +658,16 @@ interface CommunityDumpManifestV1 {
 
 Community Dump record schema version 1 uses these JSON keys in this exact order:
 
-| Dataset | Ordered keys after `observationId`, `ingestedAt` |
-| --- | --- |
-| `createShipObservations` | `items`, `kdockId`, `secretary`, `shipId`, `highspeed`, `teitokuLv`, `largeFlag`, `origin` |
-| `createItemObservations` | `items`, `secretary`, `itemId`, `teitokuLv`, `successful`, `origin` |
-| `remodelItemObservations` | `successful`, `itemId`, `itemLevel`, `flagshipId`, `flagshipLevel`, `flagshipCond`, `consortId`, `consortLevel`, `consortCond`, `teitokuLv`, `certain` |
-| `dropShipObservations` | `shipId`, `itemId`, `mapId`, `quest`, `cellId`, `enemy`, `rank`, `isBoss`, `teitokuLv`, `mapLv`, `enemyShips1`, `enemyShips2`, `enemyFormation`, `baseExp`, `teitokuId`, `ownedShipSnapshot`, `origin` |
-| `passEventObservations` | `teitokuId`, `teitokuLv`, `mapId`, `mapLv`, `rewards`, `origin` |
-| `battleApiObservations` | `origin`, `path`, `data` |
-| `nightContactObservations` | `fleetType`, `shipId`, `shipLv`, `itemId`, `itemLv`, `contact` |
-| `aaciObservations` | `poiVersion`, `available`, `triggered`, `items`, `improvement`, `rawLuck`, `rawTaiku`, `lv`, `hpPercent`, `pos`, `origin` |
+| Dataset                     | Ordered keys after `observationId`, `ingestedAt`                                                                                                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createShipObservations`    | `items`, `kdockId`, `secretary`, `shipId`, `highspeed`, `teitokuLv`, `largeFlag`, `origin`                                                                                                                        |
+| `createItemObservations`    | `items`, `secretary`, `itemId`, `teitokuLv`, `successful`, `origin`                                                                                                                                               |
+| `remodelItemObservations`   | `successful`, `itemId`, `itemLevel`, `flagshipId`, `flagshipLevel`, `flagshipCond`, `consortId`, `consortLevel`, `consortCond`, `teitokuLv`, `certain`                                                            |
+| `dropShipObservations`      | `shipId`, `itemId`, `mapId`, `quest`, `cellId`, `enemy`, `rank`, `isBoss`, `teitokuLv`, `mapLv`, `enemyShips1`, `enemyShips2`, `enemyFormation`, `baseExp`, `teitokuId`, `ownedShipSnapshot`, `origin`            |
+| `passEventObservations`     | `teitokuId`, `teitokuLv`, `mapId`, `mapLv`, `rewards`, `origin`                                                                                                                                                   |
+| `battleApiObservations`     | `origin`, `path`, `data`                                                                                                                                                                                          |
+| `nightContactObservations`  | `fleetType`, `shipId`, `shipLv`, `itemId`, `itemLv`, `contact`                                                                                                                                                    |
+| `aaciObservations`          | `poiVersion`, `available`, `triggered`, `items`, `improvement`, `rawLuck`, `rawTaiku`, `lv`, `hpPercent`, `pos`, `origin`                                                                                         |
 | `nightBattleCiObservations` | `shipId`, `CI`, `type`, `lv`, `rawLuck`, `pos`, `status`, `items`, `improvement`, `searchLight`, `flare`, `defenseId`, `defenseTypeId`, `ciType`, `display`, `hitType`, `damage`, `damageTotal`, `time`, `origin` |
 
 Serialization rules:
@@ -747,15 +748,15 @@ Important indexes and constraints:
 
 Concrete PostgreSQL upsert keys:
 
-| Table | Upsert/uniqueness key |
-| --- | --- |
-| `select_rank_records` | `(teitoku_id, maparea_id)` |
-| `recipe_records` | `(recipe_id, item_id, stage, day, secretary)` |
-| `ship_stats` | `(ship_id, lv, los, los_max, asw, asw_max, evasion, evasion_max)` |
-| `enemy_infos` | SHA-256 of an ordered JSON tuple containing `ships1`, `levels1`, `hp1`, `stats1`, `equips1`, `ships2`, `levels2`, `hp2`, `stats2`, `equips2`, and `planes`. |
-| `quests` | `(key, quest_id, category)` |
-| `quest_rewards` | `(key, quest_id, selections, bonus_count)` using PostgreSQL's native equality support for primitive array columns. The PostgreSQL column should use the corrected `bonus_count` name while the HTTP payload parser continues accepting the legacy `bounsCount` field. |
-| item-improvement facts | `key` |
+| Table                  | Upsert/uniqueness key                                                                                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `select_rank_records`  | `(teitoku_id, maparea_id)`                                                                                                                                                                                                                                            |
+| `recipe_records`       | `(recipe_id, item_id, stage, day, secretary)`                                                                                                                                                                                                                         |
+| `ship_stats`           | `(ship_id, lv, los, los_max, asw, asw_max, evasion, evasion_max)`                                                                                                                                                                                                     |
+| `enemy_infos`          | SHA-256 of an ordered JSON tuple containing `ships1`, `levels1`, `hp1`, `stats1`, `equips1`, `ships2`, `levels2`, `hp2`, `stats2`, `equips2`, and `planes`.                                                                                                           |
+| `quests`               | `(key, quest_id, category)`                                                                                                                                                                                                                                           |
+| `quest_rewards`        | `(key, quest_id, selections, bonus_count)` using PostgreSQL's native equality support for primitive array columns. The PostgreSQL column should use the corrected `bonus_count` name while the HTTP payload parser continues accepting the legacy `bounsCount` field. |
+| item-improvement facts | `key`                                                                                                                                                                                                                                                                 |
 
 These tuples are Domain Identities, not migration identifiers. Enforce each Domain Identity with a
 unique constraint so concurrent writes use one atomic `INSERT ... ON CONFLICT ... DO UPDATE` path
@@ -782,22 +783,22 @@ Enemy Info identity hashing must exactly preserve MongoDB's current equality sem
 
 ## Semantic mapping
 
-| Current MongoDB semantic | PostgreSQL/Drizzle design |
-| --- | --- |
-| `new Model(info).save()` | Validate and map declared fields explicitly, discard undeclared fields, and insert typed/declared JSONB columns |
-| status `count()` | MongoDB metadata estimate or PostgreSQL catalog estimate; exact counts are reserved for offline dump verification |
-| `distinct('questId')` | A Drizzle distinct projection such as `selectDistinct({ questId: table.questId }).from(table)`; preserve current endpoint sort behavior |
-| `findOne` then mutate/save for select rank | Unique key on `(teitoku_id, maparea_id)` with conflict update |
-| `$setOnInsert` | Conflict update with immutable insert-only fields omitted from the update set |
-| `$inc` | `count = table.count + 1` |
-| `$min` | `first_client_observed_at = least(existing, excluded)` |
-| `$max` | `last_reported = greatest(existing, excluded)` and same for client observed timestamp |
-| `$addToSet` scalar or `$each` arrays | PostgreSQL stable append-if-absent union that preserves existing order |
-| Mongoose ObjectId export cursor | Shared-sequence bigint encoded as a stored 24-character lowercase hexadecimal `export_id` |
-| `.select('-__v -origins')` | Explicit selected column list that excludes `origins` and maps internal `export_id` to public `_id` |
-| `.sort({ lastReported: 1, _id: 1 })` | `orderBy(last_reported asc, export_id asc)` |
-| Flexible nested Mongo fields | JSONB fields for payloads or snapshots that are not queried structurally |
-| `EnemyInfo` `$max: { bombersMin }`, `$min: { bombersMax }` | Presence-aware PostgreSQL expressions that reproduce the tested MongoDB numeric/null transitions |
+| Current MongoDB semantic                                   | PostgreSQL/Drizzle design                                                                                                               |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `new Model(info).save()`                                   | Validate and map declared fields explicitly, discard undeclared fields, and insert typed/declared JSONB columns                         |
+| status `count()`                                           | MongoDB metadata estimate or PostgreSQL catalog estimate; exact counts are reserved for offline dump verification                       |
+| `distinct('questId')`                                      | A Drizzle distinct projection such as `selectDistinct({ questId: table.questId }).from(table)`; preserve current endpoint sort behavior |
+| `findOne` then mutate/save for select rank                 | Unique key on `(teitoku_id, maparea_id)` with conflict update                                                                           |
+| `$setOnInsert`                                             | Conflict update with immutable insert-only fields omitted from the update set                                                           |
+| `$inc`                                                     | `count = table.count + 1`                                                                                                               |
+| `$min`                                                     | `first_client_observed_at = least(existing, excluded)`                                                                                  |
+| `$max`                                                     | `last_reported = greatest(existing, excluded)` and same for client observed timestamp                                                   |
+| `$addToSet` scalar or `$each` arrays                       | PostgreSQL stable append-if-absent union that preserves existing order                                                                  |
+| Mongoose ObjectId export cursor                            | Shared-sequence bigint encoded as a stored 24-character lowercase hexadecimal `export_id`                                               |
+| `.select('-__v -origins')`                                 | Explicit selected column list that excludes `origins` and maps internal `export_id` to public `_id`                                     |
+| `.sort({ lastReported: 1, _id: 1 })`                       | `orderBy(last_reported asc, export_id asc)`                                                                                             |
+| Flexible nested Mongo fields                               | JSONB fields for payloads or snapshots that are not queried structurally                                                                |
+| `EnemyInfo` `$max: { bombersMin }`, `$min: { bombersMax }` | Presence-aware PostgreSQL expressions that reproduce the tested MongoDB numeric/null transitions                                        |
 
 ## v3 item-improvement compatibility
 
@@ -912,50 +913,50 @@ The same HTTP behavior suite should run against both backends where possible.
 
 The test contract matrix maps behavior to required MongoDB and PostgreSQL assertions:
 
-| Area | Required parity coverage |
-| --- | --- |
-| Backend config | URI scheme selects MongoDB or PostgreSQL; unsupported schemes fail with redacted errors. |
-| `/api/status` | Both backends return the same backend-neutral `database` shape; the legacy `mongo` field is absent. |
-| v2 observations | Each report endpoint persists the declared fields and discards undeclared fields consistently on both backends. |
-| v2 upserts | `select_rank`, `remodel_recipe`, `ship_stat`, and `enemy_info` match current update behavior, including Enemy Info absent/null/numeric bomber transitions. |
-| v2 compatibility routes | `known_quests`, `known_recipes`, `quest/:id`, `remodel_recipe_deduplicate`, and `night_battle_ss_ci` keep current response behavior. |
-| v3 quests | Quest and reward keys, uniqueness, known quest prefixes, and legacy `bounsCount` payload handling match MongoDB behavior. |
-| v3 item-improvement ingest | Keys, normalization, `$setOnInsert` equivalents, min/max timestamps, stable append-if-absent arrays, origins, and counts match MongoDB behavior. |
-| v3 item-improvement export | Both backends cover limit clamping, origin omission, numeric timestamps, public `_id`, cursor canonicalization, ordering, and empty pages; PostgreSQL additionally covers database-time settled pagination. |
-| Monthly dumps and retention | All nine versioned JSONL serializers, manifest/object read-back verification, default-partition repair, grace period, catalog-bound partition verification, and cleanup classifications pass. |
-| Error handling | Malformed JSON, invalid payloads, invalid cursors, and database errors preserve current status/body behavior. |
-| Shared validation | Both backends preserve documented Mongoose casting/defaults, enforce int32/safe-bigint ranges, reject cast failures, missing Domain Identity, invalid AACI semver, or fractional integral fields with the same 400 body, and emit bounded structured validation logs. |
+| Area                        | Required parity coverage                                                                                                                                                                                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend config              | URI scheme selects MongoDB or PostgreSQL; unsupported schemes fail with redacted errors.                                                                                                                                                                              |
+| `/api/status`               | Both backends return the same backend-neutral `database` shape; the legacy `mongo` field is absent.                                                                                                                                                                   |
+| v2 observations             | Each report endpoint persists the declared fields and discards undeclared fields consistently on both backends.                                                                                                                                                       |
+| v2 upserts                  | `select_rank`, `remodel_recipe`, `ship_stat`, and `enemy_info` match current update behavior, including Enemy Info absent/null/numeric bomber transitions.                                                                                                            |
+| v2 compatibility routes     | `known_quests`, `known_recipes`, `quest/:id`, `remodel_recipe_deduplicate`, and `night_battle_ss_ci` keep current response behavior.                                                                                                                                  |
+| v3 quests                   | Quest and reward keys, uniqueness, known quest prefixes, and legacy `bounsCount` payload handling match MongoDB behavior.                                                                                                                                             |
+| v3 item-improvement ingest  | Keys, normalization, `$setOnInsert` equivalents, min/max timestamps, stable append-if-absent arrays, origins, and counts match MongoDB behavior.                                                                                                                      |
+| v3 item-improvement export  | Both backends cover limit clamping, origin omission, numeric timestamps, public `_id`, cursor canonicalization, ordering, and empty pages; PostgreSQL additionally covers database-time settled pagination.                                                           |
+| Monthly dumps and retention | All nine versioned JSONL serializers, manifest/object read-back verification, default-partition repair, grace period, catalog-bound partition verification, and cleanup classifications pass.                                                                         |
+| Error handling              | Malformed JSON, invalid payloads, invalid cursors, and database errors preserve current status/body behavior.                                                                                                                                                         |
+| Shared validation           | Both backends preserve documented Mongoose casting/defaults, enforce int32/safe-bigint ranges, reject cast failures, missing Domain Identity, invalid AACI semver, or fractional integral fields with the same 400 body, and emit bounded structured validation logs. |
 
 Endpoint-level required cases:
 
-| Endpoint | Required behavior assertions on both backends |
-| --- | --- |
-| `POST /api/report/v2/create_ship` | Declared fields persist once; omitted arrays become empty; unknown fields are discarded. |
-| `POST /api/report/v2/create_item` | Declared fields persist once with shared casting and integer validation. |
-| `POST /api/report/v2/remodel_item` | Declared fields persist once; injected `origin` is discarded because it is not in the legacy schema. |
-| `POST /api/report/v2/drop_ship` | `ownedShipSnapshot` becomes `{}` for `mapId < 73`; otherwise declared JSON is retained. |
-| `POST /api/report/v2/select_rank` | Repeated Domain Identity replaces current level/rank/origin and does not add a second row. |
-| `POST /api/report/v2/pass_event` | Declared reward objects persist in order; omitted rewards normalize to an empty array. |
-| `GET /api/report/v2/known_quests` | Returns distinct quest IDs with the current JavaScript default sort behavior and Cloudflare cache headers. |
-| `POST /api/report/v2/quest/:id` | Returns 200 and performs no write. |
-| `POST /api/report/v2/battle_api` | Declared `path`, `origin`, and arbitrary JSON `data` persist; unknown top-level fields are discarded. |
-| `POST /api/report/v2/night_contcat` | Misspelled route remains registered; declared fields persist; injected `origin` is discarded. |
-| `POST /api/report/v2/aaci` | Invalid/missing semantic versions return logged 400; writes only when all current POI/reporter version gates pass; all other valid reports return 200 without a write. |
-| `GET /api/report/v2/known_recipes` | Returns `{ recipes: [] }`. |
-| `POST /api/report/v2/remodel_recipe` | `stage === -1` is a no-op; otherwise insert/count/update semantics follow the exact Aggregate contract. |
-| `POST /api/report/v2/remodel_recipe_deduplicate` | MongoDB removes legacy duplicates; PostgreSQL normally returns an empty deletion list because Domain Identity is unique. |
-| `POST /api/report/v2/night_battle_ci` | Fractional `damage` and `damageTotal` round-trip; millisecond `time` remains a JSON number. |
-| `POST /api/report/v2/night_battle_ss_ci` | Returns 200 and performs no write. |
-| `POST /api/report/v2/ship_stat` | Domain Identity inserts once, then atomically increments count and advances `last_timestamp`. |
-| `POST /api/report/v2/enemy_info` | Ordered identity hashing matches Mongo tuple equality; count increments; min/max null and intersection rules match. |
-| `POST /api/report/v3/item_improvement_recipe` | Single and batch forms normalize identically; maximum batch 100; partial-write behavior on database failure matches the current per-record writes; response count is correct. |
-| `GET /api/report/v3/item_improvement_recipes/availability` | Filters, clamp, public `_id`, cursor, omission of origins, and cache headers match; PostgreSQL alone applies the settled window. |
-| `GET /api/report/v3/item_improvement_recipes/costs` | Same backend-aware export contract plus required-item JSON round-trip and stable arrays. |
-| `GET /api/report/v3/item_improvement_recipes/updates` | Same backend-aware export contract plus upgrade fields. |
-| `GET /api/report/v3/known_quests` | Returns distinct eight-character quest-key prefixes with Cloudflare cache headers. |
-| `POST /api/report/v3/quest` | Every quest in the Report uses MD5 title/detail keying and insert-only Definition semantics. |
-| `POST /api/report/v3/quest_reward` | Accepts legacy `bounsCount`, stores `bonus_count`, preserves material/bonus structures, and inserts only once per Domain Identity. |
-| `GET /api/status` | Returns `env`, `disk`, and the exact backend-neutral `database` shape with all 18 estimated counts. |
+| Endpoint                                                   | Required behavior assertions on both backends                                                                                                                                 |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/report/v2/create_ship`                          | Declared fields persist once; omitted arrays become empty; unknown fields are discarded.                                                                                      |
+| `POST /api/report/v2/create_item`                          | Declared fields persist once with shared casting and integer validation.                                                                                                      |
+| `POST /api/report/v2/remodel_item`                         | Declared fields persist once; injected `origin` is discarded because it is not in the legacy schema.                                                                          |
+| `POST /api/report/v2/drop_ship`                            | `ownedShipSnapshot` becomes `{}` for `mapId < 73`; otherwise declared JSON is retained.                                                                                       |
+| `POST /api/report/v2/select_rank`                          | Repeated Domain Identity replaces current level/rank/origin and does not add a second row.                                                                                    |
+| `POST /api/report/v2/pass_event`                           | Declared reward objects persist in order; omitted rewards normalize to an empty array.                                                                                        |
+| `GET /api/report/v2/known_quests`                          | Returns distinct quest IDs with the current JavaScript default sort behavior and Cloudflare cache headers.                                                                    |
+| `POST /api/report/v2/quest/:id`                            | Returns 200 and performs no write.                                                                                                                                            |
+| `POST /api/report/v2/battle_api`                           | Declared `path`, `origin`, and arbitrary JSON `data` persist; unknown top-level fields are discarded.                                                                         |
+| `POST /api/report/v2/night_contcat`                        | Misspelled route remains registered; declared fields persist; injected `origin` is discarded.                                                                                 |
+| `POST /api/report/v2/aaci`                                 | Invalid/missing semantic versions return logged 400; writes only when all current POI/reporter version gates pass; all other valid reports return 200 without a write.        |
+| `GET /api/report/v2/known_recipes`                         | Returns `{ recipes: [] }`.                                                                                                                                                    |
+| `POST /api/report/v2/remodel_recipe`                       | `stage === -1` is a no-op; otherwise insert/count/update semantics follow the exact Aggregate contract.                                                                       |
+| `POST /api/report/v2/remodel_recipe_deduplicate`           | MongoDB removes legacy duplicates; PostgreSQL normally returns an empty deletion list because Domain Identity is unique.                                                      |
+| `POST /api/report/v2/night_battle_ci`                      | Fractional `damage` and `damageTotal` round-trip; millisecond `time` remains a JSON number.                                                                                   |
+| `POST /api/report/v2/night_battle_ss_ci`                   | Returns 200 and performs no write.                                                                                                                                            |
+| `POST /api/report/v2/ship_stat`                            | Domain Identity inserts once, then atomically increments count and advances `last_timestamp`.                                                                                 |
+| `POST /api/report/v2/enemy_info`                           | Ordered identity hashing matches Mongo tuple equality; count increments; min/max null and intersection rules match.                                                           |
+| `POST /api/report/v3/item_improvement_recipe`              | Single and batch forms normalize identically; maximum batch 100; partial-write behavior on database failure matches the current per-record writes; response count is correct. |
+| `GET /api/report/v3/item_improvement_recipes/availability` | Filters, clamp, public `_id`, cursor, omission of origins, and cache headers match; PostgreSQL alone applies the settled window.                                              |
+| `GET /api/report/v3/item_improvement_recipes/costs`        | Same backend-aware export contract plus required-item JSON round-trip and stable arrays.                                                                                      |
+| `GET /api/report/v3/item_improvement_recipes/updates`      | Same backend-aware export contract plus upgrade fields.                                                                                                                       |
+| `GET /api/report/v3/known_quests`                          | Returns distinct eight-character quest-key prefixes with Cloudflare cache headers.                                                                                            |
+| `POST /api/report/v3/quest`                                | Every quest in the Report uses MD5 title/detail keying and insert-only Definition semantics.                                                                                  |
+| `POST /api/report/v3/quest_reward`                         | Accepts legacy `bounsCount`, stores `bonus_count`, preserves material/bonus structures, and inserts only once per Domain Identity.                                            |
+| `GET /api/status`                                          | Returns `env`, `disk`, and the exact backend-neutral `database` shape with all 18 estimated counts.                                                                           |
 
 Implementation is not complete until the parity matrix passes against MongoDB and a real PostgreSQL
 service in CI. PGlite-only coverage is insufficient for accepting the PostgreSQL backend.

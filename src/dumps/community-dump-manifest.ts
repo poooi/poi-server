@@ -7,7 +7,7 @@ import { encodeIsoMillisecondTimestampUtc, encodeNonNegativeDecimal } from './co
  * Community Dump v1 manifest serializer (plan lines 653-685). Builds the exact
  * `CommunityDumpManifestV1` object the plan declares, always ordering `files` in registry
  * order regardless of input order so the manifest's shape is fully deterministic, and
- * rejecting any input whose dataset set is not exactly the nine expected datasets
+ * rejecting any input whose dataset set is not exactly the registered datasets
  * (missing, duplicated, or unknown/extra dataset names all fail).
  */
 

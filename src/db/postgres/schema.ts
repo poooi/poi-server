@@ -65,7 +65,7 @@ export const dataDumpRuns = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().default(clockTimestamp),
   },
   (t) => [
-    unique('data_dump_runs_month_version_key').on(t.dumpMonth, t.schemaVersion),
+    unique('data_dump_runs_month_key').on(t.dumpMonth),
     check(
       'data_dump_runs_status_check',
       sql`${t.status} in ('pending', 'exporting', 'uploaded', 'published', 'cleanup_eligible', 'cleaned', 'failed')`,

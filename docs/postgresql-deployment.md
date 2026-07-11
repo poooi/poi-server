@@ -107,6 +107,19 @@ The four endpoint, bucket, access-key, and secret-key variables are required.
 `POI_SERVER_DUMP_R2_REGION` and `POI_SERVER_DUMP_R2_FORCE_PATH_STYLE` are optional and default to
 `auto` and `true`.
 
+Verify the complete credential and bucket lifecycle before enabling cron:
+
+```bash
+npm run db:dumps:r2-check
+```
+
+The preflight creates one unique temporary object under
+`healthchecks/poi-server/r2-connection/`, reads it back, verifies the exact bytes, and deletes it
+before returning success. It does not connect to PostgreSQL. A failure verifies that the configured
+endpoint, bucket, credentials, or Object Read & Write permissions need attention. If verification
+succeeds but deletion fails, the command fails and reports the temporary object key for manual
+cleanup.
+
 Publish a closed JST Dump Month:
 
 ```powershell
@@ -116,6 +129,29 @@ npm run db:dumps:publish -- 2026-07
 The command streams and verifies the target month's partition for every registered Observation
 dataset, uploads immutable data objects, then uploads the verified manifest as the publication commit
 point. It is safe to retry and never overwrites an existing object.
+
+The dedicated dump bucket uses one root-level folder per JST Dump Month:
+
+```text
+/
+├── legacy/
+├── healthchecks/
+└── 2026-07/
+    ├── manifest.json
+    ├── createShipObservations.jsonl.zst
+    ├── createItemObservations.jsonl.zst
+    ├── remodelItemObservations.jsonl.zst
+    ├── dropShipObservations.jsonl.zst
+    ├── passEventObservations.jsonl.zst
+    ├── battleApiObservations.jsonl.zst
+    ├── nightContactObservations.jsonl.zst
+    ├── aaciObservations.jsonl.zst
+    └── nightBattleCiObservations.jsonl.zst
+```
+
+Each Dump Month has one canonical immutable publication. Its `manifest.json` records the schema
+version, file keys, row counts, compressed sizes, and SHA-256 digests. Existing root-level and
+`legacy/` objects are not moved or deleted by the PostgreSQL publisher.
 
 After the seven-day grace period, clean one exact run ID:
 
