@@ -1,4 +1,5 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
+import Fastify from 'fastify'
 import { type Quest } from '../src/models'
 
 const sentryMocks = vi.hoisted(() => ({
@@ -37,8 +38,11 @@ vi.mock('../src/models', async () => {
 })
 
 import { createApp } from '../src/create-app'
+import { registerReportV2Routes } from '../src/controllers/api/report/v2.fastify'
+import { mongoV2Actions } from '../src/controllers/api/report/v2.mongo.actions'
 import { cloudflareCacheHeaders } from '../src/http/cache-control'
 import { toAppRequest } from '../src/http/fastify'
+import { ok } from '../src/http/result'
 
 describe('Fastify route adapters', () => {
   beforeEach(() => {
@@ -68,6 +72,7 @@ describe('Fastify route adapters', () => {
       method: 'PUT',
       url: '/api/status',
     })
+
     const statusBadgeResponse = await app.inject('/api/service-status-badge')
 
     await app.close()
@@ -77,6 +82,25 @@ describe('Fastify route adapters', () => {
     expect(statusBadgeResponse.statusCode).toBe(200)
     expect(statusBadgeResponse.headers['content-type']).toContain('image/svg+xml')
     expect(statusBadgeResponse.body).toContain('service')
+  })
+
+  test('routes reports through the supplied backend action set', async () => {
+    const createShip = vi.fn(async () => ok({ backend: 'test' }))
+    const app = Fastify({ logger: false })
+    await app.register(registerReportV2Routes, {
+      actions: { ...mongoV2Actions, createShip },
+    })
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: { data: {} },
+      url: '/create_ship',
+    })
+    await app.close()
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual({ backend: 'test' })
+    expect(createShip).toHaveBeenCalledOnce()
   })
 
   test('passes JSON bodies and headers to report handlers', async () => {

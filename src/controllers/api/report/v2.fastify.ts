@@ -1,28 +1,39 @@
 import { type FastifyPluginAsync } from 'fastify'
 
 import { sendResult, toAppRequest } from '../../../http/fastify'
-import {
-  aaci,
-  battleApi,
-  createItem,
-  createShip,
-  dropShip,
-  enemyInfo,
-  knownQuests,
-  knownRecipes,
-  nightBattleCi,
-  nightBattleSsCi,
-  nightContact,
-  passEvent,
-  questNoop,
-  remodelItem,
-  remodelRecipe,
-  remodelRecipeDeduplicate,
-  selectRank,
-  shipStat,
-} from './v2.handlers'
+import { mongoV2Actions } from './v2.mongo.actions'
 
-export const registerReportV2Routes: FastifyPluginAsync = async (app) => {
+export type ReportV2Actions = typeof mongoV2Actions
+
+interface ReportV2RouteOptions {
+  actions?: ReportV2Actions
+}
+
+export const registerReportV2Routes: FastifyPluginAsync<ReportV2RouteOptions> = async (
+  app,
+  options,
+) => {
+  const {
+    aaci,
+    battleApi,
+    createItem,
+    createShip,
+    dropShip,
+    enemyInfo,
+    knownQuests,
+    knownRecipes,
+    nightBattleCi,
+    nightBattleSsCi,
+    nightContact,
+    passEvent,
+    questNoop,
+    remodelItem,
+    remodelRecipe,
+    remodelRecipeDeduplicate,
+    selectRank,
+    shipStat,
+  } = options.actions || mongoV2Actions
+
   app.post('/create_ship', async (request, reply) =>
     sendResult(reply, await createShip(toAppRequest(request))),
   )

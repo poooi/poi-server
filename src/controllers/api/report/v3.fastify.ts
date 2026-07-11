@@ -1,17 +1,28 @@
 import { type FastifyPluginAsync } from 'fastify'
 
 import { sendResult, toAppRequest } from '../../../http/fastify'
-import {
-  itemImprovementRecipe,
-  itemImprovementRecipeAvailability,
-  itemImprovementRecipeCosts,
-  itemImprovementRecipeUpdates,
-  knownQuests,
-  quest,
-  questReward,
-} from './v3.handlers'
+import { mongoV3Actions } from './v3.mongo.actions'
 
-export const registerReportV3Routes: FastifyPluginAsync = async (app) => {
+export type ReportV3Actions = typeof mongoV3Actions
+
+interface ReportV3RouteOptions {
+  actions?: ReportV3Actions
+}
+
+export const registerReportV3Routes: FastifyPluginAsync<ReportV3RouteOptions> = async (
+  app,
+  options,
+) => {
+  const {
+    itemImprovementRecipe,
+    itemImprovementRecipeAvailability,
+    itemImprovementRecipeCosts,
+    itemImprovementRecipeUpdates,
+    knownQuests,
+    quest,
+    questReward,
+  } = options.actions || mongoV3Actions
+
   app.post('/item_improvement_recipe', async (request, reply) =>
     sendResult(reply, await itemImprovementRecipe(toAppRequest(request))),
   )

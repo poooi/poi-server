@@ -1,13 +1,28 @@
 import mongoose from 'mongoose'
-import semver from 'semver'
 import { flatMap, drop } from 'lodash'
 
+import {
+  aaciReportSchema,
+  battleApiReportSchema,
+  createItemReportSchema,
+  createShipReportSchema,
+  dropShipReportSchema,
+  enemyInfoReportSchema,
+  nightBattleCiReportSchema,
+  nightContactReportSchema,
+  passEventReportSchema,
+  recipeReportSchema,
+  remodelItemReportSchema,
+  selectRankReportSchema,
+  shipStatReportSchema,
+} from '../../../contracts/v2-report'
+import { type ReportPayloadSchema } from '../../../contracts/report-validation'
 import { withCloudflareCache } from '../../../http/cache-control'
 import { type AppRequest } from '../../../http/request'
 import { internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
 import { DropShipRecord, SelectRankRecord } from '../../../models'
-import { handleReportError, parseReportInfo } from './shared'
+import { handleReportError, parseReportInfo, resolveAaciPersistence } from './shared'
 
 const CreateShipRecord = mongoose.model('CreateShipRecord')
 const CreateItemRecord = mongoose.model('CreateItemRecord')
@@ -25,9 +40,10 @@ const EnemyInfo = mongoose.model('EnemyInfo')
 const saveReportRecord = async (
   request: AppRequest,
   createRecord: (info: Record<string, any>) => { save: () => Promise<unknown> },
+  schema: ReportPayloadSchema,
 ): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = parseReportInfo(request, schema)
     await createRecord(info).save()
     return ok()
   } catch (err) {
@@ -36,17 +52,17 @@ const saveReportRecord = async (
 }
 
 export const createShip = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new CreateShipRecord(info))
+  saveReportRecord(request, (info) => new CreateShipRecord(info), createShipReportSchema)
 
 export const createItem = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new CreateItemRecord(info))
+  saveReportRecord(request, (info) => new CreateItemRecord(info), createItemReportSchema)
 
 export const remodelItem = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new RemodelItemRecord(info))
+  saveReportRecord(request, (info) => new RemodelItemRecord(info), remodelItemReportSchema)
 
 export const dropShip = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = parseReportInfo(request, dropShipReportSchema)
     const record = new DropShipRecord(info)
     if (record.mapId < 73) {
       record.ownedShipSnapshot = {}
@@ -60,7 +76,7 @@ export const dropShip = async (request: AppRequest): Promise<AppResult> => {
 
 export const selectRank = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = parseReportInfo(request, selectRankReportSchema)
     let record = await SelectRankRecord.findOne({
       teitokuId: info.teitokuId,
       mapareaId: info.mapareaId,
@@ -80,7 +96,7 @@ export const selectRank = async (request: AppRequest): Promise<AppResult> => {
 }
 
 export const passEvent = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new PassEventRecord(info))
+  saveReportRecord(request, (info) => new PassEventRecord(info), passEventReportSchema)
 
 export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
   try {
@@ -96,19 +112,15 @@ export const knownQuests = async (request: AppRequest): Promise<AppResult> => {
 export const questNoop = async (): Promise<AppResult> => ok()
 
 export const battleApi = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new BattleAPI(info))
+  saveReportRecord(request, (info) => new BattleAPI(info), battleApiReportSchema)
 
 export const nightContact = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new NightContactRecord(info))
+  saveReportRecord(request, (info) => new NightContactRecord(info), nightContactReportSchema)
 
 export const aaci = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
-    if (
-      semver.gt(info.poiVersion, '7.9.1') &&
-      info.origin.startsWith('Reporter ') &&
-      semver.gte(info.origin.replace('Reporter ', ''), '3.6.0')
-    ) {
+    const info = parseReportInfo(request, aaciReportSchema)
+    if (resolveAaciPersistence(request, info.poiVersion, info.origin)) {
       const record = new AACIRecord(info)
       await record.save()
     }
@@ -122,7 +134,7 @@ export const knownRecipes = async (): Promise<AppResult> => ok({ recipes: [] })
 
 export const remodelRecipe = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = parseReportInfo(request, recipeReportSchema)
     if (info.stage != -1) {
       const lastReported = +new Date()
       const { recipeId, itemId, stage, day, secretary } = info
@@ -158,13 +170,16 @@ export const remodelRecipeDeduplicate = async (request: AppRequest): Promise<App
 }
 
 export const nightBattleCi = (request: AppRequest) =>
-  saveReportRecord(request, (info) => new NightBattleCI(info))
+  saveReportRecord(request, (info) => new NightBattleCI(info), nightBattleCiReportSchema)
 
 export const nightBattleSsCi = async (): Promise<AppResult> => ok()
 
 export const shipStat = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseReportInfo(request)
+    const { id, lv, los, los_max, asw, asw_max, evasion, evasion_max } = parseReportInfo(
+      request,
+      shipStatReportSchema,
+    )
     const last_timestamp = +new Date()
     await ShipStat.updateOne(
       {
@@ -201,7 +216,7 @@ export const shipStat = async (request: AppRequest): Promise<AppResult> => {
 
 export const enemyInfo = async (request: AppRequest): Promise<AppResult> => {
   try {
-    const info = parseReportInfo(request)
+    const info = parseReportInfo(request, enemyInfoReportSchema)
     const {
       ships1,
       levels1,
@@ -255,4 +270,25 @@ export const enemyInfo = async (request: AppRequest): Promise<AppResult> => {
   } catch (err) {
     return handleReportError(err, request)
   }
+}
+
+export const mongoV2Actions = {
+  aaci,
+  battleApi,
+  createItem,
+  createShip,
+  dropShip,
+  enemyInfo,
+  knownQuests,
+  knownRecipes,
+  nightBattleCi,
+  nightBattleSsCi,
+  nightContact,
+  passEvent,
+  questNoop,
+  remodelItem,
+  remodelRecipe,
+  remodelRecipeDeduplicate,
+  selectRank,
+  shipStat,
 }

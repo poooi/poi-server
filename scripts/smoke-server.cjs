@@ -28,7 +28,11 @@ const getStatus = async () => {
     throw new Error(`Unexpected ${response.status} from /api/status`)
   }
   const body = await response.json()
-  if (!body || !body.mongo || typeof body.mongo.Quest !== 'number') {
+  if (
+    !body ||
+    !body.database ||
+    typeof body.database.estimatedCounts?.questDefinitions !== 'number'
+  ) {
     throw new Error('Unexpected /api/status payload')
   }
   return body
@@ -99,11 +103,13 @@ process.on('SIGTERM', () => {
 
 waitForStatus()
   .then(async (initialStatus) => {
-    const initialQuestCount = initialStatus.mongo.Quest
+    const initialQuestCount = initialStatus.database.estimatedCounts.questDefinitions
     await postQuest()
     await waitFor(async () => {
       const status = await getStatus()
-      return status.mongo.Quest > initialQuestCount ? status : undefined
+      return status.database.estimatedCounts.questDefinitions > initialQuestCount
+        ? status
+        : undefined
     }, 30000)
     cleanup()
   })

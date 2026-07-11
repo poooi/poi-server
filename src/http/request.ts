@@ -3,6 +3,9 @@ import { type IncomingHttpHeaders } from 'http'
 export interface AppRequest {
   body: unknown
   headers: IncomingHttpHeaders
+  log: {
+    warn: (data: Record<string, unknown>, message: string) => void
+  }
   method: string
   params: Record<string, string | undefined>
   path: string

@@ -148,6 +148,7 @@ describe('sentry tracing hooks', () => {
         cookie: 'session=secret',
         'x-reporter': 'Reporter/8.1.0',
       },
+      log: { warn: vi.fn() },
       method: 'POST',
       params: {},
       path: '/api/report/v3/quest',

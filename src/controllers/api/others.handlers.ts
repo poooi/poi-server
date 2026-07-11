@@ -1,42 +1,26 @@
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
-import mongoose from 'mongoose'
 import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
+import { type DatabaseStatus } from '../../contracts/database'
 import { ok, type AppResult } from '../../http/result'
+import { getMongoDatabaseStatus } from './others.mongo.status'
 
-const CreateShipRecord = mongoose.model('CreateShipRecord')
-const CreateItemRecord = mongoose.model('CreateItemRecord')
-const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord = mongoose.model('DropShipRecord')
-const SelectRankRecord = mongoose.model('SelectRankRecord')
-const PassEventRecord = mongoose.model('PassEventRecord')
-const Quest = mongoose.model('Quest')
-const BattleAPI = mongoose.model('BattleAPI')
-const AACIRecord = mongoose.model('AACIRecord')
-const NightContactRecord = mongoose.model('NightContactRecord')
+export const createGetStatus =
+  (getDatabaseStatus: () => Promise<DatabaseStatus> = getMongoDatabaseStatus) =>
+  async (): Promise<AppResult> => {
+    const dsk = await df()
+    const database = await getDatabaseStatus()
+    return ok({
+      env: process.env.NODE_ENV,
+      disk: dsk.filter((e) => e.mountpoint == '/'),
+      database,
+    })
+  }
 
-export const getStatus = async (): Promise<AppResult> => {
-  const dsk = await df()
-  return ok({
-    env: process.env.NODE_ENV,
-    disk: dsk.filter((e) => e.mountpoint == '/'),
-    mongo: {
-      CreateShipRecord: await CreateShipRecord.count().exec(),
-      CreateItemRecord: await CreateItemRecord.count().exec(),
-      RemodelItemRecord: await RemodelItemRecord.count().exec(),
-      DropShipRecord: await DropShipRecord.count().exec(),
-      SelectRankRecord: await SelectRankRecord.count().exec(),
-      PassEventRecord: await PassEventRecord.count().exec(),
-      Quest: await Quest.count().exec(),
-      BattleAPI: await BattleAPI.count().exec(),
-      AACIRecord: await AACIRecord.count().exec(),
-      NightContactRecord: await NightContactRecord.count().exec(),
-    },
-  })
-}
+export const getStatus = createGetStatus()
 
 export const runGithubMasterHook = async (): Promise<AppResult> => {
   const update = childProcess.spawn(path.resolve(config.root, '../github-master-hook'), [])

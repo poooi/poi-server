@@ -4,6 +4,11 @@ import mongoose from 'mongoose'
 import { type Server } from 'http'
 
 import { createApp } from './create-app'
+import { createPostgresDatabaseStatus } from './controllers/api/others.postgres.status'
+import { createPostgresV2Actions } from './controllers/api/report/v2.postgres.actions'
+import { createPostgresV3Actions } from './controllers/api/report/v3.postgres.actions'
+import { redactDatabaseUrl, resolveDatabaseBackend } from './db/backend'
+import { connectPostgres } from './db/postgres/client'
 
 interface StartServerOptions {
   db: string
@@ -18,9 +23,6 @@ interface StartedServer {
   close: () => Promise<void>
 }
 
-const redactMongoCredentials = (message: string) =>
-  message.replace(/(mongodb(?:\+srv)?:\/\/)([^:@/?#]+):([^@/?#]+)@/g, '$1<redacted>@')
-
 const getErrorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
 export const loadLatestCommit = () => {
@@ -33,7 +35,7 @@ export const loadLatestCommit = () => {
   })
 }
 
-export const connectDatabase = async (db: string) => {
+export const connectMongo = async (db: string) => {
   try {
     await mongoose.connect(db, {
       useNewUrlParser: true,
@@ -42,8 +44,63 @@ export const connectDatabase = async (db: string) => {
     })
   } catch (err) {
     throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
+      `Unable to connect to database: ${redactDatabaseUrl(db)}: ${getErrorMessage(err)}`,
     )
+  }
+}
+
+const startMongoServer = async ({
+  db,
+  disableLogger,
+  host,
+  port,
+}: Omit<StartServerOptions, 'loadLatestCommit'>): Promise<StartedServer> => {
+  await connectMongo(db)
+
+  mongoose.connection.on('error', (err: Error) => {
+    throw new Error(
+      `Unable to connect to database: ${redactDatabaseUrl(db)}: ${getErrorMessage(err)}`,
+    )
+  })
+
+  const app = createApp({ disableLogger })
+  await app.listen({ host, port })
+
+  return {
+    server: app.server,
+    close: () => app.close(),
+  }
+}
+
+const startPostgresServer = async ({
+  db,
+  disableLogger,
+  host,
+  port,
+}: Omit<StartServerOptions, 'loadLatestCommit'>): Promise<StartedServer> => {
+  // connectPostgres never auto-migrates; it only verifies the schema version and
+  // reads the single Data Epoch row, throwing if either check fails.
+  const postgres = await connectPostgres(db)
+
+  const app = createApp({
+    disableLogger,
+    getDatabaseStatus: createPostgresDatabaseStatus(postgres.db, postgres.epoch),
+    reportV2Actions: createPostgresV2Actions(postgres.db),
+    reportV3Actions: createPostgresV3Actions(postgres.db, postgres.epoch),
+  })
+  try {
+    await app.listen({ host, port })
+  } catch (error) {
+    await postgres.pool.end()
+    throw error
+  }
+
+  return {
+    server: app.server,
+    close: async () => {
+      await app.close()
+      await postgres.pool.end()
+    },
   }
 }
 
@@ -54,24 +111,15 @@ export const startServer = async ({
   loadLatestCommit: shouldLoadLatestCommit,
   port,
 }: StartServerOptions): Promise<StartedServer> => {
-  await connectDatabase(db)
-
-  mongoose.connection.on('error', (err: Error) => {
-    throw new Error(
-      `Unable to connect to database: ${redactMongoCredentials(getErrorMessage(err))}`,
-    )
-  })
-
-  const app = createApp({ disableLogger })
-  await app.listen({ host, port })
-  const server: Server = app.server
+  const backend = resolveDatabaseBackend(db)
+  const started =
+    backend === 'postgresql'
+      ? await startPostgresServer({ db, disableLogger, host, port })
+      : await startMongoServer({ db, disableLogger, host, port })
 
   if (shouldLoadLatestCommit) {
     loadLatestCommit()
   }
 
-  return {
-    server,
-    close: () => app.close(),
-  }
+  return started
 }

@@ -2,6 +2,8 @@ import path from 'path'
 const rootPath = path.normalize(__dirname)
 import { defaults } from 'lodash'
 
+import { resolveDatabaseUrl } from './db/backend'
+
 interface EnvConfig {
   root: string
   port: number
@@ -28,7 +30,7 @@ const parseEnvInt = (value: string | undefined) => {
 export const config: Readonly<EnvConfig> = defaults<Partial<EnvConfig>, EnvConfig>(
   {
     port: parseEnvInt(process.env.POI_SERVER_PORT),
-    db: process.env.POI_SERVER_DB,
+    db: resolveDatabaseUrl(process.env),
     env: process.env.NODE_ENV,
     disableLogger: parseEnvInt(process.env.POI_SERVER_DISABLE_LOGGER),
     logLevel: process.env.POI_SERVER_LOG_LEVEL,

@@ -6,12 +6,12 @@ import {
   ItemImprovementRecipeUpdateFact,
   Quest,
 } from '../src/models'
-import { createShip } from '../src/controllers/api/report/v2.handlers'
+import { createShip } from '../src/controllers/api/report/v2.mongo.actions'
 import {
   itemImprovementRecipe,
   itemImprovementRecipeAvailability,
   quest,
-} from '../src/controllers/api/report/v3.handlers'
+} from '../src/controllers/api/report/v3.mongo.actions'
 import { type AppRequest } from '../src/http/request'
 import { type AppResult } from '../src/http/result'
 
@@ -44,6 +44,7 @@ const createRequest = (
 ): AppRequest => ({
   body,
   headers,
+  log: { warn: vi.fn() },
   method: 'POST',
   params: {},
   path: '',
@@ -80,6 +81,7 @@ const invokeAvailabilityExport = async (query: Record<string, string | undefined
   return itemImprovementRecipeAvailability({
     body: { data: {} },
     headers: {},
+    log: { warn: vi.fn() },
     method: 'GET',
     params: {},
     path,
@@ -410,6 +412,10 @@ describe('item improvement recipe v3 facts', () => {
     expect(chain.sort).toHaveBeenCalledWith({ lastReported: 1, _id: 1 })
     expect(chain.limit).toHaveBeenCalledWith(1000)
     expect(ctx.body).toEqual({
+      epoch: {
+        id: 'legacy-mongodb',
+        startedAt: null,
+      },
       records: [
         {
           _id: firstId,
