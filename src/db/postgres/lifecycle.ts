@@ -1,4 +1,4 @@
-export const EXPECTED_POSTGRES_SCHEMA_VERSION = 2
+export const EXPECTED_POSTGRES_SCHEMA_VERSION = 3
 
 export interface PostgresQueryClient {
   query: (

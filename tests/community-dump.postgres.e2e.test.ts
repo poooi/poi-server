@@ -439,12 +439,11 @@ const ingestedAtFor = (dumpMonth: string): Date => {
 }
 
 /**
- * Clears every `data_dump_files`/`data_dump_runs` row for this exact `(dumpMonth,
- * schemaVersion)` natural key (FK-safe order), drops any monthly/pending partition artifact for
- * all nine Observation parents for `dumpMonth`, and clears any stray DEFAULT-partition rows for
- * the same month. Called both before and after every test so a prior interrupted run can never
- * leak into the next one, and so this suite never leaves state behind afterward. Never touches
- * `schema_metadata`.
+ * Clears the canonical `data_dump_files`/`data_dump_runs` row for this Dump Month and current schema
+ * version (FK-safe order), drops any monthly/pending partition artifact for every registered
+ * Observation parent, and clears any stray DEFAULT-partition rows for the same month. Called both
+ * before and after every test so a prior interrupted run can never leak into the next one, and so
+ * this suite never leaves state behind afterward. Never touches `schema_metadata`.
  */
 const resetDumpMonthArtifacts = async (dumpMonth: string): Promise<void> => {
   const parts = parseDumpMonth(dumpMonth)

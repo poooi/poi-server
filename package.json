@@ -16,6 +16,8 @@
     "db:partitions:repair": "tsx scripts/postgres-repair-monthly-partition.ts",
     "db:dumps:publish": "tsx scripts/postgres-dump-publish.ts",
     "db:dumps:cleanup": "tsx scripts/postgres-dump-cleanup.ts",
+    "db:dumps:maintain": "tsx scripts/postgres-dump-maintain.ts",
+    "db:dumps:r2-check": "tsx scripts/r2-connection-check.ts",
     "build": "npm run type-check && node --check scripts/smoke-server.cjs",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",

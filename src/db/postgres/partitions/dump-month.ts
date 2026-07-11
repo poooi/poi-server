@@ -26,7 +26,13 @@ export interface DumpMonthBoundsUtc {
   readonly upperBoundUtc: Date
 }
 
+export interface AdjacentJstDumpMonths {
+  readonly previous: string
+  readonly next: string
+}
+
 const dumpMonthPattern = /^([0-9]{4})-(0[1-9]|1[0-2])$/
+const jstOffsetMilliseconds = 9 * 60 * 60 * 1000
 
 export const parseDumpMonth = (value: string): DumpMonthParts => {
   const match = dumpMonthPattern.exec(value)
@@ -52,6 +58,26 @@ export const computeDumpMonthBoundsUtc = (parts: DumpMonthParts): DumpMonthBound
   return {
     lowerBoundUtc: boundary(monthIndex0),
     upperBoundUtc: boundary(monthIndex0 + 1),
+  }
+}
+
+const formatNormalizedDumpMonth = (year: number, monthIndex0: number): string => {
+  const normalized = new Date(0)
+  normalized.setUTCHours(0, 0, 0, 0)
+  normalized.setUTCFullYear(year, monthIndex0, 1)
+  return `${normalized.getUTCFullYear()}-${String(normalized.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+export const deriveAdjacentJstDumpMonths = (now: Date): AdjacentJstDumpMonths => {
+  if (Number.isNaN(now.getTime())) {
+    throw new PartitionMaintenanceError('Cannot derive Dump Months from an invalid date')
+  }
+  const jstNow = new Date(now.getTime() + jstOffsetMilliseconds)
+  const year = jstNow.getUTCFullYear()
+  const monthIndex0 = jstNow.getUTCMonth()
+  return {
+    previous: formatNormalizedDumpMonth(year, monthIndex0 - 1),
+    next: formatNormalizedDumpMonth(year, monthIndex0 + 1),
   }
 }
 

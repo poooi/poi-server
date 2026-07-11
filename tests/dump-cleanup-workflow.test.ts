@@ -7,6 +7,7 @@ import {
   CommunityDumpPreconditionError,
   CommunityDumpVerificationMismatchError,
 } from '../src/db/postgres/dumps/errors'
+import { EXPECTED_POSTGRES_SCHEMA_VERSION } from '../src/db/postgres/lifecycle'
 import {
   type PartitionPool,
   type PartitionQueryResult,
@@ -256,7 +257,7 @@ const createFakeCleanupDatabase = (
   clients: Array<{ release: ReturnType<typeof vi.fn> }>
 } => {
   const database: FakeDatabase = {
-    schemaVersion: 2,
+    schemaVersion: EXPECTED_POSTGRES_SCHEMA_VERSION,
     run: options.run === undefined ? buildHappyRun() : options.run,
     files: options.files ?? buildHappyFiles(),
     now: options.now ?? cleanupEligibleAt,
@@ -421,7 +422,7 @@ describe('cleanupDumpRun', () => {
 
   test('rejects a run whose manifest object key is not the deterministic key for its month', async () => {
     const { pool } = createFakeCleanupDatabase({
-      run: buildHappyRun({ manifestObjectKey: 'months/wrong/manifest.json' }),
+      run: buildHappyRun({ manifestObjectKey: 'wrong/manifest.json' }),
     })
 
     await expect(cleanupDumpRun(pool, buildHappyObjectStore(), runId)).rejects.toThrow(
@@ -511,7 +512,7 @@ describe('cleanupDumpRun', () => {
 
   test('rejects when a data_dump_files row has the wrong immutable object key', async () => {
     const files = buildHappyFiles()
-    files[0] = { ...files[0], objectKey: 'months/2024-01/v1/wrong.jsonl.zst' }
+    files[0] = { ...files[0], objectKey: '2024-01/wrong.jsonl.zst' }
     const { pool } = createFakeCleanupDatabase({ files })
     const objectStore = buildHappyObjectStore()
 

@@ -392,7 +392,8 @@ Schema conventions:
 | `created_at` | `timestamptz` | Not null, default `clock_timestamp()`. |
 | `updated_at` | `timestamptz` | Not null, default `clock_timestamp()` and updated on each state transition. |
 
-Add a unique constraint on `(dump_month, schema_version)`.
+Add a unique constraint on `dump_month`. Each Dump Month has one canonical immutable publication;
+`schema_version` records its manifest/data format rather than creating a second publication identity.
 
 `data_dump_files`:
 
@@ -621,8 +622,8 @@ Dump policy:
 Use object keys:
 
 ```text
-months/{YYYY-MM}/v{schemaVersion}/{dataset}.jsonl.zst
-months/{YYYY-MM}/v{schemaVersion}/manifest.json
+{YYYY-MM}/{dataset}.jsonl.zst
+{YYYY-MM}/manifest.json
 ```
 
 Manifest schema version 1:

@@ -201,29 +201,50 @@ const dumpMonthDateLiteral = (parts: DumpMonthParts): string =>
   `${parts.year.toString().padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-01`
 
 /**
- * Finds or creates the one `data_dump_runs` row for `(dumpMonth, schemaVersion)`
- * (plan lines 736-739, 761-762: "Persist/resume one unique data_dump_runs row"). A fresh row
- * starts at `status = 'pending'`; resuming an existing row leaves every already-persisted column
- * untouched (only `updated_at` moves), so a retry continues from wherever the previous attempt
- * left off instead of losing its progress.
+ * Finds or creates the one canonical `data_dump_runs` row for a Dump Month. A fresh row starts at
+ * `status = 'pending'`; resuming an existing row leaves every already-persisted column untouched
+ * (only `updated_at` moves), so a retry continues from wherever the previous attempt left off
+ * instead of losing its progress. A different schema version for an already-reserved month is
+ * rejected: object keys are immutable and intentionally identify one canonical publication per
+ * Dump Month, while the manifest records which schema that publication uses.
  */
 export const findOrCreateDumpRun = async (
   client: PartitionQueryClient,
   input: FindOrCreateDumpRunInput,
 ): Promise<DumpRunRow> => {
+  const dumpMonthLiteral = dumpMonthDateLiteral(input.dumpMonth)
   const result = await client.query(
     `
 insert into data_dump_runs (dump_month, schema_version, status)
 values ($1, $2, 'pending')
-on conflict (dump_month, schema_version)
+on conflict (dump_month)
 do update set updated_at = clock_timestamp()
+where data_dump_runs.schema_version = excluded.schema_version
 returning ${dumpRunColumns}
 `.trim(),
-    [dumpMonthDateLiteral(input.dumpMonth), input.schemaVersion],
+    [dumpMonthLiteral, input.schemaVersion],
   )
-  return mapDumpRunRow(
-    singleRowOrThrow(result.rows, 'findOrCreateDumpRun: insert...on conflict returned no row'),
-  )
+
+  const [runRow] = result.rows
+  if (!runRow) {
+    const existingResult = await client.query(
+      `select schema_version from data_dump_runs where dump_month = $1`,
+      [dumpMonthLiteral],
+    )
+    const existingRow = singleRowOrThrow(
+      existingResult.rows,
+      'findOrCreateDumpRun: conflicting Dump Month row disappeared',
+    )
+    const existingSchemaVersion = encodeNonNegativeSafeInteger(
+      existingRow.schema_version,
+      'data_dump_runs.schema_version',
+    )
+    throw new CommunityDumpWorkflowError(
+      `Dump Month ${input.dumpMonth.text} is already reserved with schema version ${existingSchemaVersion}; ` +
+        `refusing requested schema version ${input.schemaVersion}`,
+    )
+  }
+  return mapDumpRunRow(runRow)
 }
 
 /** Loads one `data_dump_runs` row by its exact id, or `null` if it does not exist. */
@@ -236,6 +257,26 @@ export const loadDumpRunById = async (
   ])
   const [row] = result.rows
   return row ? mapDumpRunRow(row) : null
+}
+
+/**
+ * Lists only runs whose database-clock grace period has elapsed. The maintenance command still
+ * sends each exact id through cleanupDumpRun, which re-verifies eligibility and all destructive
+ * preconditions under its own locks before dropping anything.
+ */
+export const listCleanupEligibleDumpRuns = async (
+  client: PartitionQueryClient,
+): Promise<readonly DumpRunRow[]> => {
+  const result = await client.query(
+    `
+select ${dumpRunColumns}
+from data_dump_runs
+where status in ('published', 'cleanup_eligible')
+  and cleanup_eligible_at <= clock_timestamp()
+order by cleanup_eligible_at, id
+`.trim(),
+  )
+  return result.rows.map(mapDumpRunRow)
 }
 
 /**

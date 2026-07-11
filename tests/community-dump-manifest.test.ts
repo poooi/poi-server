@@ -18,7 +18,7 @@ const makeFile = (
   overrides: Partial<CommunityDumpManifestFileInput> = {},
 ): CommunityDumpManifestFileInput => ({
   dataset,
-  objectKey: `months/2024-01/v1/${dataset}.jsonl.zst`,
+  objectKey: `2024-01/${dataset}.jsonl.zst`,
   rowCount: 10,
   compressedBytes: 1024,
   sha256: sha256Hex,
@@ -69,7 +69,7 @@ describe('serializeCommunityDumpManifestV1', () => {
     const createShip = manifest.files.find((file) => file.dataset === 'createShipObservations')
     expect(createShip).toEqual({
       dataset: 'createShipObservations',
-      objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
+      objectKey: '2024-01/createShipObservations.jsonl.zst',
       rowCount: '9007199254740991',
       compressedBytes: '2048',
       sha256: sha256Hex,
@@ -293,7 +293,7 @@ describe('parseCommunityDumpManifestV1', () => {
 
   const validRawFile = {
     dataset: 'createShipObservations',
-    objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
+    objectKey: '2024-01/createShipObservations.jsonl.zst',
     rowCount: 10,
     compressedBytes: 1024,
     sha256: sha256Hex,

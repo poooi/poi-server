@@ -2,30 +2,25 @@ import { describe, expect, test } from 'vitest'
 
 import { CommunityDumpError } from '../src/dumps/community-dump-errors'
 import {
-  communityDumpDataObjectSchemaVersion,
   deriveCommunityDumpDataObjectKey,
   deriveCommunityDumpManifestObjectKey,
 } from '../src/dumps/community-dump-object-keys'
 import { communityDumpDatasetNames } from '../src/dumps/community-dump-registry'
 
 /**
- * Deterministic Community Dump v1 object key derivation
+ * Deterministic Community Dump object key derivation
  * (docs/postgresql-migration-plan.md lines 646-651):
- *   months/{YYYY-MM}/v{schemaVersion}/{dataset}.jsonl.zst
- *   months/{YYYY-MM}/v{schemaVersion}/manifest.json
+ *   {YYYY-MM}/{dataset}.jsonl.zst
+ *   {YYYY-MM}/manifest.json
  */
 
 describe('deriveCommunityDumpDataObjectKey', () => {
-  test('builds the exact key layout for every one of the nine datasets', () => {
+  test('builds the exact key layout for every registered dataset', () => {
     for (const dataset of communityDumpDatasetNames) {
       expect(deriveCommunityDumpDataObjectKey('2024-01', dataset)).toBe(
-        `months/2024-01/v1/${dataset}.jsonl.zst`,
+        `2024-01/${dataset}.jsonl.zst`,
       )
     }
-  })
-
-  test('schema version constant is 1 and is embedded as "v1"', () => {
-    expect(communityDumpDataObjectSchemaVersion).toBe(1)
   })
 
   test.each([
@@ -44,7 +39,7 @@ describe('deriveCommunityDumpDataObjectKey', () => {
 
 describe('deriveCommunityDumpManifestObjectKey', () => {
   test('builds the exact manifest key layout', () => {
-    expect(deriveCommunityDumpManifestObjectKey('2024-01')).toBe(`months/2024-01/v1/manifest.json`)
+    expect(deriveCommunityDumpManifestObjectKey('2024-01')).toBe(`2024-01/manifest.json`)
   })
 
   test('rejects an invalid dumpMonth', () => {
