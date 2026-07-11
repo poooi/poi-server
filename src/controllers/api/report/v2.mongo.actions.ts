@@ -284,3 +284,24 @@ export const enemyInfo = async (request: AppRequest): Promise<AppResult> => {
     return handleReportError(err, request)
   }
 }
+
+export const mongoV2Actions = {
+  aaci,
+  battleApi,
+  createItem,
+  createShip,
+  dropShip,
+  enemyInfo,
+  knownQuests,
+  knownRecipes,
+  nightBattleCi,
+  nightBattleSsCi,
+  nightContact,
+  passEvent,
+  questNoop,
+  remodelItem,
+  remodelRecipe,
+  remodelRecipeDeduplicate,
+  selectRank,
+  shipStat,
+}

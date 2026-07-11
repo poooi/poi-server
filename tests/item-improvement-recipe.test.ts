@@ -6,12 +6,12 @@ import {
   ItemImprovementRecipeUpdateFact,
   Quest,
 } from '../src/models'
-import { createShip } from '../src/controllers/api/report/v2.handlers'
+import { createShip } from '../src/controllers/api/report/v2.mongo.actions'
 import {
   itemImprovementRecipe,
   itemImprovementRecipeAvailability,
   quest,
-} from '../src/controllers/api/report/v3.handlers'
+} from '../src/controllers/api/report/v3.mongo.actions'
 import { type AppRequest } from '../src/http/request'
 import { type AppResult } from '../src/http/result'
 

@@ -767,3 +767,13 @@ export const questReward = async (request: AppRequest): Promise<AppResult> => {
     return handleReportError(err, request)
   }
 }
+
+export const mongoV3Actions = {
+  itemImprovementRecipe,
+  itemImprovementRecipeAvailability,
+  itemImprovementRecipeCosts,
+  itemImprovementRecipeUpdates,
+  knownQuests,
+  quest,
+  questReward,
+}
