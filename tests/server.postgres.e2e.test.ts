@@ -52,6 +52,27 @@ import { type AddressInfo } from 'net'
 import { Pool } from 'pg'
 
 import { estimatedCountsSchema, type DataEpoch } from '../src/contracts/database'
+import {
+  createUpcomingMonthPartitions,
+  type CreateUpcomingMonthPartitionOutcome,
+} from '../src/db/postgres/partitions/create-upcoming-month'
+import {
+  inspectPartitionCatalog,
+  assertExactMonthlyPartitionBounds,
+} from '../src/db/postgres/partitions/catalog'
+import {
+  computeDumpMonthBoundsUtc,
+  deriveDefaultPartitionName,
+  deriveMonthlyPartitionName,
+  derivePendingPartitionName,
+  parseDumpMonth,
+} from '../src/db/postgres/partitions/dump-month'
+import {
+  PartitionCatalogMismatchError,
+  PartitionMaintenanceError,
+} from '../src/db/postgres/partitions/errors'
+import { observationParentTables } from '../src/db/postgres/partitions/observation-tables'
+import { repairMonthlyPartition } from '../src/db/postgres/partitions/repair-monthly-partition'
 import { startServer } from '../src/server'
 
 const postgresE2eUrl = process.env.POI_SERVER_POSTGRES_E2E_URL ?? ''
@@ -1304,6 +1325,283 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
       await started.close()
 
       await expect(fetch(`${ephemeralBaseUrl}/api/status`)).rejects.toThrow()
+    })
+  })
+
+  // Community Dump monthly partition maintenance/repair seam
+  // (docs/postgresql-migration-plan.md lines 713-739). These tests exercise the real
+  // create-upcoming-month and repair commands against a real PostgreSQL 18 catalog, using
+  // `verificationPool` directly as the `PartitionPool` (a real `pg.Pool` satisfies that
+  // interface structurally, with no adapter/cast needed). Every Dump Month used here is far in
+  // the future so it can never collide with a real Data Epoch or with any other test in this
+  // file, and every partition/pending table this suite creates is dropped before and after each
+  // test so the suite is safe to rerun any number of times against a persistent e2e database.
+  describe('Community Dump monthly partition maintenance/repair', () => {
+    const cleanDumpMonth = '2099-01'
+    const repairDumpMonth = '2099-02'
+    const mismatchDumpMonth = '2099-03'
+    const mismatchTable = 'drop_ship_records'
+
+    const dropPartitionArtifacts = async (table: string, dumpMonth: string): Promise<void> => {
+      const parts = parseDumpMonth(dumpMonth)
+      const partitionName = deriveMonthlyPartitionName(table, parts)
+      const pendingName = derivePendingPartitionName(table, parts)
+      await verificationPool.query(`drop table if exists "${partitionName}"`)
+      await verificationPool.query(`drop table if exists "${pendingName}"`)
+    }
+
+    const dropAllPartitionArtifacts = async (dumpMonth: string): Promise<void> => {
+      for (const table of observationParentTables) {
+        await dropPartitionArtifacts(table, dumpMonth)
+      }
+    }
+
+    beforeEach(async () => {
+      await dropAllPartitionArtifacts(cleanDumpMonth)
+      await dropAllPartitionArtifacts(repairDumpMonth)
+      await dropPartitionArtifacts(mismatchTable, mismatchDumpMonth)
+    })
+
+    afterAll(async () => {
+      await dropAllPartitionArtifacts(cleanDumpMonth)
+      await dropAllPartitionArtifacts(repairDumpMonth)
+      await dropPartitionArtifacts(mismatchTable, mismatchDumpMonth)
+    })
+
+    test('creates an exact RANGE partition for all nine Observation parents and is idempotent on rerun', async () => {
+      const outcomes = await createUpcomingMonthPartitions(verificationPool, cleanDumpMonth)
+
+      expect(
+        outcomes
+          .map((outcome) => outcome.table)
+          .slice()
+          .sort(),
+      ).toEqual(observationParentTables.slice().sort())
+      expect(
+        outcomes.every(
+          (outcome: CreateUpcomingMonthPartitionOutcome) => outcome.action === 'created',
+        ),
+      ).toBe(true)
+
+      const parts = parseDumpMonth(cleanDumpMonth)
+      const { lowerBoundUtc, upperBoundUtc } = computeDumpMonthBoundsUtc(parts)
+      for (const table of observationParentTables) {
+        const partitionName = deriveMonthlyPartitionName(table, parts)
+        const info = await inspectPartitionCatalog(verificationPool, partitionName)
+        // Proves, against the real catalog, that the created relation is directly attached to
+        // its expected parent with exactly the expected JST-month UTC bounds.
+        expect(() =>
+          assertExactMonthlyPartitionBounds(partitionName, info, {
+            parentTable: table,
+            lowerBoundUtc,
+            upperBoundUtc,
+          }),
+        ).not.toThrow()
+      }
+
+      // A row inserted afterwards routes directly to the new partition, not the DEFAULT.
+      const shipPartitionName = deriveMonthlyPartitionName('create_ship_records', parts)
+      await verificationPool.query(
+        'insert into "create_ship_records" (ingested_at, ship_id) values ($1, $2)',
+        [lowerBoundUtc, 4242],
+      )
+      const partitionRows = await verificationPool.query(
+        `select count(*)::text as count from only "${shipPartitionName}"`,
+      )
+      expect(partitionRows.rows[0].count).toBe('1')
+      const defaultRows = await verificationPool.query(
+        'select count(*)::text as count from only "create_ship_records_default" where ingested_at >= $1 and ingested_at < $2',
+        [lowerBoundUtc, upperBoundUtc],
+      )
+      expect(defaultRows.rows[0].count).toBe('0')
+
+      // Rerunning is a safe no-op: every table already has its exact partition.
+      const rerunOutcomes = await createUpcomingMonthPartitions(verificationPool, cleanDumpMonth)
+      expect(rerunOutcomes.every((outcome) => outcome.action === 'already-exact')).toBe(true)
+    })
+
+    test('the catalog rejects a DEFAULT partition and a wrong expected parent', async () => {
+      const defaultName = deriveDefaultPartitionName('create_ship_records')
+      const info = await inspectPartitionCatalog(verificationPool, defaultName)
+      const parts = parseDumpMonth(cleanDumpMonth)
+      const { lowerBoundUtc, upperBoundUtc } = computeDumpMonthBoundsUtc(parts)
+
+      expect(() =>
+        assertExactMonthlyPartitionBounds(defaultName, info, {
+          parentTable: 'create_ship_records',
+          lowerBoundUtc,
+          upperBoundUtc,
+        }),
+      ).toThrow(/DEFAULT partition/)
+
+      // Also prove the "wrong parent" rejection using a real attached partition: create_ship's
+      // own DEFAULT partition is really attached to create_ship_records, never to another table.
+      expect(() =>
+        assertExactMonthlyPartitionBounds(defaultName, info, {
+          parentTable: 'create_item_records',
+          lowerBoundUtc,
+          upperBoundUtc,
+        }),
+      ).toThrow(/attached to parent/)
+    })
+
+    test('the catalog rejects a real multi-column ("extra expression") partition bound', async () => {
+      await verificationPool.query('drop table if exists partition_catalog_scratch_parent cascade')
+      try {
+        await verificationPool.query(
+          'create table partition_catalog_scratch_parent (a timestamptz not null, b integer not null) ' +
+            'partition by range (a, b)',
+        )
+        await verificationPool.query(
+          'create table partition_catalog_scratch_child partition of partition_catalog_scratch_parent ' +
+            "for values from ('2099-01-01', 1) to ('2099-02-01', 1)",
+        )
+
+        const info = await inspectPartitionCatalog(
+          verificationPool,
+          'partition_catalog_scratch_child',
+        )
+        expect(info.relationExists).toBe(true)
+        expect(info.parentTable).toBe('partition_catalog_scratch_parent')
+        expect(info.isDefaultPartition).toBe(false)
+        expect(info.lowerBoundUtc).toBeNull()
+        expect(info.upperBoundUtc).toBeNull()
+
+        expect(() =>
+          assertExactMonthlyPartitionBounds('partition_catalog_scratch_child', info, {
+            parentTable: 'partition_catalog_scratch_parent',
+            lowerBoundUtc: new Date('2099-01-01T00:00:00.000Z'),
+            upperBoundUtc: new Date('2099-02-01T00:00:00.000Z'),
+          }),
+        ).toThrow(/unexpected partition bound expression/)
+      } finally {
+        await verificationPool.query(
+          'drop table if exists partition_catalog_scratch_parent cascade',
+        )
+      }
+    })
+
+    test('repairs a DEFAULT partition by moving only matching rows into a new exact monthly partition, preserving identity values, and is idempotent', async () => {
+      const table = 'create_ship_records'
+      const parts = parseDumpMonth(repairDumpMonth)
+      const { lowerBoundUtc, upperBoundUtc } = computeDumpMonthBoundsUtc(parts)
+      const partitionName = deriveMonthlyPartitionName(table, parts)
+      const defaultName = deriveDefaultPartitionName(table)
+
+      // Insert directly into the parent so PostgreSQL itself routes these rows into the DEFAULT
+      // partition (no monthly partition exists for repairDumpMonth yet), and rely on the
+      // partition's own identity sequence to capture the real generated ids.
+      const insertedIds: string[] = []
+      for (const shipId of [9001, 9002, 9003]) {
+        const inserted = await verificationPool.query<{ id: string }>(
+          'insert into "create_ship_records" (ingested_at, ship_id) values ($1, $2) returning id::text as id',
+          [new Date(lowerBoundUtc.getTime() + shipId), shipId],
+        )
+        insertedIds.push(inserted.rows[0].id)
+      }
+      // A row outside the target month must never be touched by the repair.
+      const untouched = await verificationPool.query<{ id: string }>(
+        'insert into "create_ship_records" (ingested_at, ship_id) values ($1, $2) returning id::text as id',
+        [new Date(upperBoundUtc.getTime() + 1000), 9999],
+      )
+
+      // create-upcoming-month must refuse to create a partition for this table while the
+      // DEFAULT still has matching rows, and must direct the operator to the repair command.
+      await expect(
+        createUpcomingMonthPartitions(verificationPool, repairDumpMonth),
+      ).rejects.toThrow(new RegExp(`${table}[\\s\\S]*repair`))
+
+      const result = await repairMonthlyPartition(verificationPool, {
+        table,
+        dumpMonth: repairDumpMonth,
+      })
+      expect(result).toEqual({
+        table,
+        dumpMonth: repairDumpMonth,
+        partitionName,
+        action: 'attached',
+        movedRowCount: 3,
+      })
+
+      const movedRows = await verificationPool.query<{ id: string }>(
+        `select id::text as id from only "${partitionName}" order by id`,
+      )
+      expect(movedRows.rows.map((row) => row.id).sort()).toEqual(insertedIds.slice().sort())
+
+      const remainingDefaultRows = await verificationPool.query<{ id: string }>(
+        `select id::text as id from only "${defaultName}"`,
+      )
+      expect(remainingDefaultRows.rows.map((row) => row.id)).toEqual([untouched.rows[0].id])
+
+      const info = await inspectPartitionCatalog(verificationPool, partitionName)
+      expect(() =>
+        assertExactMonthlyPartitionBounds(partitionName, info, {
+          parentTable: table,
+          lowerBoundUtc,
+          upperBoundUtc,
+        }),
+      ).not.toThrow()
+
+      // Idempotent rerun: the partition already exists and matches exactly, and there is
+      // nothing left in the DEFAULT partition to move.
+      const rerunResult = await repairMonthlyPartition(verificationPool, {
+        table,
+        dumpMonth: repairDumpMonth,
+      })
+      expect(rerunResult).toEqual({
+        table,
+        dumpMonth: repairDumpMonth,
+        partitionName,
+        action: 'already-attached',
+        movedRowCount: 0,
+      })
+    })
+
+    test('rolls back and rejects repair when a relation with the final partition name already exists but does not match', async () => {
+      const parts = parseDumpMonth(mismatchDumpMonth)
+      const { lowerBoundUtc } = computeDumpMonthBoundsUtc(parts)
+      const partitionName = deriveMonthlyPartitionName(mismatchTable, parts)
+      const defaultName = deriveDefaultPartitionName(mismatchTable)
+
+      // Pre-create a same-named relation attached to the right parent, but with the *next*
+      // month's bounds instead of mismatchDumpMonth's — a real, catalog-verifiable mismatch.
+      const wrongLower = new Date(
+        Date.UTC(lowerBoundUtc.getUTCFullYear(), lowerBoundUtc.getUTCMonth() + 1, 1, -9),
+      )
+      const wrongUpper = new Date(
+        Date.UTC(lowerBoundUtc.getUTCFullYear(), lowerBoundUtc.getUTCMonth() + 2, 1, -9),
+      )
+      await verificationPool.query(
+        `create table "${partitionName}" partition of "${mismatchTable}" ` +
+          `for values from ('${wrongLower.toISOString()}'::timestamptz) to ('${wrongUpper.toISOString()}'::timestamptz)`,
+      )
+
+      const inserted = await verificationPool.query<{ id: string }>(
+        'insert into "drop_ship_records" (ingested_at, ship_id) values ($1, $2) returning id::text as id',
+        [lowerBoundUtc, 8001],
+      )
+
+      await expect(
+        repairMonthlyPartition(verificationPool, {
+          table: mismatchTable,
+          dumpMonth: mismatchDumpMonth,
+        }),
+      ).rejects.toThrow(PartitionCatalogMismatchError)
+
+      // Nothing was moved: the row is still exactly where it started, in the DEFAULT partition.
+      const stillInDefault = await verificationPool.query<{ id: string }>(
+        `select id::text as id from only "${defaultName}"`,
+      )
+      expect(stillInDefault.rows.map((row) => row.id)).toEqual([inserted.rows[0].id])
+    })
+
+    test('rejects an unsafe table before ever connecting to PostgreSQL', async () => {
+      await expect(
+        repairMonthlyPartition(verificationPool, {
+          table: 'data_dump_files',
+          dumpMonth: cleanDumpMonth,
+        }),
+      ).rejects.toThrow(PartitionMaintenanceError)
     })
   })
 })
