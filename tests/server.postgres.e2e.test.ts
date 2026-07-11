@@ -540,7 +540,7 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
       expect(row.items).toEqual([])
     })
 
-    test('normalizes drop ship snapshots to {} for late maps and explicit-null mapId, keeping JSONB for early maps', async () => {
+    test('normalizes drop ship snapshots to {} below map 73 and for explicit-null mapId', async () => {
       const buildPayload = (shipId: number, mapId: number | null, cellId: number) => ({
         shipId,
         itemId: 0,
@@ -571,8 +571,8 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
         'select ship_id, owned_ship_snapshot from drop_ship_records order by ship_id',
       )
       expect(rows).toEqual([
-        { ship_id: 1, owned_ship_snapshot: { '1': [100] } },
-        { ship_id: 2, owned_ship_snapshot: {} },
+        { ship_id: 1, owned_ship_snapshot: {} },
+        { ship_id: 2, owned_ship_snapshot: { '1': [100] } },
         { ship_id: 3, owned_ship_snapshot: {} },
       ])
     })

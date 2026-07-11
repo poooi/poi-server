@@ -444,6 +444,15 @@ describe('createPostgresV3Actions: itemImprovementRecipe ingest', () => {
       upgradeToItemId: 701,
       upgradeToItemLevel: 7,
     })
+    expect(valuesArg.firstReported).toEqual(valuesArg.lastReported)
+    const setArg = (
+      insertChains[0].onConflictDoUpdateArg as {
+        set: Record<string, unknown>
+      }
+    ).set
+    expect(setArg.lastReported).toEqual(
+      sql`greatest(${itemImprovementUpdateFacts.lastReported}, ${valuesArg.lastReported})`,
+    )
   })
 
   test('writes a mixed batch with per-record concurrency 5', async () => {

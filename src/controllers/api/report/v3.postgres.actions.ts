@@ -410,7 +410,7 @@ export const createPostgresV3Actions = (db: PostgresDb, epoch: DataEpoch): Repor
         sources: [record.source],
         origins,
         firstReported: dbTimeMillis,
-        lastReported: sql`greatest(${itemImprovementUpdateFacts.lastReported}, ${dbTimeMillis})`,
+        lastReported: dbTimeMillis,
         itemLevel: record.itemLevel,
         upgradeToItemId: record.upgradeToItemId,
         upgradeToItemLevel: record.upgradeToItemLevel,
@@ -421,7 +421,7 @@ export const createPostgresV3Actions = (db: PostgresDb, epoch: DataEpoch): Repor
         set: {
           firstClientObservedAt: sql`least(${itemImprovementUpdateFacts.firstClientObservedAt}, ${record.clientObservedAt})`,
           lastClientObservedAt: sql`greatest(${itemImprovementUpdateFacts.lastClientObservedAt}, ${record.clientObservedAt})`,
-          lastReported: dbTimeMillis,
+          lastReported: sql`greatest(${itemImprovementUpdateFacts.lastReported}, ${dbTimeMillis})`,
           sources: appendDistinctInOrder(
             itemImprovementUpdateFacts.sources,
             [record.source],
