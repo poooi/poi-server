@@ -5,6 +5,8 @@ import bluebird from 'bluebird'
 import { z, ZodError } from 'zod'
 
 import { withCloudflareCache } from '../../../http/cache-control'
+import { legacyMongoEpoch } from '../../../contracts/database'
+import { canonicalizeObjectIdCursor } from '../../../contracts/item-improvement'
 import { getHeader, type AppRequest } from '../../../http/request'
 import { badRequest, internalServerError, ok, type AppResult } from '../../../http/result'
 import { captureException } from '../../../sentry'
@@ -341,16 +343,21 @@ const exportCursorSchema = z
         message: 'must be positive',
       })
     }
-    if (cursor.afterId != null && !mongoose.Types.ObjectId.isValid(cursor.afterId)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['afterId'],
-        message: 'must be a valid ObjectId',
-      })
+    if (cursor.afterId != null) {
+      try {
+        canonicalizeObjectIdCursor(cursor.afterId)
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['afterId'],
+          message: 'must be a valid ObjectId',
+        })
+      }
     }
   })
   .transform((cursor) => ({
     ...cursor,
+    afterId: cursor.afterId == null ? undefined : canonicalizeObjectIdCursor(cursor.afterId),
     limit: Math.min(cursor.limit, ITEM_IMPROVEMENT_RECIPE_MAX_EXPORT_LIMIT),
   }))
 
@@ -618,6 +625,7 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
     return withCloudflareCache(
       request,
       ok({
+        epoch: legacyMongoEpoch,
         records,
         next:
           lastRecord == null
