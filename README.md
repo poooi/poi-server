@@ -9,18 +9,34 @@ poi server.
 
 See the [wiki](https://github.com/poooi/poi-server/wiki).
 
+## Storage backends
+
+The configured database URL selects the persistence backend:
+
+| URL scheme                  | Backend       |
+| --------------------------- | ------------- |
+| `mongodb:` / `mongodb+srv:` | MongoDB       |
+| `postgres:` / `postgresql:` | PostgreSQL 18 |
+
+Set `POI_SERVER_DATABASE_URL`; `POI_SERVER_DB` remains a backward-compatible fallback. PostgreSQL
+startup validates the explicit Drizzle migration version and requires exactly one Data Epoch. It
+never runs migrations automatically.
+
 ## Development
 
-### Prerequists:
+Prerequisites:
 
-- Node.js 14.x
-- MongoDB v4.2
+- Node.js 24 or newer
+- MongoDB 4.4 for MongoDB-mode tests
+- PostgreSQL 18 for PostgreSQL-mode tests
 
-Other versions are not tested
+Setup:
 
-### Setup
+1. Install dependencies with `npm install`.
+2. Copy `.env.example` to `.env` and configure a database URL.
+3. Start the selected database.
+4. Run `npm start`.
 
-- Install dependencies with npm install
-- copy `.env.example` to create `.env`, this contains config file for the server
-- start mongodb, if the db path or port is different, specify them in the `.env` file
-- start the server by `node index.js`
+Validation commands are `npm test`, `npm run type-check`, and `npm run lint`. PostgreSQL deployment,
+partition maintenance, and Community Dump commands are documented in
+[`docs/postgresql-deployment.md`](docs/postgresql-deployment.md).
