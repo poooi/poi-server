@@ -4,13 +4,12 @@ import { Pool } from 'pg'
 
 import { resolveDatabaseBackend } from '../backend'
 
-export const migratePostgres = async (
+type ApplyPostgresMigrations = (databaseUrl: string, migrationsFolder: string) => Promise<void>
+
+const applyPostgresMigrations: ApplyPostgresMigrations = async (
   databaseUrl: string,
   migrationsFolder: string,
 ): Promise<void> => {
-  if (resolveDatabaseBackend(databaseUrl) !== 'postgresql') {
-    throw new Error('PostgreSQL migrations require a postgres: or postgresql: database URL')
-  }
   const pool = new Pool({
     connectionString: databaseUrl,
     connectionTimeoutMillis: 5000,
@@ -21,4 +20,18 @@ export const migratePostgres = async (
   } finally {
     await pool.end()
   }
+}
+
+export const migrateDatabase = async (
+  databaseUrl: string,
+  migrationsFolder: string,
+  applyPostgres: ApplyPostgresMigrations = applyPostgresMigrations,
+) => {
+  const backend = resolveDatabaseBackend(databaseUrl)
+  if (backend === 'mongodb') {
+    return backend
+  }
+
+  await applyPostgres(databaseUrl, migrationsFolder)
+  return backend
 }
