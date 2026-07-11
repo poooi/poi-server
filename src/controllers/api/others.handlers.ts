@@ -1,40 +1,102 @@
 import df from '@sindresorhus/df'
 import childProcess from 'child_process'
-import mongoose from 'mongoose'
 import { makeBadge } from 'badge-maker'
 import path from 'path'
 
 import { config } from '../../config'
+import { type DatabaseStatus, legacyMongoEpoch } from '../../contracts/database'
 import { ok, type AppResult } from '../../http/result'
-
-const CreateShipRecord = mongoose.model('CreateShipRecord')
-const CreateItemRecord = mongoose.model('CreateItemRecord')
-const RemodelItemRecord = mongoose.model('RemodelItemRecord')
-const DropShipRecord = mongoose.model('DropShipRecord')
-const SelectRankRecord = mongoose.model('SelectRankRecord')
-const PassEventRecord = mongoose.model('PassEventRecord')
-const Quest = mongoose.model('Quest')
-const BattleAPI = mongoose.model('BattleAPI')
-const AACIRecord = mongoose.model('AACIRecord')
-const NightContactRecord = mongoose.model('NightContactRecord')
+import {
+  AACIRecord,
+  BattleAPI,
+  CreateItemRecord,
+  CreateShipRecord,
+  DropShipRecord,
+  EnemyInfo,
+  ItemImprovementRecipeAvailabilityFact,
+  ItemImprovementRecipeCostFact,
+  ItemImprovementRecipeUpdateFact,
+  NightBattleCI,
+  NightContactRecord,
+  PassEventRecord,
+  Quest,
+  QuestReward,
+  RecipeRecord,
+  RemodelItemRecord,
+  SelectRankRecord,
+  ShipStat,
+} from '../../models'
 
 export const getStatus = async (): Promise<AppResult> => {
   const dsk = await df()
+  const [
+    createShipObservations,
+    createItemObservations,
+    remodelItemObservations,
+    dropShipObservations,
+    passEventObservations,
+    battleApiObservations,
+    nightContactObservations,
+    aaciObservations,
+    nightBattleCiObservations,
+    selectRankStates,
+    recipeAggregates,
+    shipStatAggregates,
+    enemyInfoAggregates,
+    questDefinitions,
+    questRewardDefinitions,
+    itemImprovementAvailabilityFacts,
+    itemImprovementCostFacts,
+    itemImprovementUpdateFacts,
+  ] = await Promise.all([
+    CreateShipRecord.estimatedDocumentCount().exec(),
+    CreateItemRecord.estimatedDocumentCount().exec(),
+    RemodelItemRecord.estimatedDocumentCount().exec(),
+    DropShipRecord.estimatedDocumentCount().exec(),
+    PassEventRecord.estimatedDocumentCount().exec(),
+    BattleAPI.estimatedDocumentCount().exec(),
+    NightContactRecord.estimatedDocumentCount().exec(),
+    AACIRecord.estimatedDocumentCount().exec(),
+    NightBattleCI.estimatedDocumentCount().exec(),
+    SelectRankRecord.estimatedDocumentCount().exec(),
+    RecipeRecord.estimatedDocumentCount().exec(),
+    ShipStat.estimatedDocumentCount().exec(),
+    EnemyInfo.estimatedDocumentCount().exec(),
+    Quest.estimatedDocumentCount().exec(),
+    QuestReward.estimatedDocumentCount().exec(),
+    ItemImprovementRecipeAvailabilityFact.estimatedDocumentCount().exec(),
+    ItemImprovementRecipeCostFact.estimatedDocumentCount().exec(),
+    ItemImprovementRecipeUpdateFact.estimatedDocumentCount().exec(),
+  ])
+  const database: DatabaseStatus = {
+    backend: 'mongodb',
+    status: 'up',
+    epoch: legacyMongoEpoch,
+    estimatedCounts: {
+      createShipObservations,
+      createItemObservations,
+      remodelItemObservations,
+      dropShipObservations,
+      passEventObservations,
+      battleApiObservations,
+      nightContactObservations,
+      aaciObservations,
+      nightBattleCiObservations,
+      selectRankStates,
+      recipeAggregates,
+      shipStatAggregates,
+      enemyInfoAggregates,
+      questDefinitions,
+      questRewardDefinitions,
+      itemImprovementAvailabilityFacts,
+      itemImprovementCostFacts,
+      itemImprovementUpdateFacts,
+    },
+  }
   return ok({
     env: process.env.NODE_ENV,
     disk: dsk.filter((e) => e.mountpoint == '/'),
-    mongo: {
-      CreateShipRecord: await CreateShipRecord.count().exec(),
-      CreateItemRecord: await CreateItemRecord.count().exec(),
-      RemodelItemRecord: await RemodelItemRecord.count().exec(),
-      DropShipRecord: await DropShipRecord.count().exec(),
-      SelectRankRecord: await SelectRankRecord.count().exec(),
-      PassEventRecord: await PassEventRecord.count().exec(),
-      Quest: await Quest.count().exec(),
-      BattleAPI: await BattleAPI.count().exec(),
-      AACIRecord: await AACIRecord.count().exec(),
-      NightContactRecord: await NightContactRecord.count().exec(),
-    },
+    database,
   })
 }
 

@@ -1,10 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import {
-  redactDatabaseUrl,
-  resolveDatabaseBackend,
-  resolveDatabaseUrl,
-} from '../src/db/backend'
+import { redactDatabaseUrl, resolveDatabaseBackend, resolveDatabaseUrl } from '../src/db/backend'
 
 describe('database backend configuration', () => {
   test('prefers POI_SERVER_DATABASE_URL and keeps POI_SERVER_DB as fallback', () => {

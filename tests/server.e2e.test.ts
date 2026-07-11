@@ -275,11 +275,36 @@ describe('server common endpoints', () => {
 
     expect(response.status).toBe(200)
     expect(response.body).toMatchObject({
-      mongo: {
-        CreateShipRecord: 1,
-        CreateItemRecord: 0,
+      database: {
+        backend: 'mongodb',
+        status: 'up',
+        epoch: {
+          id: 'legacy-mongodb',
+          startedAt: null,
+        },
+        estimatedCounts: {
+          createShipObservations: 1,
+          createItemObservations: 0,
+          remodelItemObservations: 0,
+          dropShipObservations: 0,
+          passEventObservations: 0,
+          battleApiObservations: 0,
+          nightContactObservations: 0,
+          aaciObservations: 0,
+          nightBattleCiObservations: 0,
+          selectRankStates: 0,
+          recipeAggregates: 0,
+          shipStatAggregates: 0,
+          enemyInfoAggregates: 0,
+          questDefinitions: 0,
+          questRewardDefinitions: 0,
+          itemImprovementAvailabilityFacts: 0,
+          itemImprovementCostFacts: 0,
+          itemImprovementUpdateFacts: 0,
+        },
       },
     })
+    expect(response.body).not.toHaveProperty('mongo')
     expect(response.body).toMatchObject({
       env: process.env.NODE_ENV,
       disk: [

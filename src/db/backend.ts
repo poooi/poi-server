@@ -34,8 +34,6 @@ export const resolveDatabaseBackend = (databaseUrl: string): DatabaseBackend => 
     case 'postgresql:':
       return 'postgresql'
     default:
-      throw new Error(
-        `Unsupported database URL scheme in ${redactDatabaseUrl(databaseUrl)}`,
-      )
+      throw new Error(`Unsupported database URL scheme in ${redactDatabaseUrl(databaseUrl)}`)
   }
 }
