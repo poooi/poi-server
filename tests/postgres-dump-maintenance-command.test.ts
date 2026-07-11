@@ -18,6 +18,8 @@ const fakeR2Env = {
   POI_SERVER_DUMP_R2_ACCESS_KEY_ID: 'the-access-key-id',
   POI_SERVER_DUMP_R2_SECRET_ACCESS_KEY: 'the-super-secret-value',
 }
+const fakeDatabasePassword = 'db-password-for-test'
+const fakeDatabaseUrl = `postgresql://poi:${fakeDatabasePassword}@localhost:5432/poi`
 
 const publishedRun: DumpRunRow = {
   id: 9,
@@ -62,7 +64,7 @@ const makeFakeDeps = (
   const deps: DumpMaintenanceCommandDeps = {
     resolveDatabaseUrl: () => {
       calls.push('resolveDatabaseUrl')
-      return '******localhost:5432/poi'
+      return fakeDatabaseUrl
     },
     resolveDatabaseBackend: () => {
       calls.push('resolveDatabaseBackend')
@@ -222,7 +224,7 @@ describe('runDumpMaintenanceCommand', () => {
     const { deps } = makeFakeDeps({
       publishDumpMonth: async () => {
         throw new Error(
-          'failed at ******localhost/poi with the-access-key-id and the-super-secret-value',
+          `failed with ${fakeDatabasePassword}, the-access-key-id, and the-super-secret-value`,
         )
       },
     })
@@ -235,7 +237,7 @@ describe('runDumpMaintenanceCommand', () => {
     }
 
     expect(thrown?.message).toContain('<redacted>')
-    expect(thrown?.message).not.toContain('the-db-password')
+    expect(thrown?.message).not.toContain(fakeDatabasePassword)
     expect(thrown?.message).not.toContain('the-access-key-id')
     expect(thrown?.message).not.toContain('the-super-secret-value')
   })

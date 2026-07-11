@@ -47,4 +47,13 @@ describe('monthly dump cron scripts', () => {
       'POI_DUMP_CRON_TIMEOUT must be a positive duration ending in s, m, h, or d',
     )
   })
+
+  test('validates the deployment runtime before installing or running maintenance', () => {
+    expect(installer).toContain(
+      '[[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"',
+    )
+    expect(runner).toContain(
+      '[[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"',
+    )
+  })
 })

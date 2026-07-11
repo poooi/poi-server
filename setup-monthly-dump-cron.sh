@@ -26,6 +26,7 @@ safe_path_pattern='^[/._A-Za-z0-9][A-Za-z0-9_./-]*$'
   fail "POI_DUMP_CRON_SCHEDULE must contain exactly five cron fields"
 [[ -x "$APP_DIR/run-monthly-dump-maintenance.sh" ]] ||
   fail "$APP_DIR/run-monthly-dump-maintenance.sh is not executable"
+[[ -x "$APP_DIR/fnm-exec" ]] || fail "$APP_DIR/fnm-exec is not executable"
 command -v crontab >/dev/null || fail "crontab is required"
 command -v flock >/dev/null || fail "flock is required"
 command -v timeout >/dev/null || fail "timeout is required"
