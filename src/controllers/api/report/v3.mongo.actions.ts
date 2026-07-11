@@ -3,7 +3,6 @@ import bluebird from 'bluebird'
 import { ZodError } from 'zod'
 
 import { withCloudflareCache } from '../../../http/cache-control'
-import { legacyMongoEpoch } from '../../../contracts/database'
 import {
   createAvailabilityKey,
   createCostKey,
@@ -196,7 +195,6 @@ const exportItemImprovementFacts = async <TDocument extends ExportableItemImprov
     return withCloudflareCache(
       request,
       ok({
-        epoch: legacyMongoEpoch,
         records,
         next:
           lastRecord == null

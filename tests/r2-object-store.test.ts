@@ -83,13 +83,13 @@ describe('createObjectStoreFromS3Client', () => {
     const store = createObjectStoreFromS3Client(client, 'dump-bucket')
     const body = Buffer.from('data object bytes')
 
-    const result = await store.putIfAbsent('epochs/e/months/2024-01/v1/x.jsonl.zst', body)
+    const result = await store.putIfAbsent('months/2024-01/v1/x.jsonl.zst', body)
 
     expect(result).toEqual({ outcome: 'created' })
     expect(putCalls).toEqual([
       {
         bucket: 'dump-bucket',
-        key: 'epochs/e/months/2024-01/v1/x.jsonl.zst',
+        key: 'months/2024-01/v1/x.jsonl.zst',
         body,
         ifNoneMatch: '*',
       },
@@ -118,12 +118,10 @@ describe('createObjectStoreFromS3Client', () => {
     const { client, getCalls } = createFakeS3Client({ getBody: body })
     const store = createObjectStoreFromS3Client(client, 'dump-bucket')
 
-    const result = await store.getObject('epochs/e/months/2024-01/v1/manifest.json')
+    const result = await store.getObject('months/2024-01/v1/manifest.json')
 
     expect(result).toEqual(body)
-    expect(getCalls).toEqual([
-      { bucket: 'dump-bucket', key: 'epochs/e/months/2024-01/v1/manifest.json' },
-    ])
+    expect(getCalls).toEqual([{ bucket: 'dump-bucket', key: 'months/2024-01/v1/manifest.json' }])
   })
 
   test('getObject translates a 404 into ObjectNotFoundError', async () => {

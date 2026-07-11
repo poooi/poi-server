@@ -38,7 +38,6 @@ const createFakeClient = (
 
 const runRow = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
   id: '7',
-  epoch_id: '11111111-1111-1111-1111-111111111111',
   dump_month: '2024-01',
   schema_version: 1,
   status: 'pending',
@@ -54,7 +53,6 @@ const runRow = (overrides: Record<string, unknown> = {}): Record<string, unknown
 
 const expectedRunRow = (overrides: Partial<DumpRunRow> = {}): DumpRunRow => ({
   id: 7,
-  epochId: '11111111-1111-1111-1111-111111111111',
   dumpMonth: '2024-01',
   schemaVersion: 1,
   status: 'pending',
@@ -73,7 +71,7 @@ const fileRow = (overrides: Record<string, unknown> = {}): Record<string, unknow
   dump_run_id: '7',
   dataset: 'createShipObservations',
   partition_name: 'create_ship_records_2024_01',
-  object_key: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+  object_key: 'months/2024-01/v1/createShipObservations.jsonl.zst',
   row_count: '12345',
   compressed_bytes: '987654',
   sha256: Buffer.from('a'.repeat(64), 'hex'),
@@ -86,7 +84,7 @@ const expectedFileRow = (overrides: Partial<DumpFileRow> = {}): DumpFileRow => (
   dumpRunId: 7,
   dataset: 'createShipObservations',
   partitionName: 'create_ship_records_2024_01',
-  objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+  objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
   rowCount: 12345,
   compressedBytes: 987654,
   sha256: 'a'.repeat(64),
@@ -107,7 +105,6 @@ describe('findOrCreateDumpRun', () => {
     const client = createFakeClient(async () => ({ rows: [runRow()], rowCount: 1 }))
 
     const result = await findOrCreateDumpRun(client, {
-      epochId: '11111111-1111-1111-1111-111111111111',
       dumpMonth: parseDumpMonth('2024-01'),
       schemaVersion: 1,
     })
@@ -117,7 +114,7 @@ describe('findOrCreateDumpRun', () => {
     expect(sql).toContain('insert into data_dump_runs')
     expect(sql).toContain('on conflict')
     expect(sql.toLowerCase()).toContain('do update')
-    expect(values).toEqual(['11111111-1111-1111-1111-111111111111', '2024-01-01', 1])
+    expect(values).toEqual(['2024-01-01', 1])
     expect(result).toEqual(expectedRunRow())
   })
 
@@ -128,7 +125,6 @@ describe('findOrCreateDumpRun', () => {
     }))
 
     const result = await findOrCreateDumpRun(client, {
-      epochId: '11111111-1111-1111-1111-111111111111',
       dumpMonth: parseDumpMonth('2024-01'),
       schemaVersion: 1,
     })
@@ -143,7 +139,6 @@ describe('findOrCreateDumpRun', () => {
 
     await expect(
       findOrCreateDumpRun(client, {
-        epochId: '11111111-1111-1111-1111-111111111111',
         dumpMonth: parseDumpMonth('2024-01'),
         schemaVersion: 1,
       }),
@@ -176,7 +171,7 @@ describe('loadDumpRunById', () => {
 /**
  * `loadDumpRunByIdForUpdate`/`listDumpFilesByRunIdForUpdate` exist solely for the cleanup
  * workflow's final destructive transaction (docs/postgresql-migration-plan.md lines 759, 762-764:
- * "verify that run's epoch, Dump Month, schema version, manifest object key, manifest digest, and
+ * "verify that run's Dump Month, schema version, manifest object key, manifest digest, and
  * published/eligible state" immediately before detaching/dropping partitions). Row-level locking
  * via `for update` is the whole point — proven here by asserting the exact SQL suffix — so a
  * concurrent writer cannot change the row out from under the destructive transaction between its
@@ -323,7 +318,7 @@ describe('recordManifestMetadata', () => {
       rows: [
         runRow({
           status: 'uploaded',
-          manifest_object_key: 'epochs/e/months/2024-01/v1/manifest.json',
+          manifest_object_key: 'months/2024-01/v1/manifest.json',
           manifest_bytes: '4096',
           manifest_sha256: Buffer.from(sha256Hex, 'hex'),
         }),
@@ -332,7 +327,7 @@ describe('recordManifestMetadata', () => {
     }))
 
     const result = await recordManifestMetadata(client, 7, {
-      objectKey: 'epochs/e/months/2024-01/v1/manifest.json',
+      objectKey: 'months/2024-01/v1/manifest.json',
       bytes: 4096,
       sha256Hex,
     })
@@ -343,14 +338,14 @@ describe('recordManifestMetadata', () => {
     expect(sql).toContain('manifest_bytes')
     expect(sql).toContain('manifest_sha256')
     expect(values?.[0]).toBe(7)
-    expect(values?.[1]).toBe('epochs/e/months/2024-01/v1/manifest.json')
+    expect(values?.[1]).toBe('months/2024-01/v1/manifest.json')
     expect(values?.[2]).toBe(4096)
     expect(Buffer.isBuffer(values?.[3])).toBe(true)
     expect((values?.[3] as Buffer).toString('hex')).toBe(sha256Hex)
     expect(result).toEqual(
       expectedRunRow({
         status: 'uploaded',
-        manifestObjectKey: 'epochs/e/months/2024-01/v1/manifest.json',
+        manifestObjectKey: 'months/2024-01/v1/manifest.json',
         manifestBytes: 4096,
         manifestSha256: sha256Hex,
       }),
@@ -415,7 +410,7 @@ describe('recordDumpFileExport', () => {
       dumpRunId: 7,
       dataset: 'createShipObservations',
       partitionName: 'create_ship_records_2024_01',
-      objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+      objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
       rowCount: 12345,
       compressedBytes: 987654,
       sha256Hex: 'a'.repeat(64),
@@ -446,7 +441,7 @@ describe('recordDumpFileExport', () => {
       dumpRunId: 7,
       dataset: 'createShipObservations',
       partitionName: 'create_ship_records_2024_01',
-      objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+      objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
       rowCount: 12345,
       compressedBytes: 987654,
       sha256Hex: 'a'.repeat(64),
@@ -471,7 +466,7 @@ describe('recordDumpFileExport', () => {
       dumpRunId: 7,
       dataset: 'createShipObservations',
       partitionName: 'create_ship_records_2024_01',
-      objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+      objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
       rowCount: 12345,
       compressedBytes: 987654,
       sha256Hex: 'a'.repeat(64),
@@ -502,7 +497,7 @@ describe('recordDumpFileExport', () => {
         dumpRunId: 7,
         dataset: 'createShipObservations',
         partitionName: 'create_ship_records_2024_01',
-        objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+        objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
         rowCount: 12345,
         compressedBytes: 987654,
         sha256Hex: 'a'.repeat(64),
@@ -576,7 +571,6 @@ describe('row mapping defends against corrupt numeric columns', () => {
 
     await expect(
       findOrCreateDumpRun(client, {
-        epochId: '11111111-1111-1111-1111-111111111111',
         dumpMonth: parseDumpMonth('2024-01'),
         schemaVersion: 1,
       }),

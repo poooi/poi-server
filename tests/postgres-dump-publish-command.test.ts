@@ -22,7 +22,6 @@ const fakeR2Env = {
 
 const fakeRun: DumpRunRow = {
   id: 7,
-  epochId: '00000000-0000-4000-8000-000000000001',
   dumpMonth: '2098-05',
   schemaVersion: 1,
   status: 'published',

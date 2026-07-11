@@ -18,7 +18,7 @@ const makeFile = (
   overrides: Partial<CommunityDumpManifestFileInput> = {},
 ): CommunityDumpManifestFileInput => ({
   dataset,
-  objectKey: `epochs/epoch-1/months/2024-01/v1/${dataset}.jsonl.zst`,
+  objectKey: `months/2024-01/v1/${dataset}.jsonl.zst`,
   rowCount: 10,
   compressedBytes: 1024,
   sha256: sha256Hex,
@@ -29,8 +29,6 @@ const makeFile = (
 const scrambledDatasets = [...communityDumpDatasetNames].reverse()
 
 const validInput = {
-  epochId: '11111111-1111-1111-1111-111111111111',
-  epochStartedAt: '2023-01-01T00:00:00.000Z',
   dumpMonth: '2024-01',
   publishedAt: '2024-02-01T00:00:00.000Z',
   files: scrambledDatasets.map((dataset) => makeFile(dataset)),
@@ -44,16 +42,11 @@ describe('serializeCommunityDumpManifestV1', () => {
     expect(communityDumpManifestSchemaVersion).toBe(1)
     expect(manifest.timezone).toBe('Asia/Tokyo')
     expect(communityDumpManifestTimezone).toBe('Asia/Tokyo')
-    expect(manifest.epoch).toEqual({
-      id: '11111111-1111-1111-1111-111111111111',
-      startedAt: '2023-01-01T00:00:00.000Z',
-    })
     expect(manifest.dumpMonth).toBe('2024-01')
     expect(manifest.publishedAt).toBe('2024-02-01T00:00:00.000Z')
     expect(manifest.files.map((file) => file.dataset)).toEqual(communityDumpDatasetNames)
     expect(Object.keys(manifest)).toEqual([
       'schemaVersion',
-      'epoch',
       'dumpMonth',
       'timezone',
       'publishedAt',
@@ -76,7 +69,7 @@ describe('serializeCommunityDumpManifestV1', () => {
     const createShip = manifest.files.find((file) => file.dataset === 'createShipObservations')
     expect(createShip).toEqual({
       dataset: 'createShipObservations',
-      objectKey: 'epochs/epoch-1/months/2024-01/v1/createShipObservations.jsonl.zst',
+      objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
       rowCount: '9007199254740991',
       compressedBytes: '2048',
       sha256: sha256Hex,
@@ -88,11 +81,6 @@ describe('serializeCommunityDumpManifestV1', () => {
       'compressedBytes',
       'sha256',
     ])
-  })
-
-  test('serializes a null epoch.startedAt as null', () => {
-    const manifest = serializeCommunityDumpManifestV1({ ...validInput, epochStartedAt: null })
-    expect(manifest.epoch.startedAt).toBeNull()
   })
 
   test('rejects a manifest missing one of the nine expected datasets', () => {
@@ -141,12 +129,6 @@ describe('serializeCommunityDumpManifestV1', () => {
         publishedAt,
       }),
     ).toThrow(CommunityDumpError)
-  })
-
-  test('rejects an empty epoch.id', () => {
-    expect(() => serializeCommunityDumpManifestV1({ ...validInput, epochId: '' })).toThrow(
-      CommunityDumpError,
-    )
   })
 
   test.each([
@@ -233,12 +215,6 @@ describe('parseCommunityDumpManifestV1', () => {
     expect(parsed).toEqual(manifest)
   })
 
-  test('round-trips a null epoch.startedAt', () => {
-    const manifest = serializeCommunityDumpManifestV1({ ...validInput, epochStartedAt: null })
-    const parsed = parseCommunityDumpManifestV1(toBuffer(manifest))
-    expect(parsed.epoch.startedAt).toBeNull()
-  })
-
   test.each([
     ['missing schemaVersion', { schemaVersion: undefined }],
     ['wrong schemaVersion', { schemaVersion: 2 }],
@@ -274,42 +250,9 @@ describe('parseCommunityDumpManifestV1', () => {
   })
 
   test.each([
-    ['missing epoch', { dumpMonth: '2024-01', publishedAt: '2024-02-01T00:00:00.000Z', files: [] }],
-    [
-      'epoch not an object',
-      { epoch: 'nope', dumpMonth: '2024-01', publishedAt: '2024-02-01T00:00:00.000Z', files: [] },
-    ],
-    [
-      'epoch missing id',
-      {
-        epoch: { startedAt: '2023-01-01T00:00:00.000Z' },
-        dumpMonth: '2024-01',
-        publishedAt: '2024-02-01T00:00:00.000Z',
-        files: [],
-      },
-    ],
-    [
-      'epoch.id not a string',
-      {
-        epoch: { id: 42, startedAt: '2023-01-01T00:00:00.000Z' },
-        dumpMonth: '2024-01',
-        publishedAt: '2024-02-01T00:00:00.000Z',
-        files: [],
-      },
-    ],
-    [
-      'epoch missing startedAt',
-      {
-        epoch: { id: '11111111-1111-1111-1111-111111111111' },
-        dumpMonth: '2024-01',
-        publishedAt: '2024-02-01T00:00:00.000Z',
-        files: [],
-      },
-    ],
     [
       'missing dumpMonth',
       {
-        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
         publishedAt: '2024-02-01T00:00:00.000Z',
         files: [],
       },
@@ -317,7 +260,6 @@ describe('parseCommunityDumpManifestV1', () => {
     [
       'dumpMonth not a string',
       {
-        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
         dumpMonth: 202401,
         publishedAt: '2024-02-01T00:00:00.000Z',
         files: [],
@@ -326,7 +268,6 @@ describe('parseCommunityDumpManifestV1', () => {
     [
       'missing publishedAt',
       {
-        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
         dumpMonth: '2024-01',
         files: [],
       },
@@ -334,7 +275,6 @@ describe('parseCommunityDumpManifestV1', () => {
     [
       'missing files',
       {
-        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
         dumpMonth: '2024-01',
         publishedAt: '2024-02-01T00:00:00.000Z',
       },
@@ -342,7 +282,6 @@ describe('parseCommunityDumpManifestV1', () => {
     [
       'files not an array',
       {
-        epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
         dumpMonth: '2024-01',
         publishedAt: '2024-02-01T00:00:00.000Z',
         files: 'nope',
@@ -354,7 +293,7 @@ describe('parseCommunityDumpManifestV1', () => {
 
   const validRawFile = {
     dataset: 'createShipObservations',
-    objectKey: 'epochs/e/months/2024-01/v1/createShipObservations.jsonl.zst',
+    objectKey: 'months/2024-01/v1/createShipObservations.jsonl.zst',
     rowCount: 10,
     compressedBytes: 1024,
     sha256: sha256Hex,
@@ -372,7 +311,6 @@ describe('parseCommunityDumpManifestV1', () => {
     ['file not an object', 'not-an-object'],
   ])('rejects a structurally invalid file entry (%s)', (_label, rawFile) => {
     const raw = {
-      epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
       dumpMonth: '2024-01',
       publishedAt: '2024-02-01T00:00:00.000Z',
       files: communityDumpDatasetNames.map((dataset) =>
@@ -384,7 +322,6 @@ describe('parseCommunityDumpManifestV1', () => {
 
   test('delegates dataset-completeness validation to serializeCommunityDumpManifestV1 (rejects a missing dataset)', () => {
     const raw = {
-      epoch: { id: '11111111-1111-1111-1111-111111111111', startedAt: null },
       dumpMonth: '2024-01',
       publishedAt: '2024-02-01T00:00:00.000Z',
       files: validInput.files

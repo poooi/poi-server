@@ -1,14 +1,12 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { Pool, type PoolConfig } from 'pg'
 
-import { type DataEpoch } from '../../contracts/database'
 import { redactDatabaseUrl } from '../backend'
-import { verifyPostgresDatabase } from './lifecycle'
+import { verifyPostgresSchema } from './lifecycle'
 import * as schema from './schema'
 
 export interface PostgresDatabase {
   db: NodePgDatabase<typeof schema>
-  epoch: DataEpoch
   pool: Pool
 }
 
@@ -56,10 +54,9 @@ export const createOfflineDumpPool = (databaseUrl: string, max = 3): Pool =>
 export const connectPostgres = async (databaseUrl: string, max = 10): Promise<PostgresDatabase> => {
   const pool = createPostgresPool(databaseUrl, max)
   try {
-    const epoch = await verifyPostgresDatabase(pool)
+    await verifyPostgresSchema(pool)
     return {
       db: drizzle(pool, { schema }),
-      epoch,
       pool,
     }
   } catch (error) {

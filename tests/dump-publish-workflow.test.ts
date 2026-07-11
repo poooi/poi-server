@@ -3,10 +3,10 @@ import { createHash } from 'crypto'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const lifecycleMocks = vi.hoisted(() => ({
-  verifyPostgresDatabase: vi.fn(),
+  verifyPostgresSchema: vi.fn(),
 }))
 vi.mock('../src/db/postgres/lifecycle', () => ({
-  verifyPostgresDatabase: lifecycleMocks.verifyPostgresDatabase,
+  verifyPostgresSchema: lifecycleMocks.verifyPostgresSchema,
 }))
 
 const repositoryMocks = vi.hoisted(() => ({
@@ -25,7 +25,6 @@ const exportMocks = vi.hoisted(() => ({
 }))
 vi.mock('../src/db/postgres/dumps/export-partitions', () => exportMocks)
 
-import { type DataEpoch } from '../src/contracts/database'
 import { type DumpPool, type DumpPoolClient } from '../src/db/postgres/dumps/adapter'
 import { type ExportedDumpPartition } from '../src/db/postgres/dumps/export-partitions'
 import { publishDumpMonth } from '../src/db/postgres/dumps/publish-dump-month'
@@ -51,11 +50,6 @@ import { ObjectVerificationError } from '../src/object-store/object-store'
 const dumpMonth = '2098-05'
 const parts = parseDumpMonth(dumpMonth)
 const bounds = computeDumpMonthBoundsUtc(parts)
-const fakeEpoch: DataEpoch = {
-  id: '00000000-0000-4000-8000-000000000001',
-  startedAt: '2098-01-01T00:00:00.000Z',
-}
-
 const buildFakeExportedPartitions = (): ExportedDumpPartition[] =>
   communityDumpDatasets.map((definition) => {
     const compressed = Buffer.from(`fake-compressed-content-for-${definition.dataset}`, 'utf8')
@@ -72,7 +66,6 @@ const buildFakeExportedPartitions = (): ExportedDumpPartition[] =>
 
 const fakePendingRun: DumpRunRow = {
   id: 42,
-  epochId: fakeEpoch.id,
   dumpMonth: parts.text,
   schemaVersion: communityDumpManifestSchemaVersion,
   status: 'pending',
@@ -105,7 +98,7 @@ const fakePublishedRun: DumpRunRow = {
   status: 'published',
   publishedAt: reservedPublishedAt,
   cleanupEligibleAt,
-  manifestObjectKey: deriveCommunityDumpManifestObjectKey(fakeEpoch.id, dumpMonth),
+  manifestObjectKey: deriveCommunityDumpManifestObjectKey(dumpMonth),
 }
 
 const createFakePool = (): DumpPool => {
@@ -118,7 +111,7 @@ const createFakePool = (): DumpPool => {
 }
 
 // Community Dump publish workflow orchestrator (docs/postgresql-migration-plan.md lines
-// 740-753, 761-762). PostgreSQL-facing collaborators (lifecycle epoch/schema verification, the
+// 740-753, 761-762). PostgreSQL-facing collaborators (schema verification, the
 // data_dump_runs/data_dump_files repository, and the streaming export phase) are mocked at the
 // module level since each already has its own dedicated, thorough test suite; this suite only
 // verifies the orchestrator's own control flow. The object-store port and manifest serializer are
@@ -129,7 +122,7 @@ describe('publishDumpMonth', () => {
     // Default "now" is safely after the fixed test Dump Month closes; the two refusal tests
     // below override this to simulate an open/current or future month.
     vi.spyOn(Date, 'now').mockReturnValue(bounds.upperBoundUtc.getTime() + 24 * 60 * 60 * 1000)
-    lifecycleMocks.verifyPostgresDatabase.mockResolvedValue(fakeEpoch)
+    lifecycleMocks.verifyPostgresSchema.mockResolvedValue(undefined)
     repositoryMocks.findOrCreateDumpRun.mockResolvedValue(fakePendingRun)
     repositoryMocks.setDumpRunStatus.mockResolvedValue(fakePendingRun)
     repositoryMocks.reservePublicationTimestamp.mockResolvedValue(reservedPublishedAt)
@@ -155,20 +148,15 @@ describe('publishDumpMonth', () => {
     expect(repositoryMocks.markDumpFileVerified).toHaveBeenCalledTimes(9)
 
     for (const definition of communityDumpDatasets) {
-      const objectKey = deriveCommunityDumpDataObjectKey(
-        fakeEpoch.id,
-        dumpMonth,
-        definition.dataset,
-      )
+      const objectKey = deriveCommunityDumpDataObjectKey(dumpMonth, definition.dataset)
       expect(objectStore.has(objectKey)).toBe(true)
     }
 
-    const manifestObjectKey = deriveCommunityDumpManifestObjectKey(fakeEpoch.id, dumpMonth)
+    const manifestObjectKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
     expect(objectStore.has(manifestObjectKey)).toBe(true)
     const manifestBytes = await objectStore.getObject(manifestObjectKey)
     const manifest = parseCommunityDumpManifestV1(manifestBytes)
     expect(manifest.publishedAt).toBe(reservedPublishedAt.toISOString())
-    expect(manifest.epoch.id).toBe(fakeEpoch.id)
     expect(manifest.files).toHaveLength(9)
 
     expect(repositoryMocks.markDumpRunPublished).toHaveBeenCalledWith(
@@ -244,7 +232,7 @@ describe('publishDumpMonth', () => {
   test('marks the run failed and never commits when the manifest fails read-back verification', async () => {
     const pool = createFakePool()
     const objectStore = new InMemoryObjectStore()
-    const manifestObjectKey = deriveCommunityDumpManifestObjectKey(fakeEpoch.id, dumpMonth)
+    const manifestObjectKey = deriveCommunityDumpManifestObjectKey(dumpMonth)
     await objectStore.putIfAbsent(manifestObjectKey, Buffer.from('not the manifest we will build'))
 
     await expect(publishDumpMonth(pool, objectStore, dumpMonth)).rejects.toThrow(
@@ -263,11 +251,7 @@ describe('publishDumpMonth', () => {
     const pool = createFakePool()
     const objectStore = new InMemoryObjectStore()
     const mismatchedDataset = communityDumpDatasets[0].dataset
-    const dataObjectKey = deriveCommunityDumpDataObjectKey(
-      fakeEpoch.id,
-      dumpMonth,
-      mismatchedDataset,
-    )
+    const dataObjectKey = deriveCommunityDumpDataObjectKey(dumpMonth, mismatchedDataset)
     await objectStore.putIfAbsent(dataObjectKey, Buffer.from('not the export we will produce'))
 
     await expect(publishDumpMonth(pool, objectStore, dumpMonth)).rejects.toThrow(

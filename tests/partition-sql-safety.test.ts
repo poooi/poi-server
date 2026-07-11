@@ -21,7 +21,7 @@ describe('quoteIdentifier', () => {
   })
 
   test.each([
-    ['create_ship_records"; drop table data_epochs; --', 'embedded double quote'],
+    ['create_ship_records"; drop table schema_metadata; --', 'embedded double quote'],
     ['create ship records', 'embedded space'],
     ['CREATE_SHIP_RECORDS', 'uppercase letters'],
     ['2026_create_ship_records', 'leading digit'],

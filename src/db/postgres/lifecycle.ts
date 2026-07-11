@@ -1,6 +1,4 @@
-import { type DataEpoch } from '../../contracts/database'
-
-export const EXPECTED_POSTGRES_SCHEMA_VERSION = 1
+export const EXPECTED_POSTGRES_SCHEMA_VERSION = 2
 
 export interface PostgresQueryClient {
   query: (
@@ -34,51 +32,4 @@ export const verifyPostgresSchema = async (client: PostgresQueryClient): Promise
       `PostgreSQL expected schema version ${EXPECTED_POSTGRES_SCHEMA_VERSION} but found ${version}; run npm run db:migrate`,
     )
   }
-}
-
-const toDataEpoch = (row: Record<string, unknown>): DataEpoch => {
-  if (typeof row.id !== 'string' || !(row.started_at instanceof Date)) {
-    throw new Error('PostgreSQL Data Epoch contains invalid values')
-  }
-  return {
-    id: row.id,
-    startedAt: row.started_at.toISOString(),
-  }
-}
-
-export const createDataEpoch = async (
-  client: PostgresQueryClient,
-  epoch: { id: string; startedAt: Date },
-): Promise<DataEpoch> => {
-  await verifyPostgresSchema(client)
-  if (Number.isNaN(epoch.startedAt.getTime())) {
-    throw new Error('Data Epoch start must be a valid timestamp')
-  }
-  const result = await client.query(
-    `insert into data_epochs (singleton, id, started_at)
-     select true, $1, $2
-     where not exists (select 1 from data_epochs)
-     returning id, started_at`,
-    [epoch.id, epoch.startedAt],
-  )
-  if (result.rows.length !== 1) {
-    throw new Error(
-      'PostgreSQL database already has a Data Epoch; starting another requires a new database',
-    )
-  }
-  return toDataEpoch(result.rows[0])
-}
-
-export const verifyPostgresDatabase = async (client: PostgresQueryClient): Promise<DataEpoch> => {
-  await verifyPostgresSchema(client)
-
-  const epochResult = await client.query(
-    'select id, started_at from data_epochs order by created_at limit 2',
-  )
-  if (epochResult.rows.length !== 1) {
-    throw new Error(
-      `PostgreSQL startup requires exactly one Data Epoch; found ${epochResult.rows.length}`,
-    )
-  }
-  return toDataEpoch(epochResult.rows[0])
 }

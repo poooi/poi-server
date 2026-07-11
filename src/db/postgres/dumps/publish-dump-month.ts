@@ -10,7 +10,7 @@ import {
   deriveCommunityDumpManifestObjectKey,
 } from '../../../dumps/community-dump-object-keys'
 import { putImmutableAndVerify, type ObjectStore } from '../../../object-store/object-store'
-import { verifyPostgresDatabase, type PostgresQueryClient } from '../lifecycle'
+import { verifyPostgresSchema, type PostgresQueryClient } from '../lifecycle'
 import { type PartitionQueryClient } from '../partitions/adapter'
 import {
   computeDumpMonthBoundsUtc,
@@ -59,9 +59,8 @@ const assertDumpMonthIsClosed = (dumpMonthText: string, bounds: DumpMonthBoundsU
 }
 
 /**
- * `verifyPostgresDatabase` (db/postgres/lifecycle.ts) is reused verbatim to satisfy "exact one
- * Data Epoch/schema v1" — it already refuses to proceed unless the PostgreSQL schema migration
- * version matches exactly and exactly one Data Epoch row exists. Its `PostgresQueryClient` port
+ * `verifyPostgresSchema` (db/postgres/lifecycle.ts) is reused to ensure the PostgreSQL schema
+ * version matches exactly. Its `PostgresQueryClient` port
  * declares a mutable `rows: Array<...>` return shape, while `PartitionQueryClient` (this dump
  * workflow's own port) declares `rows` as `ReadonlyArray<...>` — structurally incompatible by
  * TypeScript's array-variance rules even though every real implementation already returns a
@@ -87,10 +86,9 @@ export const publishDumpMonth = async (
 
   const client = await pool.connect()
   try {
-    const epoch = await verifyPostgresDatabase(toPostgresQueryClient(client))
+    await verifyPostgresSchema(toPostgresQueryClient(client))
 
     const run = await findOrCreateDumpRun(client, {
-      epochId: epoch.id,
       dumpMonth: parts,
       schemaVersion: communityDumpManifestSchemaVersion,
     })
@@ -109,7 +107,7 @@ export const publishDumpMonth = async (
 
       const manifestFiles: CommunityDumpManifestFileInput[] = []
       for (const file of exported) {
-        const objectKey = deriveCommunityDumpDataObjectKey(epoch.id, parts.text, file.dataset)
+        const objectKey = deriveCommunityDumpDataObjectKey(parts.text, file.dataset)
         await recordDumpFileExport(client, {
           dumpRunId: run.id,
           dataset: file.dataset,
@@ -134,15 +132,13 @@ export const publishDumpMonth = async (
       // this point serializes byte-identical manifest content (plan lines 750-752, 762).
       const publishedAt = await reservePublicationTimestamp(client, run.id)
       const manifest = serializeCommunityDumpManifestV1({
-        epochId: epoch.id,
-        epochStartedAt: epoch.startedAt,
         dumpMonth: parts.text,
         publishedAt,
         files: manifestFiles,
       })
       const manifestBytes = Buffer.from(JSON.stringify(manifest), 'utf8')
       const manifestSha256 = createHash('sha256').update(manifestBytes).digest('hex')
-      const manifestObjectKey = deriveCommunityDumpManifestObjectKey(epoch.id, parts.text)
+      const manifestObjectKey = deriveCommunityDumpManifestObjectKey(parts.text)
 
       // Persist the manifest's own bytes/hash before uploading it, per plan lines 750-752.
       await recordManifestMetadata(client, run.id, {

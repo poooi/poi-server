@@ -7,7 +7,6 @@ import * as schema from '../src/db/postgres/schema'
 
 const expectedTables = [
   'schema_metadata',
-  'data_epochs',
   'data_dump_runs',
   'data_dump_files',
   'create_ship_records',

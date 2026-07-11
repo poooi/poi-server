@@ -1,12 +1,5 @@
 import { z } from 'zod'
 
-export const dataEpochSchema = z.object({
-  id: z.string(),
-  startedAt: z.string().nullable(),
-})
-
-export type DataEpoch = z.infer<typeof dataEpochSchema>
-
 export const estimatedCountsSchema = z.object({
   createShipObservations: z.number(),
   createItemObservations: z.number(),
@@ -31,13 +24,7 @@ export const estimatedCountsSchema = z.object({
 export const databaseStatusSchema = z.object({
   backend: z.enum(['mongodb', 'postgresql']),
   status: z.literal('up'),
-  epoch: dataEpochSchema,
   estimatedCounts: estimatedCountsSchema,
 })
 
 export type DatabaseStatus = z.infer<typeof databaseStatusSchema>
-
-export const legacyMongoEpoch: DataEpoch = {
-  id: 'legacy-mongodb',
-  startedAt: null,
-}

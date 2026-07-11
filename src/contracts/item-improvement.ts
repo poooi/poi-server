@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-import { dataEpochSchema } from './database'
-
 const objectIdHexPattern = /^[0-9a-fA-F]{24}$/
 
 export const canonicalizeObjectIdCursor = (cursor: string): string => {
@@ -15,7 +13,6 @@ export const canonicalizeObjectIdCursor = (cursor: string): string => {
 }
 
 export const itemImprovementExportResponseSchema = z.object({
-  epoch: dataEpochSchema,
   records: z.array(z.record(z.string(), z.unknown())),
   next: z
     .object({

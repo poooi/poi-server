@@ -412,10 +412,6 @@ describe('item improvement recipe v3 facts', () => {
     expect(chain.sort).toHaveBeenCalledWith({ lastReported: 1, _id: 1 })
     expect(chain.limit).toHaveBeenCalledWith(1000)
     expect(ctx.body).toEqual({
-      epoch: {
-        id: 'legacy-mongodb',
-        startedAt: null,
-      },
       records: [
         {
           _id: firstId,

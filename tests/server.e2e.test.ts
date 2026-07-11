@@ -278,10 +278,6 @@ describe('server common endpoints', () => {
       database: {
         backend: 'mongodb',
         status: 'up',
-        epoch: {
-          id: 'legacy-mongodb',
-          startedAt: null,
-        },
         estimatedCounts: {
           createShipObservations: 1,
           createItemObservations: 0,
@@ -852,10 +848,6 @@ describe('v3 report endpoints', () => {
     expect(firstPage.status).toBe(200)
     expect(secondPage.status).toBe(200)
     expect(secondPage.body).toEqual({
-      epoch: {
-        id: 'legacy-mongodb',
-        startedAt: null,
-      },
       records: [],
       next: null,
     })
