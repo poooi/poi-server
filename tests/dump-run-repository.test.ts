@@ -13,7 +13,10 @@ import {
 import {
   findOrCreateDumpRun,
   listDumpFilesByRunId,
+  listDumpFilesByRunIdForUpdate,
+  loadDatabaseNow,
   loadDumpRunById,
+  loadDumpRunByIdForUpdate,
   markDumpFileVerified,
   markDumpRunCleaned,
   markDumpRunPublished,
@@ -167,6 +170,84 @@ describe('loadDumpRunById', () => {
     const result = await loadDumpRunById(client, 999)
 
     expect(result).toBeNull()
+  })
+})
+
+/**
+ * `loadDumpRunByIdForUpdate`/`listDumpFilesByRunIdForUpdate` exist solely for the cleanup
+ * workflow's final destructive transaction (docs/postgresql-migration-plan.md lines 759, 762-764:
+ * "verify that run's epoch, Dump Month, schema version, manifest object key, manifest digest, and
+ * published/eligible state" immediately before detaching/dropping partitions). Row-level locking
+ * via `for update` is the whole point — proven here by asserting the exact SQL suffix — so a
+ * concurrent writer cannot change the row out from under the destructive transaction between its
+ * re-check and its `markDumpRunCleaned` commit.
+ */
+describe('loadDumpRunByIdForUpdate', () => {
+  test('issues the same select as loadDumpRunById but with a trailing "for update"', async () => {
+    const client = createFakeClient(async () => ({ rows: [runRow()], rowCount: 1 }))
+
+    const result = await loadDumpRunByIdForUpdate(client, 7)
+
+    const [sql, values] = vi.mocked(client.query).mock.calls[0]
+    expect(sql.trim().toLowerCase()).toContain('from data_dump_runs where id = $1')
+    expect(sql.trim().toLowerCase().endsWith('for update')).toBe(true)
+    expect(values).toEqual([7])
+    expect(result).toEqual(expectedRunRow())
+  })
+
+  test('returns null when no row matches the id', async () => {
+    const client = createFakeClient(async () => emptyResult)
+
+    const result = await loadDumpRunByIdForUpdate(client, 999)
+
+    expect(result).toBeNull()
+  })
+})
+
+describe('listDumpFilesByRunIdForUpdate', () => {
+  test('issues the same select as listDumpFilesByRunId but with a trailing "for update"', async () => {
+    const client = createFakeClient(async () => ({ rows: [fileRow()], rowCount: 1 }))
+
+    const result = await listDumpFilesByRunIdForUpdate(client, 7)
+
+    const [sql, values] = vi.mocked(client.query).mock.calls[0]
+    expect(sql.trim().toLowerCase()).toContain('from data_dump_files where dump_run_id = $1')
+    expect(sql.trim().toLowerCase().endsWith('for update')).toBe(true)
+    expect(values).toEqual([7])
+    expect(result).toEqual([expectedFileRow()])
+  })
+
+  test('returns an empty array when the run has no recorded files', async () => {
+    const client = createFakeClient(async () => emptyResult)
+
+    const result = await listDumpFilesByRunIdForUpdate(client, 7)
+
+    expect(result).toEqual([])
+  })
+})
+
+/**
+ * `loadDatabaseNow` backs the cleanup workflow's grace-period eligibility check, which the
+ * migration plan ties specifically to the database server's own clock, never this process's
+ * clock (docs/postgresql-migration-plan.md lines 754: "After the grace period..."; contrast with
+ * `publish-dump-month.ts`'s deliberate use of `Date.now()` for the Dump Month closed-check).
+ */
+describe('loadDatabaseNow', () => {
+  test('reads clock_timestamp() and returns it as a Date', async () => {
+    const now = new Date('2024-02-20T12:00:00.000Z')
+    const client = createFakeClient(async () => ({ rows: [{ now }], rowCount: 1 }))
+
+    const result = await loadDatabaseNow(client)
+
+    const [sql] = vi.mocked(client.query).mock.calls[0]
+    expect(sql).toContain('clock_timestamp()')
+    expect(result).toEqual(now)
+  })
+
+  test('throws when clock_timestamp() unexpectedly returns no row', async () => {
+    const client = createFakeClient(async () => emptyResult)
+
+    await expect(loadDatabaseNow(client)).rejects.toThrow(CommunityDumpWorkflowError)
   })
 })
 

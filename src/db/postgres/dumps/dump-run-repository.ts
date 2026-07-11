@@ -243,6 +243,25 @@ export const loadDumpRunById = async (
 }
 
 /**
+ * Identical to {@link loadDumpRunById}, except it takes a `for update` row lock. Reserved for the
+ * cleanup workflow's final destructive transaction (docs/postgresql-migration-plan.md lines
+ * 759, 762-764), immediately before it re-proves the run's metadata/status has not changed since
+ * the workflow's earlier (unlocked) verification pass and before it commits `markDumpRunCleaned`,
+ * so a concurrent writer can never race the destructive transaction between those two points.
+ */
+export const loadDumpRunByIdForUpdate = async (
+  client: PartitionQueryClient,
+  runId: number,
+): Promise<DumpRunRow | null> => {
+  const result = await client.query(
+    `select ${dumpRunColumns} from data_dump_runs where id = $1 for update`,
+    [runId],
+  )
+  const [row] = result.rows
+  return row ? mapDumpRunRow(row) : null
+}
+
+/**
  * Updates `status` and `error` together — every transition sets both explicitly so a stale
  * failure message can never survive past the point where the run has moved on (plan line 736:
  * "actionable status/error transitions").
@@ -480,4 +499,40 @@ export const listDumpFilesByRunId = async (
     [dumpRunId],
   )
   return result.rows.map(mapDumpFileRow)
+}
+
+/**
+ * Identical to {@link listDumpFilesByRunId}, except it takes a `for update` row lock on every one
+ * of the run's `data_dump_files` rows. Reserved for the cleanup workflow's final destructive
+ * transaction (docs/postgresql-migration-plan.md lines 759, 762-764), for the same reason as
+ * {@link loadDumpRunByIdForUpdate}: none of the nine rows this transaction is about to detach and
+ * drop partitions for may change out from under it after it re-proves their metadata.
+ */
+export const listDumpFilesByRunIdForUpdate = async (
+  client: PartitionQueryClient,
+  dumpRunId: number,
+): Promise<readonly DumpFileRow[]> => {
+  const result = await client.query(
+    `select ${dumpFileColumns} from data_dump_files where dump_run_id = $1 order by dataset for update`,
+    [dumpRunId],
+  )
+  return result.rows.map(mapDumpFileRow)
+}
+
+/**
+ * Reads the database server's own clock, never this process's `Date.now()`. The cleanup
+ * workflow's grace-period eligibility check must be immune to wall-clock skew between the caller
+ * and the database (docs/postgresql-migration-plan.md line 754: "After the grace period...");
+ * contrast with `publish-dump-month.ts`, which deliberately uses `Date.now()` for its Dump Month
+ * closed-check because that check has no such requirement.
+ */
+export const loadDatabaseNow = async (client: PartitionQueryClient): Promise<Date> => {
+  const result = await client.query('select clock_timestamp() as now')
+  const row = singleRowOrThrow(result.rows, 'loadDatabaseNow: clock_timestamp() returned no row')
+  const now = asDateOrNull(row.now, 'clock_timestamp()')
+  if (now === null) {
+    /* c8 ignore next 3 -- clock_timestamp() never returns null */
+    throw new CommunityDumpWorkflowError('loadDatabaseNow: clock_timestamp() returned null')
+  }
+  return now
 }
