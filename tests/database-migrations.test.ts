@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 
+import { formatMigrationError } from '../scripts/postgres-migrate'
 import { migrateDatabase } from '../src/db/postgres/migrations'
 
 describe('database migrations', () => {
@@ -30,5 +31,14 @@ describe('database migrations', () => {
     await expect(
       migrateDatabase('postgresql://localhost/poi', '/drizzle', applyPostgresMigrations),
     ).rejects.toThrow('migration failed')
+  })
+
+  test('formats migration failures without stack traces or sensitive values', () => {
+    const error = new Error('Failed under application-root-token using database-url-token')
+    error.stack = `${error.message}\n    at hidden-stack-location`
+
+    expect(formatMigrationError(error, ['application-root-token', 'database-url-token'])).toBe(
+      'Failed under <redacted> using <redacted>',
+    )
   })
 })
