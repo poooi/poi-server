@@ -1,7 +1,5 @@
 #!/bin/bash
-set -euo pipefail
-
-cd /srv/poi
+set -Eeuo pipefail
 
 if [ "${POI_DEPLOY_FROM_TEMP:-0}" != "1" ]; then
   temp_script="$(mktemp /tmp/poi-server-deploy.XXXXXX)"
@@ -19,31 +17,103 @@ FNM_BIN="${FNM_BIN:-/srv/poi/.fnm-bin/fnm}"
 BOOTSTRAP_FNM_BIN="${BOOTSTRAP_FNM_BIN:-/home/poi/.local/share/fnm/fnm}"
 DEPLOY_STATE="${DEPLOY_STATE:-/srv/poi/.deploy-state}"
 
+deploy_started_epoch="$(date +%s)"
+deploy_stage="bootstrap"
+
+log_deploy() {
+  printf '[poi-deploy] timestamp=%s stage=%s %s\n' \
+    "$(date --iso-8601=seconds)" "$deploy_stage" "$*"
+}
+
+fail_deploy() {
+  local exit_code="$1"
+  local elapsed_seconds=$(( $(date +%s) - deploy_started_epoch ))
+  log_deploy "status=failed exit_code=$exit_code elapsed_seconds=$elapsed_seconds"
+  exit "$exit_code"
+}
+
+on_deploy_error() {
+  fail_deploy "$?"
+}
+
+trap on_deploy_error ERR
+log_deploy "status=started"
+
+deploy_stage="enter-application-directory"
+log_deploy "status=running"
+if ! cd /srv/poi 2>/dev/null; then
+  fail_deploy 1
+fi
+
+deploy_stage="bootstrap"
 mkdir -p "$(dirname "$FNM_BIN")" "$FNM_DIR"
 if [ -x "$BOOTSTRAP_FNM_BIN" ]; then
   install -m 755 "$BOOTSTRAP_FNM_BIN" "$FNM_BIN"
 elif [ ! -x "$FNM_BIN" ]; then
-  echo "fnm is required but was not found at $FNM_BIN or $BOOTSTRAP_FNM_BIN" >&2
-  exit 127
+  echo "fnm is required but no executable deployment runtime was found" >&2
+  fail_deploy 127
 fi
 
+deploy_stage="fetch"
 previous_sha="$(git rev-parse HEAD)"
+log_deploy "status=running previous_sha=$previous_sha"
 git fetch origin
-supervisorctl stop poi || true
+target_sha="$(git rev-parse origin/master)"
+log_deploy "status=fetched target_sha=$target_sha"
+
+deploy_stage="stop-application"
+log_deploy "status=running"
+if ! supervisorctl stop poi; then
+  log_deploy "status=warning result=nonzero-exit-ignored"
+fi
+
+deploy_stage="checkout"
+log_deploy "status=running target_sha=$target_sha"
 git checkout master
 git reset --hard origin/master
+
+deploy_stage="install-runtime"
+log_deploy "status=running"
 "$FNM_BIN" install
+
+deploy_stage="install-dependencies"
+log_deploy "status=running"
 "$FNM_BIN" exec --using .node-version npm ci
 
+deploy_stage="migrate-database"
+log_deploy "status=running"
+"$FNM_BIN" exec --using .node-version npm run db:migrate
+
+deploy_stage="prune-dependencies"
+log_deploy "status=running"
 "$FNM_BIN" exec --using .node-version npm prune --omit=dev
+
+deploy_stage="reload-supervisor"
+log_deploy "status=running"
 supervisorctl reread
 supervisorctl update
-supervisorctl stop poi || true
+
+deploy_stage="restart-application"
+log_deploy "status=running"
+if ! supervisorctl stop poi; then
+  log_deploy "status=warning result=nonzero-exit-ignored"
+fi
 supervisorctl start poi
+
+deploy_stage="restart-hook"
+log_deploy "status=running"
 supervisorctl restart poi-hook
 
+deploy_stage="record-state"
+deployed_sha="$(git rev-parse HEAD)"
+log_deploy "status=running sha=$deployed_sha"
 {
   echo "previous_sha=$previous_sha"
-  echo "sha=$(git rev-parse HEAD)"
+  echo "sha=$deployed_sha"
   echo "deployed_at=$(date --iso-8601=seconds)"
 } >"$DEPLOY_STATE"
+
+deploy_stage="complete"
+elapsed_seconds=$(( $(date +%s) - deploy_started_epoch ))
+log_deploy \
+  "status=succeeded previous_sha=$previous_sha sha=$deployed_sha elapsed_seconds=$elapsed_seconds"

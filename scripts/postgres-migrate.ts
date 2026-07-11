@@ -2,9 +2,17 @@ import 'dotenv/config'
 import path from 'path'
 
 import { config } from '../src/config'
-import { migratePostgres } from '../src/db/postgres/migrations'
+import { migrateDatabase } from '../src/db/postgres/migrations'
 
-void migratePostgres(config.db, path.resolve(config.root, '../drizzle')).catch((error) => {
-  console.error(error)
-  process.exitCode = 1
-})
+void migrateDatabase(config.db, path.resolve(config.root, '../drizzle'))
+  .then((backend) => {
+    if (backend === 'postgresql') {
+      console.log('PostgreSQL migrations completed')
+    } else {
+      console.log('MongoDB requires no database migrations')
+    }
+  })
+  .catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })

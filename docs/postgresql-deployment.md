@@ -5,7 +5,22 @@ target PostgreSQL 18. Application startup validates the schema but never applies
 
 ## Provisioning
 
-Apply migrations before starting the server:
+The same GitHub master deploy hook supports the separate MongoDB and PostgreSQL machines. Each machine
+runs its own hook against its own checkout and configuration; the hook does not copy credentials or
+database settings between machines.
+
+The hook executes from a temporary copy so updating the tracked script during checkout cannot modify
+the running deployment. It fetches `origin/master`, installs the configured Node.js version and
+dependencies, and runs `npm run db:migrate` before pruning development dependencies or restarting
+Supervisor processes. After a successful restart, it records the deployed commit and deployment time.
+
+`db:migrate` resolves the database URL exactly as application startup does. PostgreSQL deployments apply
+pending Drizzle migrations, while MongoDB deployments perform no database setup and retain their
+existing deployment behavior. Migration failure aborts deployment before the server restarts.
+
+Configure `POI_SERVER_DATABASE_URL` in the PostgreSQL machine's environment or ignored `.env` file.
+Keep the connection URL, credentials, and machine-specific filesystem paths out of tracked files.
+For provisioning or deployment outside the hook, apply migrations before starting the server:
 
 ```powershell
 $env:POI_SERVER_DATABASE_URL = 'postgresql://user:password@host/poi'
@@ -73,6 +88,8 @@ Aggregate, Definition, and Item-improvement Fact tables are retained.
 
 ## Operational checks
 
+- Deploy logs include timestamped stages, previous and target commit IDs, total elapsed time, and the
+  failed stage and exit code. Shell tracing and environment-value logging remain disabled.
 - `/api/status.database` reports the active backend and approximate counts.
 - Monitor validation/database errors, pool active/idle/waiting clients, lock waits, statement
   latency, CPU, and storage latency.
