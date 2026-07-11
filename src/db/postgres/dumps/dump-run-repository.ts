@@ -358,7 +358,7 @@ export const markDumpRunPublished = async (
   const result = await client.query(
     `
 update data_dump_runs
-set status = 'published', cleanup_eligible_at = published_at + interval '7 days', error = null, updated_at = clock_timestamp()
+set status = 'published', cleanup_eligible_at = published_at + interval '168 hours', error = null, updated_at = clock_timestamp()
 where id = $1
 returning ${dumpRunColumns}
 `.trim(),

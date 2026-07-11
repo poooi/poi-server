@@ -99,7 +99,7 @@ export const dataDumpRuns = pgTable(
     ),
     check(
       'data_dump_runs_cleanup_eligible_at_offset',
-      sql`${t.cleanupEligibleAt} is null or ${t.publishedAt} is null or ${t.cleanupEligibleAt} = ${t.publishedAt} + interval '7 days'`,
+      sql`${t.cleanupEligibleAt} is null or ${t.publishedAt} is null or ${t.cleanupEligibleAt} = ${t.publishedAt} + interval '168 hours'`,
     ),
   ],
 )

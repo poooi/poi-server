@@ -377,7 +377,7 @@ describe('markDumpRunPublished', () => {
 
     const [sql, values] = vi.mocked(client.query).mock.calls[0]
     expect(sql).toContain("status = 'published'")
-    expect(sql).toContain("interval '7 days'")
+    expect(sql).toContain("interval '168 hours'")
     expect(values).toEqual([7])
     expect(result).toEqual(expectedRunRow({ status: 'published', publishedAt, cleanupEligibleAt }))
   })

@@ -74,6 +74,7 @@ import {
 import { observationParentTables } from '../src/db/postgres/partitions/observation-tables'
 import { repairMonthlyPartition } from '../src/db/postgres/partitions/repair-monthly-partition'
 import { startServer } from '../src/server'
+import { createPostgresPool } from '../src/db/postgres/client'
 
 const postgresE2eUrl = process.env.POI_SERVER_POSTGRES_E2E_URL ?? ''
 const isRunningInCi = process.env.CI === 'true' || process.env.CI === '1'
@@ -1248,8 +1249,17 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
       expect(ingest.body).toEqual({ records: 3 })
 
       await verificationPool.query(
-        'update item_improvement_availability_facts set last_reported = last_reported - 40000',
+        `with timestamp_value as materialized (
+           select (extract(epoch from clock_timestamp() - interval '40 seconds') * 1000)::bigint as value
+         )
+         update item_improvement_availability_facts
+         set last_reported = timestamp_value.value
+         from timestamp_value`,
       )
+      const timestampCount = await queryOne<{ count: string }>(
+        'select count(distinct last_reported) from item_improvement_availability_facts',
+      )
+      expect(Number(timestampCount.count)).toBe(1)
 
       const expectedOrder = await queryRows<{ export_id: string }>(
         'select export_id from item_improvement_availability_facts order by last_reported asc, export_id asc',
@@ -1291,6 +1301,33 @@ describe.skipIf(!hasPostgresE2eUrl)('PostgreSQL production-path e2e', () => {
   })
 
   describe('connection and startup', () => {
+    test('configures and enforces the PostgreSQL 10-second transaction bound', async () => {
+      const pool = createPostgresPool(postgresE2eUrl, 1)
+      const client = await pool.connect()
+      try {
+        const settings = await client.query<{
+          statement_timeout: string
+          transaction_timeout: string
+        }>(
+          "select current_setting('statement_timeout') as statement_timeout, current_setting('transaction_timeout') as transaction_timeout",
+        )
+        expect(settings.rows[0]).toEqual({
+          statement_timeout: '10s',
+          transaction_timeout: '10s',
+        })
+
+        await client.query('set statement_timeout = 0')
+        await client.query("set transaction_timeout = '100ms'")
+        await client.query('begin')
+        await expect(client.query('select pg_sleep(0.5)')).rejects.toMatchObject({
+          message: expect.stringMatching(/transaction timeout/i),
+        })
+      } finally {
+        client.release(true)
+        await pool.end()
+      }
+    })
+
     test('rejects startup with a redacted error when the PostgreSQL connection is refused', async () => {
       const badUrl = new URL(postgresE2eUrl)
       badUrl.port = '1'

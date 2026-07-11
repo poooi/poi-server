@@ -621,7 +621,7 @@
         },
         "data_dump_runs_cleanup_eligible_at_offset": {
           "name": "data_dump_runs_cleanup_eligible_at_offset",
-          "value": "\"data_dump_runs\".\"cleanup_eligible_at\" is null or \"data_dump_runs\".\"published_at\" is null or \"data_dump_runs\".\"cleanup_eligible_at\" = \"data_dump_runs\".\"published_at\" + interval '7 days'"
+          "value": "\"data_dump_runs\".\"cleanup_eligible_at\" is null or \"data_dump_runs\".\"published_at\" is null or \"data_dump_runs\".\"cleanup_eligible_at\" = \"data_dump_runs\".\"published_at\" + interval '168 hours'"
         }
       },
       "isRLSEnabled": false

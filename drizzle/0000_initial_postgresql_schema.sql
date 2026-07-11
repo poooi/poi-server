@@ -95,7 +95,7 @@ CREATE TABLE "data_dump_runs" (
 	CONSTRAINT "data_dump_runs_status_check" CHECK ("data_dump_runs"."status" in ('pending', 'exporting', 'uploaded', 'published', 'cleanup_eligible', 'cleaned', 'failed')),
 	CONSTRAINT "data_dump_runs_manifest_bytes_nonnegative" CHECK ("data_dump_runs"."manifest_bytes" is null or "data_dump_runs"."manifest_bytes" >= 0),
 	CONSTRAINT "data_dump_runs_manifest_sha256_length" CHECK ("data_dump_runs"."manifest_sha256" is null or octet_length("data_dump_runs"."manifest_sha256") = 32),
-	CONSTRAINT "data_dump_runs_cleanup_eligible_at_offset" CHECK ("data_dump_runs"."cleanup_eligible_at" is null or "data_dump_runs"."published_at" is null or "data_dump_runs"."cleanup_eligible_at" = "data_dump_runs"."published_at" + interval '7 days')
+	CONSTRAINT "data_dump_runs_cleanup_eligible_at_offset" CHECK ("data_dump_runs"."cleanup_eligible_at" is null or "data_dump_runs"."published_at" is null or "data_dump_runs"."cleanup_eligible_at" = "data_dump_runs"."published_at" + interval '168 hours')
 );
 --> statement-breakpoint
 CREATE TABLE "data_epochs" (
