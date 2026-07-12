@@ -69,4 +69,11 @@ jobs:
         run: |
           bash -n github-master-hook
           bash -n fnm-exec
-          ! grep -Il $'\r' github-master-hook fnm-exec supervisior.conf
+          python - <<'PY'
+          from pathlib import Path
+
+          for name in ("github-master-hook", "fnm-exec", "supervisior.conf"):
+              data = Path(name).read_bytes()
+              if b"\r" in data:
+                  raise SystemExit(f"{name} contains CRLF line endings")
+          PY
